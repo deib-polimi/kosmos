@@ -12,4 +12,14 @@
 *.out
 
 # Dependency directories (remove the comment below to include it)
-# vendor/
+vendor/
+
+# custom
+.vscode
+.idea
+
+# binaries
+pkg/*/contention-manager
+pkg/*/pod-replicas-updater
+pkg/*/pod-resource-updater
+pkg/*/recommender
