@@ -1,3 +1,5 @@
+[![CI](https://github.com/lterrac/system-autoscaler/workflows/CI/badge.svg)](https://github.com/lterrac/system-autoscaler/actions?query=workflow%3AGo)
+
 # system-autoscaler
 Kubernetes components embedding vertical and horizontal container resource scaling
 
