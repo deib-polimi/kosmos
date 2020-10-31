@@ -1,0 +1,13 @@
+apiVersion: systemautoscaler.polimi.it/v1beta1
+kind: ServiceLevelAgreement
+metadata:
+  name: example-sla
+spec:
+  metric:
+    responseTime: 4
+  defaultResources:
+    cpu: 40m
+    memory: 70Mi
+  selector:
+    matchLabels:
+      app: nginx

@@ -8,6 +8,8 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
+	// ServiceLevelAgreements returns a ServiceLevelAgreementInformer.
+	ServiceLevelAgreements() ServiceLevelAgreementInformer
 	// SystemAutoscalers returns a SystemAutoscalerInformer.
 	SystemAutoscalers() SystemAutoscalerInformer
 }
@@ -21,6 +23,11 @@ type version struct {
 // New returns a new Interface.
 func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakListOptions internalinterfaces.TweakListOptionsFunc) Interface {
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
+}
+
+// ServiceLevelAgreements returns a ServiceLevelAgreementInformer.
+func (v *version) ServiceLevelAgreements() ServiceLevelAgreementInformer {
+	return &serviceLevelAgreementInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // SystemAutoscalers returns a SystemAutoscalerInformer.

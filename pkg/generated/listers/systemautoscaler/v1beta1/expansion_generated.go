@@ -2,6 +2,14 @@
 
 package v1beta1
 
+// ServiceLevelAgreementListerExpansion allows custom methods to be added to
+// ServiceLevelAgreementLister.
+type ServiceLevelAgreementListerExpansion interface{}
+
+// ServiceLevelAgreementNamespaceListerExpansion allows custom methods to be added to
+// ServiceLevelAgreementNamespaceLister.
+type ServiceLevelAgreementNamespaceListerExpansion interface{}
+
 // SystemAutoscalerListerExpansion allows custom methods to be added to
 // SystemAutoscalerLister.
 type SystemAutoscalerListerExpansion interface{}

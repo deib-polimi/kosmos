@@ -2,4 +2,6 @@
 
 package v1beta1
 
+type ServiceLevelAgreementExpansion interface{}
+
 type SystemAutoscalerExpansion interface{}
