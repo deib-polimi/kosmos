@@ -7,11 +7,11 @@ import (
 
 // TODO: decide whether to keep these or use `register.go`
 // const (
-// 	GroupName string = "systemautoscaler.polimi.it"
-// 	Kind      string = "SystemAutoscaler"
+// 	GroupName string = "PodScale.polimi.it"
+// 	Kind      string = "PodScale"
 // 	Version   string = "v1beta1"
-// 	Plural    string = "systemautoscalers"
-// 	Singluar  string = "systemautoscaler"
+// 	Plural    string = "PodScales"
+// 	Singluar  string = "PodScale"
 // 	ShortName string = "sysaut"
 // 	Name      string = Plural + "." + GroupName
 // )
@@ -68,42 +68,42 @@ type MetricRequirement struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// SystemAutoscalerList is a list of SystemAutoscaler resources
-type SystemAutoscalerList struct {
+// PodScaleList is a list of PodScale resources
+type PodScaleList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
-	Items []SystemAutoscaler `json:"items"`
+	Items []PodScale `json:"items"`
 }
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// SystemAutoscaler defines the mapping between a `ServiceLevelAgreement` and a
+// PodScale defines the mapping between a `ServiceLevelAgreement` and a
 // `Pod` matching the selector. It also keeps track of the resource values
 // computed by `Recommender` and adjusted by `Contention Manager`.
-type SystemAutoscaler struct {
+type PodScale struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   SystemAutoscalerSpec   `json:"spec"`
-	Status SystemAutoscalerStatus `json:"status"`
+	Spec   PodScaleSpec   `json:"spec"`
+	Status PodScaleStatus `json:"status"`
 }
 
-// SystemAutoscalerSpec is the spec for a SystemAutoscaler resource
-type SystemAutoscalerSpec struct {
-	Agreement        SLAReference    `json:"serviceLevelAgreement"`
+// PodScaleSpec is the spec for a PodScale resource
+type PodScaleSpec struct {
+	SLAAgreement     SLAReference    `json:"serviceLevelAgreement"`
 	PodRef           PodReference    `json:"pod"`
 	DesiredResources v1.ResourceList `json:"desired,omitempty" protobuf:"bytes,3,rep,name=desired,casttype=ResourceList,castkey=ResourceName"`
 }
 
-// SLAReference specify the Service Level Agreement associated with the SystemAutoscaler resource.
+// SLAReference specify the Service Level Agreement associated with the PodScale resource.
 type SLAReference struct {
 	// TODO: Decide if use all the objectMeta or something lighter
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 }
 
-// PodReference specify the Pod associated with the SystemAutoscaler resource.
+// PodReference specify the Pod associated with the PodScale resource.
 type PodReference struct {
 	// TODO: Decide if use all the objectMeta or something lighter
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -111,9 +111,9 @@ type PodReference struct {
 
 // TODO: Decide if useful or not
 
-// SystemAutoscalerStatus contains the resources patched by the
+// PodScaleStatus contains the resources patched by the
 // `Contention Manager` according to the available node resources
 // and other pods' SLA
-type SystemAutoscalerStatus struct {
+type PodScaleStatus struct {
 	ActualResources v1.ResourceList `json:"actual,omitempty" protobuf:"bytes,3,rep,name=actual,casttype=ResourceList,castkey=ResourceName"`
 }

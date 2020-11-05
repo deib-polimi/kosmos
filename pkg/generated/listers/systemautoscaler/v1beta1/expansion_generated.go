@@ -2,6 +2,14 @@
 
 package v1beta1
 
+// PodScaleListerExpansion allows custom methods to be added to
+// PodScaleLister.
+type PodScaleListerExpansion interface{}
+
+// PodScaleNamespaceListerExpansion allows custom methods to be added to
+// PodScaleNamespaceLister.
+type PodScaleNamespaceListerExpansion interface{}
+
 // ServiceLevelAgreementListerExpansion allows custom methods to be added to
 // ServiceLevelAgreementLister.
 type ServiceLevelAgreementListerExpansion interface{}
@@ -9,11 +17,3 @@ type ServiceLevelAgreementListerExpansion interface{}
 // ServiceLevelAgreementNamespaceListerExpansion allows custom methods to be added to
 // ServiceLevelAgreementNamespaceLister.
 type ServiceLevelAgreementNamespaceListerExpansion interface{}
-
-// SystemAutoscalerListerExpansion allows custom methods to be added to
-// SystemAutoscalerLister.
-type SystemAutoscalerListerExpansion interface{}
-
-// SystemAutoscalerNamespaceListerExpansion allows custom methods to be added to
-// SystemAutoscalerNamespaceLister.
-type SystemAutoscalerNamespaceListerExpansion interface{}

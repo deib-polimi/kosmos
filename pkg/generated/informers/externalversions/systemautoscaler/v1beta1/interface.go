@@ -8,10 +8,10 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
+	// PodScales returns a PodScaleInformer.
+	PodScales() PodScaleInformer
 	// ServiceLevelAgreements returns a ServiceLevelAgreementInformer.
 	ServiceLevelAgreements() ServiceLevelAgreementInformer
-	// SystemAutoscalers returns a SystemAutoscalerInformer.
-	SystemAutoscalers() SystemAutoscalerInformer
 }
 
 type version struct {
@@ -25,12 +25,12 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
+// PodScales returns a PodScaleInformer.
+func (v *version) PodScales() PodScaleInformer {
+	return &podScaleInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
 // ServiceLevelAgreements returns a ServiceLevelAgreementInformer.
 func (v *version) ServiceLevelAgreements() ServiceLevelAgreementInformer {
 	return &serviceLevelAgreementInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
-// SystemAutoscalers returns a SystemAutoscalerInformer.
-func (v *version) SystemAutoscalers() SystemAutoscalerInformer {
-	return &systemAutoscalerInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

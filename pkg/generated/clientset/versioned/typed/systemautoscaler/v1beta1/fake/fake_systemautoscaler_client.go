@@ -12,12 +12,12 @@ type FakeSystemautoscalerV1beta1 struct {
 	*testing.Fake
 }
 
-func (c *FakeSystemautoscalerV1beta1) ServiceLevelAgreements(namespace string) v1beta1.ServiceLevelAgreementInterface {
-	return &FakeServiceLevelAgreements{c, namespace}
+func (c *FakeSystemautoscalerV1beta1) PodScales(namespace string) v1beta1.PodScaleInterface {
+	return &FakePodScales{c, namespace}
 }
 
-func (c *FakeSystemautoscalerV1beta1) SystemAutoscalers(namespace string) v1beta1.SystemAutoscalerInterface {
-	return &FakeSystemAutoscalers{c, namespace}
+func (c *FakeSystemautoscalerV1beta1) ServiceLevelAgreements(namespace string) v1beta1.ServiceLevelAgreementInterface {
+	return &FakeServiceLevelAgreements{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

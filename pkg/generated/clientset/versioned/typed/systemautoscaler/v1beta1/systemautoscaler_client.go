@@ -10,8 +10,8 @@ import (
 
 type SystemautoscalerV1beta1Interface interface {
 	RESTClient() rest.Interface
+	PodScalesGetter
 	ServiceLevelAgreementsGetter
-	SystemAutoscalersGetter
 }
 
 // SystemautoscalerV1beta1Client is used to interact with features provided by the systemautoscaler.polimi.it group.
@@ -19,12 +19,12 @@ type SystemautoscalerV1beta1Client struct {
 	restClient rest.Interface
 }
 
-func (c *SystemautoscalerV1beta1Client) ServiceLevelAgreements(namespace string) ServiceLevelAgreementInterface {
-	return newServiceLevelAgreements(c, namespace)
+func (c *SystemautoscalerV1beta1Client) PodScales(namespace string) PodScaleInterface {
+	return newPodScales(c, namespace)
 }
 
-func (c *SystemautoscalerV1beta1Client) SystemAutoscalers(namespace string) SystemAutoscalerInterface {
-	return newSystemAutoscalers(c, namespace)
+func (c *SystemautoscalerV1beta1Client) ServiceLevelAgreements(namespace string) ServiceLevelAgreementInterface {
+	return newServiceLevelAgreements(c, namespace)
 }
 
 // NewForConfig creates a new SystemautoscalerV1beta1Client for the given config.
