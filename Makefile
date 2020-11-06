@@ -1,5 +1,5 @@
 MAKEFLAGS += --no-print-directory
-COMPONENTS = contention-manager pod-replicas-updater pod-resource-updater recommender
+COMPONENTS = contention-manager pod-replicas-updater pod-resource-updater recommender podscale-controller
 
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
