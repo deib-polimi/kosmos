@@ -39,7 +39,6 @@ func (c *Controller) syncSLAHandler(key string) error {
 
 		return err
 	}
-	// TODO: check here maybe for serviceSelector changes
 
 	// Get all services matching the SLA selector inside the namespace
 	serviceSelector := labels.Set(sla.Spec.ServiceSelector.MatchLabels).AsSelector()
