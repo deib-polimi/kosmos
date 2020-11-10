@@ -12,7 +12,7 @@ import (
 
 	clientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
 	informers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions"
-	"github.com/lterrac/system-autoscaler/pkg/recommender/pkg/recommender"
+	"github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/recommender"
 	"github.com/lterrac/system-autoscaler/pkg/signals"
 )
 

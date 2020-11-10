@@ -3,7 +3,7 @@
 all: build test coverage clean
 
 build:
-	go build -trimpath -o "recommender" ./main.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o "pod-autoscaler" ./main.go
 
 test:
 	@go test -race ./... --coverprofile=coverage.out
@@ -12,6 +12,6 @@ coverage: test
 	@go tool cover -func=coverage.out
 
 clean:
-	@rm -rf ./recommender
+	@rm -rf ./pod-resource-updater
 	@go clean -cache
 	@rm -rf *.out
