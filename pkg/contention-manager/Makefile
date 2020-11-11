@@ -1,10 +1,11 @@
 
 .PHONY: all build test coverage clean
+BUILD_SETTINGS = CGO_ENABLED=0 GOOS=linux GOARCH=amd64
 
 all: build test coverage clean
 
 build:
-	go build -trimpath -o "contention-manager" ./main.go
+	$(BUILD_SETTINGS) go build -trimpath -o "contention-manager" ./main.go
 
 test:
 	@go test -race ./... --coverprofile=coverage.out
