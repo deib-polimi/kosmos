@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: podscale-controller
+spec:
+  selector:
+    matchLabels:
+      app: podscale-controller
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: podscale-controller
+    spec:
+      containers:
+      - name: podscale-controller
+        image: lterrac/podscale-controller
+        ports:
+        - containerPort: 443
