@@ -46,23 +46,9 @@ spec:
               description: ResourceList is a set of (resource name, quantity) pairs.
               type: object
             pod:
-              description: PodReference specify the Pod associated with the PodScale
-                resource.
-              properties:
-                metadata:
-                  description: 'TODO: Decide if use all the objectMeta or something
-                    lighter'
-                  type: object
-              type: object
+              type: string
             serviceLevelAgreement:
-              description: SLAReference specify the Service Level Agreement associated
-                with the PodScale resource.
-              properties:
-                metadata:
-                  description: 'TODO: Decide if use all the objectMeta or something
-                    lighter'
-                  type: object
-              type: object
+              type: string
           required:
           - pod
           - serviceLevelAgreement

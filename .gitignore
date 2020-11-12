@@ -22,4 +22,5 @@ vendor/
 pkg/*/contention-manager
 pkg/*/pod-replicas-updater
 pkg/*/pod-resource-updater
+pkg/*/podscale-controller
 pkg/*/recommender

@@ -8,6 +8,6 @@ spec:
   defaultResources:
     cpu: 40m
     memory: 70Mi
-  selector:
+  serviceSelector:
     matchLabels:
-      app: nginx
+      app: example-nginx

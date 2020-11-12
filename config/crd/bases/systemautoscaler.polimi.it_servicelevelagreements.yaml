@@ -55,7 +55,7 @@ spec:
                   format: int32
                   type: integer
               type: object
-            selector:
+            serviceSelector:
               description: Specify the selector to match Services and Service Level
                 Agreement
               properties:
@@ -101,7 +101,7 @@ spec:
               type: object
           required:
           - metric
-          - selector
+          - serviceSelector
           type: object
       required:
       - spec
