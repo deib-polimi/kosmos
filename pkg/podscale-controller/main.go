@@ -6,7 +6,7 @@ import (
 
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
@@ -30,7 +30,9 @@ func main() {
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 
-	cfg, err := clientcmd.BuildConfigFromFlags(masterURL, kubeconfig)
+	// creates the in-cluster config
+	cfg, err := rest.InClusterConfig()
+	//  cfg, err := clientcmd.BuildConfigFromFlags(masterURL, kubeconfig)
 	if err != nil {
 		klog.Fatalf("Error building kubeconfig: %s", err.Error())
 	}
@@ -52,9 +54,10 @@ func main() {
 	controller := podScaleController.NewController(
 		kubeClient,
 		systemAutoscalerClient,
-		kubeInformerFactory.Core().V1().Services(),
 		systemAutoscalerInformerFactory.Systemautoscaler().V1beta1().ServiceLevelAgreements(),
 		systemAutoscalerInformerFactory.Systemautoscaler().V1beta1().PodScales(),
+		kubeInformerFactory.Core().V1().Services(),
+		kubeInformerFactory.Core().V1().Pods(),
 	)
 
 	// notice that there is no need to run Start methods in a separate goroutine. (i.e. go kubeInformerFactory.Start(stopCh)

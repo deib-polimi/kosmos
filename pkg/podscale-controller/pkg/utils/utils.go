@@ -8,13 +8,13 @@ import (
 // StateDiff wraps the changes to apply in the namespace to make it coherent with
 // the declared state.
 type StateDiff struct {
-	AddList []corev1.Pod
-	DeleteList []v1beta1.PodScale
+	AddList []*corev1.Pod
+	DeleteList []*v1beta1.PodScale
 }
 
 // DiffPods returns `Pods` that does not already have an associated
 // `PodScale` resource and the old `PodScale` resources to delete.
-func DiffPods(pods []corev1.Pod, podScales []v1beta1.PodScale) (result StateDiff) {
+func DiffPods(pods []*corev1.Pod, podScales []*v1beta1.PodScale) (result StateDiff) {
 	blueprint := make(map[string]bool)
 
 	for _, podscale := range podScales {
@@ -40,5 +40,15 @@ func DiffPods(pods []corev1.Pod, podScales []v1beta1.PodScale) (result StateDiff
 	}
 
 	return result
+}
+
+// ContainsService looks for a given element inside a Service list
+func ContainsService(list []*corev1.Service, element *corev1.Service) bool {
+	for _, e := range list {
+		if e == element {
+			return true
+		}
+	}
+	return false
 }
 
