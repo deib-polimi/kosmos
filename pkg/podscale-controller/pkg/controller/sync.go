@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
 	"github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -82,7 +83,7 @@ func (c *Controller) syncServiceLevelAgreement(key string) error {
 
 		_, err = c.kubeClientset.CoreV1().Services(namespace).Update(context.TODO(), service, metav1.UpdateOptions{})
 		if err != nil {
-			utilruntime.HandleError(fmt.Errorf("error while updateing Service labels of '%s'", service.GetName()))
+			utilruntime.HandleError(fmt.Errorf("error while updating Service labels of '%s'", service.GetName()))
 			utilruntime.HandleError(err)
 			return nil
 		}
