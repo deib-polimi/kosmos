@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - build/pipeline-docker
+      - development
     tags:
       - "podscale-controller/v*"
       - "pod-autoscaling/v*"
