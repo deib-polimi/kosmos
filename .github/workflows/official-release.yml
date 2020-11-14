@@ -1,15 +1,18 @@
-name: docker-images
+name: release
 
 on:
   push:
     branches:
-    - main
-    - build/pipeline-docker
+      - main
+      - build/pipeline-docker
+    tags:
+      - "podscale-controller/v*"
+      - "pod-autoscaling/v*"
 
 jobs:
 
   release:
-    name: Build and push Docker images with the
+    name: Build, tag and push Docker images
     runs-on: ubuntu-latest
     steps:
 

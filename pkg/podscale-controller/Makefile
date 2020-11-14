@@ -1,7 +1,7 @@
 BUILD_SETTINGS = CGO_ENABLED=0 GOOS=linux GOARCH=amd64
 IMAGE = podscale-controller
 IMAGE_VERSION = $(shell git tag --points-at HEAD | sed '/$(IMAGE)\/.*/!s/.*//' | sed 's/\//:/')
-REPO = lterrac
+REPO = systemautoscaler
 
 .PHONY: all build test coverage clean release
 
@@ -18,11 +18,12 @@ coverage: test
 
 
 release:
-	@if [ -n "$$IMAGE_VERSION" ]; then \
+	@echo $(IMAGE_VERSION)
+	@if [ -n "$(IMAGE_VERSION)" ]; then \
 		echo $(IMAGE_VERSION) ;\
 		echo $(REPO) ;\
 		docker build -t $(REPO)/$(IMAGE_VERSION) . ;\
-		docker push $(REPO)/$(IMAGE_VERSION) . ;\
+		docker push $(REPO)/$(IMAGE_VERSION) ;\
 	else \
 		echo "$(IMAGE) unchanged: no version tag on HEAD commit" ;\
 	fi
