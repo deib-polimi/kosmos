@@ -1,4 +1,4 @@
-.PHONY: all build test coverage clean
+.PHONY: all build test coverage clean release
 BUILD_SETTINGS = CGO_ENABLED=0 GOOS=linux GOARCH=amd64
 
 all: build test coverage clean
@@ -11,6 +11,8 @@ test:
 
 coverage: test
 	@go tool cover -func=coverage.out
+
+release:
 
 clean:
 	@rm -rf ./pod-resource-updater

@@ -22,6 +22,9 @@ coverage:
 clean:
 	$(call action, clean)
 
+release:
+	$(call action, release)
+
 test:
 	$(call action, test)
 
