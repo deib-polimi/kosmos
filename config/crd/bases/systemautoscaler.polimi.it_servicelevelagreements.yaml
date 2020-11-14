@@ -53,6 +53,8 @@ spec:
               properties:
                 responseTime:
                   format: int32
+                  minimum: 10
+                  multipleOf: 10
                   type: integer
               type: object
             serviceSelector:
