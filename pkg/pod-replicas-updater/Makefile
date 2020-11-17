@@ -1,9 +1,14 @@
-.PHONY: all build test coverage clean
+BUILD_SETTINGS = CGO_ENABLED=0 GOOS=linux GOARCH=amd64
+IMAGE = pod-replicas-updater
+IMAGE_VERSION = $(shell git tag --points-at HEAD | sed '/$(IMAGE)\/.*/!s/.*//' | sed 's/\//:/')
+REPO = systemautoscaler
+
+.PHONY: all build test coverage clean release
 
 all: build test coverage clean
 
 build:
-	go build -trimpath -o "pod-replicas-updater" ./main.go
+	$(BUILD_SETTINGS) go build -trimpath -o "$(IMAGE)" ./main.go
 
 test:
 	@go test -race ./... --coverprofile=coverage.out
@@ -11,7 +16,15 @@ test:
 coverage: test
 	@go tool cover -func=coverage.out
 
+release:
+	@if [ -n "$(IMAGE_VERSION)" ]; then \
+		echo "Building $(IMAGE_VERSION)" ;\
+		docker build -t $(REPO)/$(IMAGE_VERSION) . ;\
+		docker push $(REPO)/$(IMAGE_VERSION) ;\
+	else \
+		echo "$(IMAGE) unchanged: no version tag on HEAD commit" ;\
+	fi
 clean:
-	@rm -rf ./pod-replicas-updater
+	@rm -rf ./$(IMAGE)
 	@go clean -cache
 	@rm -rf *.out

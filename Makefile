@@ -1,5 +1,5 @@
 MAKEFLAGS += --no-print-directory
-COMPONENTS = contention-manager pod-replicas-updater pod-resource-updater recommender
+COMPONENTS = pod-replicas-updater pod-autoscaler podscale-controller
 
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -7,11 +7,9 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-CRD_OPTIONS ?= "crd:trivialVersions=true"
+.PHONY: all build coverage clean manifests release test
 
-.PHONY: all build coverage clean manifests test
-
-all: build coverage clean manifests test
+all: build test coverage manifests release clean
 
 build:
 	$(call action, build)
@@ -22,12 +20,15 @@ coverage:
 clean:
 	$(call action, clean)
 
+release:
+	$(call action, release)
+
 test:
 	$(call action, test)
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=systemautoscaler-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) crd paths="./pkg/apis/systemautoscaler/..." output:crd:artifacts:config=config/crd/bases
 
 controller-gen:
 ifeq (, $(shell which controller-gen))
