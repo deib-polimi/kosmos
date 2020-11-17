@@ -7,8 +7,6 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-CRD_OPTIONS ?= "crd:trivialVersions=true"
-
 .PHONY: all build coverage clean manifests test
 
 all: build coverage clean manifests test
@@ -27,8 +25,6 @@ release:
 
 test:
 	$(call action, test)
-
-	#$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=systemautoscaler-role paths="./pkg/apis/systemautoscaler/..." output:crd:artifacts:config=config/crd/bases
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen

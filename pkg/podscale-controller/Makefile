@@ -16,12 +16,10 @@ test:
 coverage: test
 	@go tool cover -func=coverage.out
 
-
 release:
 	@echo $(IMAGE_VERSION)
 	@if [ -n "$(IMAGE_VERSION)" ]; then \
-		echo $(IMAGE_VERSION) ;\
-		echo $(REPO) ;\
+		echo "Building $(IMAGE_VERSION)" ;\
 		docker build -t $(REPO)/$(IMAGE_VERSION) . ;\
 		docker push $(REPO)/$(IMAGE_VERSION) ;\
 	else \
