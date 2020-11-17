@@ -1,5 +1,5 @@
 BUILD_SETTINGS = CGO_ENABLED=0 GOOS=linux GOARCH=amd64
-IMAGE = podscale-controller
+IMAGE = pod-autoscaler
 IMAGE_VERSION = $(shell git tag --points-at HEAD | sed '/$(IMAGE)\/.*/!s/.*//' | sed 's/\//:/')
 REPO = systemautoscaler
 
@@ -8,7 +8,7 @@ REPO = systemautoscaler
 all: build test coverage clean
 
 build:
-	$(BUILD_SETTINGS) go build  -trimpath -o "$(IMAGE)" ./main.go
+	$(BUILD_SETTINGS) go build -trimpath -o "$(IMAGE)" ./main.go
 
 test:
 	@go test -race ./... --coverprofile=coverage.out

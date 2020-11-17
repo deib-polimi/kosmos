@@ -1,5 +1,5 @@
 MAKEFLAGS += --no-print-directory
-COMPONENTS = contention-manager pod-replicas-updater pod-resource-updater recommender podscale-controller
+COMPONENTS = pod-replicas-updater pod-autoscaler podscale-controller
 
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -7,9 +7,9 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-.PHONY: all build coverage clean manifests test
+.PHONY: all build coverage clean manifests release test
 
-all: build coverage clean manifests test
+all: build test coverage manifests release clean
 
 build:
 	$(call action, build)
