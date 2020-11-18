@@ -1,5 +1,7 @@
 FROM gcr.io/distroless/static:nonroot
 
-COPY pod-autoscaler /
+LABEL name="Pod Autoscaler"
 
-ENTRYPOINT ["/pod-autoscaler"]
+COPY pod-autoscaler /usr/local/bin/
+
+CMD ["pod-autoscaler"]

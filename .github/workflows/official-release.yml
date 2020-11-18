@@ -1,13 +1,18 @@
-name: base-pipeline
+name: release
 
 on:
-  - push
-  - pull_request
+  push:
+    branches:
+      - main
+      - development
+    tags:
+      - "podscale-controller/v*"
+      - "pod-autoscaling/v*"
 
 jobs:
 
-  build:
-    name: Build and test with coverage
+  release:
+    name: Build, tag and push Docker images
     runs-on: ubuntu-latest
     steps:
 
@@ -39,6 +44,12 @@ jobs:
       run: |
         make test
 
-    - name: Coverage
+    - name: Login to DockerHub
+      uses: docker/login-action@v1
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Build images and push to DockerHub
       run: |
-        make coverage
+        make release

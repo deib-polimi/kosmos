@@ -5,17 +5,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// TODO: decide whether to keep these or use `register.go`
-// const (
-// 	GroupName string = "PodScale.polimi.it"
-// 	Kind      string = "PodScale"
-// 	Version   string = "v1beta1"
-// 	Plural    string = "PodScales"
-// 	Singluar  string = "PodScale"
-// 	ShortName string = "sysaut"
-// 	Name      string = Plural + "." + GroupName
-// )
-
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // ServiceLevelAgreementList is a list of ServiceLevelAgreement resources
@@ -35,6 +24,7 @@ type ServiceLevelAgreement struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
+	// +kubebuilder:validation:Required
 	Spec ServiceLevelAgreementSpec `json:"spec"`
 }
 
@@ -45,11 +35,14 @@ type ServiceLevelAgreement struct {
 // is empty in the `PodSpec`.
 type ServiceLevelAgreementSpec struct {
 	// Specify the metric on which the requirement is set.
+	// +kubebuilder:validation:Required
 	Metric MetricRequirement `json:"metric"`
 	// Specify the default resources assigned to pods in case `requests` field is empty in `PodSpec`.
+	// +kubebuilder:validation:Required
 	DefaultResources v1.ResourceList `json:"defaultResources,omitempty" protobuf:"bytes,3,rep,name=defaultResources,casttype=ResourceList,castkey=ResourceName"`
 	// Specify the selector to match Services and Service Level Agreement
-	Selector *metav1.LabelSelector `json:"selector"`
+	// +kubebuilder:validation:Required
+	ServiceSelector *metav1.LabelSelector `json:"serviceSelector"`
 }
 
 // MetricRequirement specifies a requirement for a metric.
@@ -63,6 +56,9 @@ type ServiceLevelAgreementSpec struct {
 // is 4 units of time. This means that the system will try
 // to keep the service response time below 4 on average.
 type MetricRequirement struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Minimum=10
+	// +kubebuilder:validation:MultipleOf=10
 	ResponseTime *int32 `json:"responseTime,omitempty"`
 }
 
@@ -92,21 +88,9 @@ type PodScale struct {
 
 // PodScaleSpec is the spec for a PodScale resource
 type PodScaleSpec struct {
-	SLAAgreement     SLAReference    `json:"serviceLevelAgreement"`
-	PodRef           PodReference    `json:"pod"`
+	SLA              string          `json:"serviceLevelAgreement"`
+	Pod              string          `json:"pod"`
 	DesiredResources v1.ResourceList `json:"desired,omitempty" protobuf:"bytes,3,rep,name=desired,casttype=ResourceList,castkey=ResourceName"`
-}
-
-// SLAReference specify the Service Level Agreement associated with the PodScale resource.
-type SLAReference struct {
-	// TODO: Decide if use all the objectMeta or something lighter
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-}
-
-// PodReference specify the Pod associated with the PodScale resource.
-type PodReference struct {
-	// TODO: Decide if use all the objectMeta or something lighter
-	metav1.ObjectMeta `json:"metadata,omitempty"`
 }
 
 // TODO: Decide if useful or not
