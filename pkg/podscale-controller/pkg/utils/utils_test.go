@@ -35,16 +35,36 @@ func TestDiffPods(t *testing.T) {
 
 	podscales := []*v1beta1.PodScale{
 		{
-			Spec: v1beta1.PodScaleSpec{Pod: "foo"},
+			Spec: v1beta1.PodScaleSpec{
+				PodRef: v1beta1.PodRef{
+					Name: "foo",
+					Namespace: "default",
+				},
+			},
 		},
 		{
-			Spec: v1beta1.PodScaleSpec{Pod: "bar"},
+			Spec: v1beta1.PodScaleSpec{
+				PodRef: v1beta1.PodRef{
+					Name: "bar",
+					Namespace: "default",
+				},
+			},
 		},
 		{
-			Spec: v1beta1.PodScaleSpec{Pod: "foobar"},
+			Spec: v1beta1.PodScaleSpec{
+				PodRef: v1beta1.PodRef{
+					Name: "foobar",
+					Namespace: "default",
+				},
+			},
 		},
 		{
-			Spec: v1beta1.PodScaleSpec{Pod: "foobarfoo"},
+			Spec: v1beta1.PodScaleSpec{
+				PodRef: v1beta1.PodRef{
+					Name: "foobarfoo",
+					Namespace: "default",
+				},
+			},
 		},
 	}
 
