@@ -88,9 +88,21 @@ type PodScale struct {
 
 // PodScaleSpec is the spec for a PodScale resource
 type PodScaleSpec struct {
-	SLA              string          `json:"serviceLevelAgreement"`
-	Pod              string          `json:"pod"`
+	SLARef           SLARef          `json:"serviceLevelAgreement"`
+	PodRef           PodRef          `json:"pod"`
 	DesiredResources v1.ResourceList `json:"desired,omitempty" protobuf:"bytes,3,rep,name=desired,casttype=ResourceList,castkey=ResourceName"`
+}
+
+// PodRef is a reference to a pod
+type PodRef struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+}
+
+// SLARef is a reference to a pod
+type SLARef struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
 }
 
 // TODO: Decide if useful or not

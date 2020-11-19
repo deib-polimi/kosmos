@@ -196,8 +196,14 @@ func NewPodScale(pod *corev1.Pod, sla *v1beta1.ServiceLevelAgreement, selectorLa
 			},
 		},
 		Spec: v1beta1.PodScaleSpec{
-			SLA:              sla.GetName(),
-			Pod:              pod.GetName(),
+			SLARef: v1beta1.SLARef{
+				Name:      sla.GetName(),
+				Namespace: sla.GetNamespace(),
+			},
+			PodRef: v1beta1.PodRef{
+				Name:      pod.GetName(),
+				Namespace: pod.GetNamespace(),
+			},
 			DesiredResources: sla.Spec.DefaultResources,
 		},
 		Status: v1beta1.PodScaleStatus{

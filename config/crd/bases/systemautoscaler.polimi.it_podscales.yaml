@@ -46,9 +46,27 @@ spec:
               description: ResourceList is a set of (resource name, quantity) pairs.
               type: object
             pod:
-              type: string
+              description: PodRef is a reference to a pod
+              properties:
+                name:
+                  type: string
+                namespace:
+                  type: string
+              required:
+              - name
+              - namespace
+              type: object
             serviceLevelAgreement:
-              type: string
+              description: SLARef is a reference to a pod
+              properties:
+                name:
+                  type: string
+                namespace:
+                  type: string
+              required:
+              - name
+              - namespace
+              type: object
           required:
           - pod
           - serviceLevelAgreement

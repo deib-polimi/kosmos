@@ -18,7 +18,7 @@ func DiffPods(pods []*corev1.Pod, podScales []*v1beta1.PodScale) (result StateDi
 	blueprint := make(map[string]bool)
 
 	for _, podscale := range podScales {
-		blueprint[podscale.Spec.Pod] = true
+		blueprint[podscale.Spec.PodRef.Name] = true
 	}
 
 	for _, pod := range pods {
@@ -34,7 +34,7 @@ func DiffPods(pods []*corev1.Pod, podScales []*v1beta1.PodScale) (result StateDi
 	}
 
 	for _, podscale := range podScales {
-		if !blueprint[podscale.Spec.Pod] {
+		if !blueprint[podscale.Spec.PodRef.Name] {
 			result.DeleteList = append(result.DeleteList, podscale)
 		}
 	}
