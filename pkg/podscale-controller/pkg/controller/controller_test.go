@@ -7,7 +7,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	apps "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -54,7 +53,7 @@ func newFixture(t *testing.T) *fixture {
 	return f
 }
 
-func newSLA(name string) *systemautoscaler.ServiceLevelAgreement {
+func newSLA(name string, labels map[string]string) *systemautoscaler.ServiceLevelAgreement {
 	return &systemautoscaler.ServiceLevelAgreement{
 		TypeMeta: metav1.TypeMeta{APIVersion: systemautoscaler.SchemeGroupVersion.String()},
 		ObjectMeta: metav1.ObjectMeta{
@@ -63,9 +62,7 @@ func newSLA(name string) *systemautoscaler.ServiceLevelAgreement {
 		},
 		Spec: systemautoscaler.ServiceLevelAgreementSpec{
 			ServiceSelector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app": "foo",
-				},
+				MatchLabels: labels,
 			},
 		},
 	}
@@ -212,6 +209,13 @@ func checkAction(expected, actual core.Action, t *testing.T) {
 			t.Errorf("Action %s %s has wrong object\nDiff:\n %s",
 				a.GetVerb(), a.GetResource().Resource, diff.ObjectGoPrintSideBySide(expObject, object))
 		}
+	case core.DeleteActionImpl:
+		e, _ := expected.(core.DeleteActionImpl)
+
+		if e.GetName() != a.GetName() || e.GetNamespace() != a.GetNamespace() {
+			t.Errorf("Action %s %s has wrong object\nDiff:\n %s",
+				a.GetVerb(), a.GetResource().Resource, diff.ObjectGoPrintSideBySide(e, a))
+		}
 	case core.UpdateActionImpl:
 		e, _ := expected.(core.UpdateActionImpl)
 		expObject := e.GetObject()
@@ -270,6 +274,17 @@ func (f *fixture) expectCreatePodScaleAction(p *systemautoscaler.PodScale) {
 		p))
 }
 
+func (f *fixture) expectDeletePodScaleAction(p *systemautoscaler.PodScale) {
+	f.actions = append(f.actions, core.NewDeleteAction(
+		schema.GroupVersionResource{
+			Group:    "systemautoscaler.polimi.it",
+			Version:  "v1beta1",
+			Resource: "podscales",
+		},
+		p.Namespace,
+		p.Name))
+}
+
 func (f *fixture) expectUpdateServiceAction(svc *corev1.Service) {
 	f.kubeactions = append(f.kubeactions, core.NewUpdateAction(
 		schema.GroupVersionResource{
@@ -278,17 +293,6 @@ func (f *fixture) expectUpdateServiceAction(svc *corev1.Service) {
 			Resource: "services"},
 		svc.Namespace,
 		svc))
-}
-
-func (f *fixture) expectUpdateDeploymentAction(d *apps.Deployment) {
-	f.kubeactions = append(f.kubeactions, core.NewUpdateAction(schema.GroupVersionResource{Resource: "deployments"}, d.Namespace, d))
-}
-
-func (f *fixture) expectUpdateFooStatusAction(foo *systemautoscaler.ServiceLevelAgreement) {
-	action := core.NewUpdateAction(schema.GroupVersionResource{Resource: "foos"}, foo.Namespace, foo)
-	// TODO: Until #38113 is merged, we can't use Subresource
-	//action.Subresource = "status"
-	f.actions = append(f.actions, action)
 }
 
 func getKey(foo *systemautoscaler.ServiceLevelAgreement, t *testing.T) string {
@@ -300,6 +304,7 @@ func getKey(foo *systemautoscaler.ServiceLevelAgreement, t *testing.T) string {
 	return key
 }
 
+// TestCreatePodScale checks that a Pod matching a SLA will get its PodScale
 func TestCreatePodScale(t *testing.T) {
 	f := newFixture(t)
 
@@ -307,7 +312,7 @@ func TestCreatePodScale(t *testing.T) {
 		"app": "foo",
 	}
 
-	sla := newSLA("foo-sla")
+	sla := newSLA("foo-sla", labels)
 	svc, pod := newApplication("foo-app", labels)
 	expectedPodScale := NewPodScale(pod, sla, svc.Spec.Selector)
 
@@ -325,45 +330,155 @@ func TestCreatePodScale(t *testing.T) {
 	f.run(getKey(sla, t))
 }
 
-//
-//func TestDoNothing(t *testing.T) {
-//	f := newFixture(t)
-//	foo := newSLA("test")
-//
-//	f.slaLister = append(f.slaLister, foo)
-//	f.objects = append(f.objects, foo)
-//	f.deploymentLister = append(f.deploymentLister, d)
-//	f.kubeobjects = append(f.kubeobjects, d)
-//
-//	f.expectUpdateFooStatusAction(foo)
-//	f.run(getKey(foo, t))
-//}
-//
-//func TestUpdateDeployment(t *testing.T) {
-//	f := newFixture(t)
-//	foo := newSLA("test", int32Ptr(1))
-//
-//	f.slaLister = append(f.slaLister, foo)
-//	f.objects = append(f.objects, foo)
-//	f.deploymentLister = append(f.deploymentLister, d)
-//	f.kubeobjects = append(f.kubeobjects, d)
-//
-//	f.expectUpdateFooStatusAction(foo)
-//	f.expectUpdateDeploymentAction(expDeployment)
-//	f.run(getKey(foo, t))
-//}
-//
-//func TestNotControlledByUs(t *testing.T) {
-//	f := newFixture(t)
-//	foo := newSLA("test", int32Ptr(1))
-//
-//
-//	f.slaLister = append(f.slaLister, foo)
-//	f.objects = append(f.objects, foo)
-//	f.deploymentLister = append(f.deploymentLister, d)
-//	f.kubeobjects = append(f.kubeobjects, d)
-//
-//	f.runExpectError(getKey(foo, t))
-//}
+// TestCreatePodScale checks that a Pod matching a SLA will get its PodScale
+func TestDoNothing(t *testing.T) {
+	f := newFixture(t)
 
-func int32Ptr(i int32) *int32 { return &i }
+	labels := map[string]string{
+		"app": "foo",
+	}
+
+	sla := newSLA("foo-sla", labels)
+	svc, pod := newApplication("foo-app", labels)
+	podscale := NewPodScale(pod, sla, svc.Spec.Selector)
+
+	f.slaLister = append(f.slaLister, sla)
+	f.servicesLister = append(f.servicesLister, svc)
+	f.podLister = append(f.podLister, pod)
+	f.podScalesLister = append(f.podScalesLister, podscale)
+
+	f.objects = append(f.objects, sla)
+	f.objects = append(f.objects, podscale)
+	f.kubeobjects = append(f.kubeobjects, svc)
+	f.kubeobjects = append(f.kubeobjects, pod)
+
+	f.expectUpdateServiceAction(svc)
+
+	f.run(getKey(sla, t))
+}
+
+// TestServiceSelectorChange checks the PodScale cleanup when the SLA's ServiceSelector changes.
+func TestServiceSelectorChange(t *testing.T) {
+	f := newFixture(t)
+
+	oldServiceSelector := map[string]string{
+		"app": "foo",
+	}
+
+	sla := newSLA("foo-sla", oldServiceSelector)
+	matchedSvc, matchedPod := newApplication("foo-app", oldServiceSelector)
+	matchedPodScale := NewPodScale(matchedPod, sla, matchedSvc.Spec.Selector)
+
+	newServiceSelector := map[string]string{
+		"app": "bar",
+	}
+
+	sla.Spec.ServiceSelector = &metav1.LabelSelector{
+		MatchLabels:      newServiceSelector,
+	}
+
+	matchedSvc.Labels[SubjectToLabel] = sla.Name
+
+	f.slaLister = append(f.slaLister, sla)
+	f.servicesLister = append(f.servicesLister, matchedSvc)
+	f.podLister = append(f.podLister, matchedPod)
+	f.podScalesLister = append(f.podScalesLister, matchedPodScale)
+
+	f.objects = append(f.objects, sla)
+	f.objects = append(f.objects, matchedPodScale)
+	f.kubeobjects = append(f.kubeobjects, matchedSvc)
+	f.kubeobjects = append(f.kubeobjects, matchedPod)
+
+	f.expectDeletePodScaleAction(matchedPodScale)
+
+	f.run(getKey(sla, t))
+}
+// TestServiceSelectorChange checks the PodScale cleanup when the SLA's ServiceSelector changes.
+func TestReplicaIncrease(t *testing.T) {
+	f := newFixture(t)
+
+	oldServiceSelector := map[string]string{
+		"app": "foo",
+	}
+
+	sla := newSLA("foo-sla", oldServiceSelector)
+	matchedSvc, matchedPod := newApplication("foo-app", oldServiceSelector)
+	matchedPodScale := NewPodScale(matchedPod, sla, matchedSvc.Spec.Selector)
+
+	matchedSvc.Labels[SubjectToLabel] = sla.Name
+
+	newPod := &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{APIVersion: corev1.SchemeGroupVersion.String(), Kind: "pods"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foobarfoo",
+			Namespace: metav1.NamespaceDefault,
+			Labels: map[string]string{
+				"match": "bar",
+			},
+		},
+	}
+
+	expectedPodScale := NewPodScale(newPod, sla, matchedSvc.Spec.Selector)
+
+	f.slaLister = append(f.slaLister, sla)
+	f.servicesLister = append(f.servicesLister, matchedSvc)
+	f.podLister = append(f.podLister, matchedPod)
+	f.podLister = append(f.podLister, newPod)
+	f.podScalesLister = append(f.podScalesLister, matchedPodScale)
+
+	f.objects = append(f.objects, sla)
+	f.objects = append(f.objects, matchedPodScale)
+	f.kubeobjects = append(f.kubeobjects, matchedSvc)
+	f.kubeobjects = append(f.kubeobjects, matchedPod)
+	f.kubeobjects = append(f.kubeobjects, newPod)
+
+	f.expectCreatePodScaleAction(expectedPodScale)
+	f.expectUpdateServiceAction(matchedSvc)
+
+	f.run(getKey(sla, t))
+}
+
+// TestServiceSelectorChange checks the PodScale cleanup when the SLA's ServiceSelector changes.
+func TestReplicaDecrease(t *testing.T) {
+	f := newFixture(t)
+
+	oldServiceSelector := map[string]string{
+		"app": "foo",
+	}
+
+	sla := newSLA("foo-sla", oldServiceSelector)
+	matchedSvc, matchedPod := newApplication("foo-app", oldServiceSelector)
+	matchedPodScale := NewPodScale(matchedPod, sla, matchedSvc.Spec.Selector)
+
+	matchedSvc.Labels[SubjectToLabel] = sla.Name
+
+	newPod := &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{APIVersion: corev1.SchemeGroupVersion.String(), Kind: "pods"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foobarfoo",
+			Namespace: metav1.NamespaceDefault,
+			Labels: map[string]string{
+				"match": "bar",
+			},
+		},
+	}
+
+	expectedPodScale := NewPodScale(newPod, sla, matchedSvc.Spec.Selector)
+
+	f.slaLister = append(f.slaLister, sla)
+	f.servicesLister = append(f.servicesLister, matchedSvc)
+	f.podLister = append(f.podLister, matchedPod)
+	f.podScalesLister = append(f.podScalesLister, matchedPodScale)
+	f.podScalesLister = append(f.podScalesLister, expectedPodScale)
+
+	f.objects = append(f.objects, sla)
+	f.objects = append(f.objects, matchedPodScale)
+	f.objects = append(f.objects, expectedPodScale)
+	f.kubeobjects = append(f.kubeobjects, matchedSvc)
+	f.kubeobjects = append(f.kubeobjects, matchedPod)
+
+	f.expectDeletePodScaleAction(expectedPodScale)
+	f.expectUpdateServiceAction(matchedSvc)
+
+	f.run(getKey(sla, t))
+}
