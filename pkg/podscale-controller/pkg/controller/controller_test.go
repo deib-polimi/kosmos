@@ -330,7 +330,7 @@ func TestCreatePodScale(t *testing.T) {
 	f.run(getKey(sla, t))
 }
 
-// TestCreatePodScale checks that a Pod matching a SLA will get its PodScale
+// TestDoNothing checks that a Pod has its associated SLA and will do nothing
 func TestDoNothing(t *testing.T) {
 	f := newFixture(t)
 
@@ -374,7 +374,7 @@ func TestServiceSelectorChange(t *testing.T) {
 	}
 
 	sla.Spec.ServiceSelector = &metav1.LabelSelector{
-		MatchLabels:      newServiceSelector,
+		MatchLabels: newServiceSelector,
 	}
 
 	matchedSvc.Labels[SubjectToLabel] = sla.Name
@@ -393,7 +393,8 @@ func TestServiceSelectorChange(t *testing.T) {
 
 	f.run(getKey(sla, t))
 }
-// TestServiceSelectorChange checks the PodScale cleanup when the SLA's ServiceSelector changes.
+
+// TestReplicaIncrease checks that the system reacts to an increase in replicas number
 func TestReplicaIncrease(t *testing.T) {
 	f := newFixture(t)
 
@@ -438,7 +439,7 @@ func TestReplicaIncrease(t *testing.T) {
 	f.run(getKey(sla, t))
 }
 
-// TestServiceSelectorChange checks the PodScale cleanup when the SLA's ServiceSelector changes.
+// TestReplicaIncrease checks that the system reacts to a decrease in replicas number
 func TestReplicaDecrease(t *testing.T) {
 	f := newFixture(t)
 
