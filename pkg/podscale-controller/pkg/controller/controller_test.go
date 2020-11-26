@@ -112,20 +112,20 @@ func (f *fixture) newController() (*Controller, informers.SharedInformerFactory,
 	c.podSynced = alwaysReady
 	c.recorder = &record.FakeRecorder{}
 
-	for _, f := range f.slaLister {
-		_ = i.Systemautoscaler().V1beta1().ServiceLevelAgreements().Informer().GetIndexer().Add(f)
+	for _, sla := range f.slaLister {
+		_ = i.Systemautoscaler().V1beta1().ServiceLevelAgreements().Informer().GetIndexer().Add(sla)
 	}
 
-	for _, f := range f.podScalesLister {
-		_ = i.Systemautoscaler().V1beta1().PodScales().Informer().GetIndexer().Add(f)
+	for _, podScale := range f.podScalesLister {
+		_ = i.Systemautoscaler().V1beta1().PodScales().Informer().GetIndexer().Add(podScale)
 	}
 
-	for _, f := range f.servicesLister {
-		_ = k8sI.Core().V1().Services().Informer().GetIndexer().Add(f)
+	for _, service := range f.servicesLister {
+		_ = k8sI.Core().V1().Services().Informer().GetIndexer().Add(service)
 	}
 
-	for _, f := range f.podLister {
-		_ = k8sI.Core().V1().Pods().Informer().GetIndexer().Add(f)
+	for _, pod := range f.podLister {
+		_ = k8sI.Core().V1().Pods().Informer().GetIndexer().Add(pod)
 	}
 
 	return c, i, k8sI
