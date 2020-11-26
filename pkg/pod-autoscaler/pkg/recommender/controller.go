@@ -134,7 +134,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runPodScaleAddedWorker, time.Second, stopCh)
 		go wait.Until(c.runPodScaleRemovedWorker, time.Second, stopCh)
-		go wait.Until(c.runRecommenderWorker, time.Second, stopCh)
+		go wait.Until(c.runRecommenderWorker, 5*time.Second, stopCh)
 	}
 
 	klog.Info("Started workers")
