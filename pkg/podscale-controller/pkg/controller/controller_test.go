@@ -307,12 +307,14 @@ func getKey(foo *systemautoscaler.ServiceLevelAgreement, t *testing.T) string {
 // TestCreatePodScale checks that a Pod matching a SLA will get its PodScale
 func TestCreatePodScale(t *testing.T) {
 	f := newFixture(t)
+	slaName := "foo-sla"
 
 	labels := map[string]string{
-		"app": "foo",
+		"app":          "foo",
+		SubjectToLabel: slaName,
 	}
 
-	sla := newSLA("foo-sla", labels)
+	sla := newSLA(slaName, labels)
 	svc, pod := newApplication("foo-app", labels)
 	expectedPodScale := NewPodScale(pod, sla, svc.Spec.Selector)
 
@@ -333,12 +335,14 @@ func TestCreatePodScale(t *testing.T) {
 // TestDoNothing checks that a Pod has its associated SLA and will do nothing
 func TestDoNothing(t *testing.T) {
 	f := newFixture(t)
+	slaName := "foo-sla"
 
 	labels := map[string]string{
-		"app": "foo",
+		"app":          "foo",
+		SubjectToLabel: slaName,
 	}
 
-	sla := newSLA("foo-sla", labels)
+	sla := newSLA(slaName, labels)
 	svc, pod := newApplication("foo-app", labels)
 	podscale := NewPodScale(pod, sla, svc.Spec.Selector)
 
