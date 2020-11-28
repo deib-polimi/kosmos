@@ -141,12 +141,21 @@ func (f *fixture) runExpectError(fooName string) {
 
 func (f *fixture) runController(fooName string, startInformers bool, expectError bool) {
 	c, i, k8sI := f.newController()
+	stopCh := make(chan struct{})
 	if startInformers {
-		stopCh := make(chan struct{})
+
 		defer close(stopCh)
 		i.Start(stopCh)
 		k8sI.Start(stopCh)
+
 	}
+	//if ok := cache.WaitForCacheSync(stopCh,
+	//	c.slasSynced,
+	//	c.servicesSynced,
+	//	c.podScalesSynced,
+	//	c.podSynced); !ok {
+	//	log.Fatalf("failed to wait for caches to sync")
+	//}
 
 	err := c.syncServiceLevelAgreement(fooName)
 	if !expectError && err != nil {
@@ -220,6 +229,9 @@ func checkAction(expected, actual core.Action, t *testing.T) {
 		e, _ := expected.(core.UpdateActionImpl)
 		expObject := e.GetObject()
 		object := a.GetObject()
+		//
+		//fmt.Printf("expected:\n\n %v \n\n", expObject)
+		//fmt.Printf("actual:\n\n %v \n\n", object)
 
 		if !reflect.DeepEqual(expObject, object) {
 			t.Errorf("Action %s %s has wrong object\nDiff:\n %s",
@@ -308,15 +320,23 @@ func getKey(foo *systemautoscaler.ServiceLevelAgreement, t *testing.T) string {
 func TestCreatePodScale(t *testing.T) {
 	f := newFixture(t)
 	slaName := "foo-sla"
+	appName := "foo-app"
 
 	labels := map[string]string{
-		"app":          "foo",
-		SubjectToLabel: slaName,
+		"app": "foo",
 	}
 
 	sla := newSLA(slaName, labels)
-	svc, pod := newApplication("foo-app", labels)
+	svc, pod := newApplication(appName, labels)
 	expectedPodScale := NewPodScale(pod, sla, svc.Spec.Selector)
+
+	expectedLabels := map[string]string{
+		"app": "foo",
+		SubjectToLabel: slaName,
+
+	}
+
+	expectedSvc, _ := newApplication(appName, expectedLabels)
 
 	f.slaLister = append(f.slaLister, sla)
 	f.servicesLister = append(f.servicesLister, svc)
@@ -327,7 +347,7 @@ func TestCreatePodScale(t *testing.T) {
 	f.kubeobjects = append(f.kubeobjects, pod)
 
 	f.expectCreatePodScaleAction(expectedPodScale)
-	f.expectUpdateServiceAction(svc)
+	f.expectUpdateServiceAction(expectedSvc)
 
 	f.run(getKey(sla, t))
 }
@@ -336,6 +356,7 @@ func TestCreatePodScale(t *testing.T) {
 func TestDoNothing(t *testing.T) {
 	f := newFixture(t)
 	slaName := "foo-sla"
+	appName := "foo-app"
 
 	labels := map[string]string{
 		"app":          "foo",
@@ -343,7 +364,7 @@ func TestDoNothing(t *testing.T) {
 	}
 
 	sla := newSLA(slaName, labels)
-	svc, pod := newApplication("foo-app", labels)
+	svc, pod := newApplication(appName, labels)
 	podscale := NewPodScale(pod, sla, svc.Spec.Selector)
 
 	f.slaLister = append(f.slaLister, sla)
