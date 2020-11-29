@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -157,6 +158,8 @@ func (f *fixture) runController(fooName string, startInformers bool, expectError
 	//	log.Fatalf("failed to wait for caches to sync")
 	//}
 
+	//time.Sleep(1 * time.Second)
+
 	err := c.syncServiceLevelAgreement(fooName)
 	if !expectError && err != nil {
 		f.t.Errorf("error syncing foo: %v", err)
@@ -229,9 +232,11 @@ func checkAction(expected, actual core.Action, t *testing.T) {
 		e, _ := expected.(core.UpdateActionImpl)
 		expObject := e.GetObject()
 		object := a.GetObject()
-		//
-		//fmt.Printf("expected:\n\n %v \n\n", expObject)
-		//fmt.Printf("actual:\n\n %v \n\n", object)
+
+		fmt.Printf("expected:\n\n %s \n\n", expObject)
+		fmt.Printf("actual:\n\n %s \n\n", object)
+		fmt.Println(&expObject)
+		fmt.Println(&object)
 
 		if !reflect.DeepEqual(expObject, object) {
 			t.Errorf("Action %s %s has wrong object\nDiff:\n %s",
@@ -333,7 +338,6 @@ func TestCreatePodScale(t *testing.T) {
 	expectedLabels := map[string]string{
 		"app": "foo",
 		SubjectToLabel: slaName,
-
 	}
 
 	expectedSvc, _ := newApplication(appName, expectedLabels)
