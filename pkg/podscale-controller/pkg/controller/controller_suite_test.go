@@ -1,12 +1,13 @@
 package controller_test
 
 import (
+	"testing"
+	"time"
+
 	informers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions"
 	"github.com/lterrac/system-autoscaler/pkg/signals"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"testing"
-	"time"
 
 	clientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
 	. "github.com/onsi/gomega"
@@ -17,7 +18,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
@@ -26,15 +26,13 @@ func TestController(t *testing.T) {
 	RunSpecs(t, "Controller Suite")
 }
 
-
 var cfg *rest.Config
-var k8sManager ctrl.Manager
 var testEnv *envtest.Environment
 var kubeClient *kubernetes.Clientset
 var systemAutoscalerClient *systemautoscaler.Clientset
 
-var _ = BeforeSuite(func(done Done){
-	useCluster := false
+var _ = BeforeSuite(func(done Done) {
+	useCluster := true
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
@@ -51,20 +49,18 @@ var _ = BeforeSuite(func(done Done){
 	err = systemautoscalerv1beta1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	k8sManager, err = ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme.Scheme,
-	})
-	Expect(err).ToNot(HaveOccurred())
+	By("bootstrapping clients")
 
-	kubeClient, err = kubernetes.NewForConfig(cfg)
-	Expect(err).ToNot(HaveOccurred())
+	kubeClient = kubernetes.NewForConfigOrDie(cfg)
 
+	systemAutoscalerClient = clientset.NewForConfigOrDie(cfg)
 
-	systemAutoscalerClient, err = clientset.NewForConfig(cfg)
-	Expect(err).ToNot(HaveOccurred())
+	By("bootstrapping informers")
 
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
 	systemAutoscalerInformerFactory := informers.NewSharedInformerFactory(systemAutoscalerClient, time.Second*30)
+
+	By("bootstrapping controller")
 
 	controller := podscale.NewController(
 		kubeClient,
@@ -75,19 +71,23 @@ var _ = BeforeSuite(func(done Done){
 		kubeInformerFactory.Core().V1().Pods(),
 	)
 
+	By("starting informers")
 
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
-	err = k8sManager.Start(stopCh)
 	Expect(err).ToNot(HaveOccurred())
 	kubeInformerFactory.Start(stopCh)
 	systemAutoscalerInformerFactory.Start(stopCh)
 
-	err = controller.Run(1, stopCh)
-	Expect(err).ToNot(HaveOccurred())
+	By("starting controller")
+
+	go func() {
+		err = controller.Run(2, stopCh)
+		Expect(err).ToNot(HaveOccurred())
+	}()
 
 	close(done)
-}, 60)
+}, 15)
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")

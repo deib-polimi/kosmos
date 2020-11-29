@@ -2,56 +2,57 @@ package controller_test
 
 import (
 	"context"
+	"time"
+
 	systemautoscaler "github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
 	. "github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/controller"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"reflect"
-	"time"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
-
 
 var _ = Describe("PodScale controller", func() {
 	Context("With an application deployed inside the cluster", func() {
-		ns := "default"
-		ctx := context.Background()
-		slaName := "foo-sla"
-		appName := "foo-app"
-
-		labels := map[string]string{
-			"app": "foo",
-		}
-
-		sla := newSLA(slaName, labels)
-		svc, pod := newApplication(appName, labels)
-		Expect(kubeClient.CoreV1().Services(ns).Create(ctx, svc, metav1.CreateOptions{})).Should(Succeed())
-		Expect(kubeClient.CoreV1().Pods(ns).Create(ctx, pod, metav1.CreateOptions{})).Should(Succeed())
-		Expect(systemAutoscalerClient.SystemautoscalerV1beta1().ServiceLevelAgreements(ns).Create(ctx, sla, metav1.CreateOptions{})).Should(Succeed())
-
-		expectedPodScale := NewPodScale(pod, sla, svc.Spec.Selector)
-
-
-		expectedLabels := map[string]string{
-			"app": "foo",
-			SubjectToLabel: slaName,
-		}
-
-		expectedSvc, _ := newApplication(appName, expectedLabels)
 
 		const timeout = 60 * time.Second
 		const interval = 1 * time.Second
 
-		Eventually(func() bool {
-			actual, err := kubeClient.CoreV1().Services(ns).Get(ctx, svc.GetName(), metav1.GetOptions{})
-			return err == nil && reflect.DeepEqual(actual, expectedSvc)
-		}, timeout, interval).Should(BeTrue())
+		BeforeEach(func() {
 
-		Eventually(func() bool {
-			actual, err := systemAutoscalerClient.SystemautoscalerV1beta1().ServiceLevelAgreements(ns).Get(ctx, expectedPodScale.GetName(), metav1.GetOptions{})
-			return err == nil && reflect.DeepEqual(actual, expectedPodScale)
-		}, timeout, interval).Should(BeTrue())
+		})
+
+		AfterEach(func() {
+
+		})
+
+		It("Creates the podscale if it matches the SLA service selector", func() {
+			ns := "default"
+			ctx := context.Background()
+			slaName := "foo-sla"
+			appName := "foo-app"
+
+			labels := map[string]string{
+				"app": "foo",
+			}
+
+			sla := newSLA(slaName, labels)
+			svc, pod := newApplication(appName, labels)
+
+			_, err := kubeClient.CoreV1().Services(ns).Create(ctx, svc, metav1.CreateOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+
+			_, err = kubeClient.CoreV1().Pods(ns).Create(ctx, pod, metav1.CreateOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+			_, err = systemAutoscalerClient.SystemautoscalerV1beta1().ServiceLevelAgreements(ns).Create(ctx, sla, metav1.CreateOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+
+			Eventually(func() bool {
+				actual, err := kubeClient.CoreV1().Services(ns).Get(ctx, svc.GetName(), metav1.GetOptions{})
+				return err == nil && actual.GetLabels()[SubjectToLabel] == sla.GetName()
+			}, timeout, interval).Should(BeTrue())
+		})
 	})
 })
 
@@ -83,6 +84,16 @@ func newApplication(name string, labels map[string]string) (*corev1.Service, *co
 			},
 			Spec: corev1.ServiceSpec{
 				Selector: podLabels,
+				Ports: []corev1.ServicePort{
+					{
+						Name: "http",
+						Port: 8000,
+						TargetPort: intstr.IntOrString{
+							Type:   0,
+							IntVal: 8000,
+						},
+					},
+				},
 			},
 		}, &corev1.Pod{
 			TypeMeta: metav1.TypeMeta{APIVersion: corev1.SchemeGroupVersion.String(), Kind: "pods"},
@@ -90,6 +101,13 @@ func newApplication(name string, labels map[string]string) (*corev1.Service, *co
 				Name:      "foobar",
 				Namespace: metav1.NamespaceDefault,
 				Labels:    podLabels,
+			},
+			Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{
+					Name:  "foobar",
+					Image: "gcr.io/distroless/static:nonroot",
+				},
+			},
 			},
 		}
 }

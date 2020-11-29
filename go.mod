@@ -3,7 +3,9 @@ module github.com/lterrac/system-autoscaler
 go 1.15
 
 require (
-	github.com/onsi/gomega v1.8.1 // indirect
+	github.com/go-logr/logr v0.3.0 // indirect
+	github.com/onsi/ginkgo v1.14.2
+	github.com/onsi/gomega v1.10.3
 	github.com/stretchr/testify v1.6.1
 	golang.org/x/tools v0.0.0-20200616195046-dc31b401abb5 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
@@ -11,7 +13,8 @@ require (
 	k8s.io/apimachinery v0.19.4
 	k8s.io/client-go v0.19.4
 	k8s.io/code-generator v0.19.4
+	k8s.io/klog v1.0.0
 	k8s.io/klog/v2 v2.2.0
 	k8s.io/metrics v0.19.3
-
+	sigs.k8s.io/controller-runtime v0.6.4
 )
