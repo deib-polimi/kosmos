@@ -52,6 +52,13 @@ var _ = Describe("PodScale controller", func() {
 				actual, err := kubeClient.CoreV1().Services(ns).Get(ctx, svc.GetName(), metav1.GetOptions{})
 				return err == nil && actual.GetLabels()[SubjectToLabel] == sla.GetName()
 			}, timeout, interval).Should(BeTrue())
+
+			Eventually(func() bool {
+				actual, err := systemAutoscalerClient.SystemautoscalerV1beta1().PodScales(ns).Get(ctx, "pod-" + pod.GetName(), metav1.GetOptions{})
+				return err == nil &&
+							actual.Spec.Pod == pod.GetName() &&
+							actual.Spec.SLA == sla.GetName()
+			}, timeout, interval).Should(BeTrue())
 		})
 	})
 })
