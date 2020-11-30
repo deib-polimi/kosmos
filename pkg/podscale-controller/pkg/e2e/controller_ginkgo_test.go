@@ -2,6 +2,7 @@ package e2e_test
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	systemautoscaler "github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
@@ -13,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-const namespace = "default"
+const namespace = "e2e"
 
 var _ = Describe("PodScale controller", func() {
 	Context("With an application deployed inside the cluster", func() {
@@ -37,6 +38,8 @@ var _ = Describe("PodScale controller", func() {
 			labels := map[string]string{
 				"app": "foo",
 			}
+
+			fmt.Println("ciao")
 
 			sla := newSLA(slaName, labels)
 			svc, pod := newApplication(appName, labels)
@@ -70,7 +73,7 @@ func newSLA(name string, labels map[string]string) *systemautoscaler.ServiceLeve
 		TypeMeta: metav1.TypeMeta{APIVersion: systemautoscaler.SchemeGroupVersion.String()},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: metav1.NamespaceDefault,
+			Namespace: namespace,
 		},
 		Spec: systemautoscaler.ServiceLevelAgreementSpec{
 			ServiceSelector: &metav1.LabelSelector{
@@ -88,7 +91,7 @@ func newApplication(name string, labels map[string]string) (*corev1.Service, *co
 			TypeMeta: metav1.TypeMeta{APIVersion: corev1.SchemeGroupVersion.String(), Kind: "services"},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
-				Namespace: metav1.NamespaceDefault,
+				Namespace: namespace,
 				Labels:    labels,
 			},
 			Spec: corev1.ServiceSpec{

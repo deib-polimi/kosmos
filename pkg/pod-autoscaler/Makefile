@@ -3,7 +3,7 @@ IMAGE = pod-autoscaler
 IMAGE_VERSION = $(shell git tag --points-at HEAD | sed '/$(IMAGE)\/.*/!s/.*//' | sed 's/\//:/')
 REPO = systemautoscaler
 
-.PHONY: all build coverage clean fmt release test vet
+.PHONY: all build coverage clean e2e fmt release test vet
 
 all: build test coverage clean
 
@@ -14,7 +14,10 @@ fmt:
 	@go fmt ./...
 
 test:
-	@go test -race $(go list ./... | grep -v e2e) --coverprofile=coverage.out
+	@go test -race $(shell go list ./... | grep -v e2e) --coverprofile=coverage.out
+
+e2e:
+	@go test -race $(go list ./... | grep e2e)
 
 coverage: test
 	@go tool cover -func=coverage.out
