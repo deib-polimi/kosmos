@@ -1,7 +1,11 @@
 name: e2e-tests
 
 on:
-  - push
+  push:
+    branches:
+      - "*"
+  pull_request:
+    types: ["edited", "closed", "reopened", "synchronize", "ready_for_review", "review_requested"]
 
 
 jobs:
