@@ -1,4 +1,4 @@
-package controller_test
+package e2e_test
 
 import (
 	"testing"

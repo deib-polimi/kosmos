@@ -8,7 +8,7 @@ import (
 // StateDiff wraps the changes to apply in the namespace to make it coherent with
 // the declared state.
 type StateDiff struct {
-	AddList []*corev1.Pod
+	AddList    []*corev1.Pod
 	DeleteList []*v1beta1.PodScale
 }
 
@@ -51,4 +51,3 @@ func ContainsService(list []*corev1.Service, element *corev1.Service) bool {
 	}
 	return false
 }
-

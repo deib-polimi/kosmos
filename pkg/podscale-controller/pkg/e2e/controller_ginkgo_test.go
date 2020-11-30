@@ -1,4 +1,4 @@
-package controller_test
+package e2e_test
 
 import (
 	"context"
@@ -12,6 +12,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
+
+const namespace = "default"
 
 var _ = Describe("PodScale controller", func() {
 	Context("With an application deployed inside the cluster", func() {
@@ -28,7 +30,6 @@ var _ = Describe("PodScale controller", func() {
 		})
 
 		It("Creates the podscale if it matches the SLA service selector", func() {
-			ns := "default"
 			ctx := context.Background()
 			slaName := "foo-sla"
 			appName := "foo-app"
@@ -40,24 +41,25 @@ var _ = Describe("PodScale controller", func() {
 			sla := newSLA(slaName, labels)
 			svc, pod := newApplication(appName, labels)
 
-			_, err := kubeClient.CoreV1().Services(ns).Create(ctx, svc, metav1.CreateOptions{})
+			_, err := kubeClient.CoreV1().Services(namespace).Create(ctx, svc, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
-			_, err = kubeClient.CoreV1().Pods(ns).Create(ctx, pod, metav1.CreateOptions{})
+			_, err = kubeClient.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
-			_, err = systemAutoscalerClient.SystemautoscalerV1beta1().ServiceLevelAgreements(ns).Create(ctx, sla, metav1.CreateOptions{})
+
+			_, err = systemAutoscalerClient.SystemautoscalerV1beta1().ServiceLevelAgreements(namespace).Create(ctx, sla, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
 			Eventually(func() bool {
-				actual, err := kubeClient.CoreV1().Services(ns).Get(ctx, svc.GetName(), metav1.GetOptions{})
+				actual, err := kubeClient.CoreV1().Services(namespace).Get(ctx, svc.GetName(), metav1.GetOptions{})
 				return err == nil && actual.GetLabels()[SubjectToLabel] == sla.GetName()
 			}, timeout, interval).Should(BeTrue())
 
 			Eventually(func() bool {
-				actual, err := systemAutoscalerClient.SystemautoscalerV1beta1().PodScales(ns).Get(ctx, "pod-" + pod.GetName(), metav1.GetOptions{})
+				actual, err := systemAutoscalerClient.SystemautoscalerV1beta1().PodScales(namespace).Get(ctx, "pod-"+pod.GetName(), metav1.GetOptions{})
 				return err == nil &&
-							actual.Spec.Pod == pod.GetName() &&
-							actual.Spec.SLA == sla.GetName()
+					actual.Spec.Pod == pod.GetName() &&
+					actual.Spec.SLA == sla.GetName()
 			}, timeout, interval).Should(BeTrue())
 		})
 	})
@@ -106,7 +108,7 @@ func newApplication(name string, labels map[string]string) (*corev1.Service, *co
 			TypeMeta: metav1.TypeMeta{APIVersion: corev1.SchemeGroupVersion.String(), Kind: "pods"},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "foobar",
-				Namespace: metav1.NamespaceDefault,
+				Namespace: namespace,
 				Labels:    podLabels,
 			},
 			Spec: corev1.PodSpec{Containers: []corev1.Container{

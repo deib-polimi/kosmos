@@ -336,7 +336,7 @@ func TestCreatePodScale(t *testing.T) {
 	expectedPodScale := NewPodScale(pod, sla, svc.Spec.Selector)
 
 	expectedLabels := map[string]string{
-		"app": "foo",
+		"app":          "foo",
 		SubjectToLabel: slaName,
 	}
 

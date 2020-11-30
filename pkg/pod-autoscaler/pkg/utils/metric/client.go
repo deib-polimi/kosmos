@@ -20,7 +20,7 @@ var (
 )
 
 type Client struct {
-	HttpClient  http.Client
+	HttpClient http.Client
 }
 
 // NewMetricClient returns a new MetricClient representing a metric client.
