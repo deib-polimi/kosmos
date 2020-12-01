@@ -16,7 +16,7 @@ jobs:
     - name: Check open pr
       shell: bash
       run: |
-        gh auth login --with-token ${{ secrets.CI_TOKEN }}
+        gh auth login --with-token < ${{ secrets.CI_TOKEN }}
 
         if echo $(gh pr list) | grep -w -q $(git rev-parse --abbrev-ref HEAD)
         then
