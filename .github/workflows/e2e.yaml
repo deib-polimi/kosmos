@@ -13,7 +13,7 @@ jobs:
     - name: Check open pr
       shell: bash
       run: |
-        if [[ echo $(gh pr list) | grep -w -q $(git rev-parse --abbrev-ref HEAD) ]]
+        if echo $(gh pr list) | grep -w -q $(git rev-parse --abbrev-ref HEAD)
         then
           echo "Starting e2e tests";
         else
