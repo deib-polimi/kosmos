@@ -1,19 +1,26 @@
 name: e2e-tests
 
 on:
-  push:
-    branches:
-      - "**"
-  pull_request:
-    types: ["edited", "closed", "reopened", "synchronize", "ready_for_review", "review_requested"]
+  - push
 
-
+# ["assigned", "unassigned", "labeled", "unlabeled", "opened", "edited", "closed", "reopened", "synchronize", "ready_for_review", "locked", "unlocked", "review_requested", "review_request_removed"]
 jobs:
 
   e2e:
     name: Run e2e tests
     runs-on: ubuntu-latest
     steps:
+    - uses: nelonoel/branch-name@v1
+
+    - name: Check open pr
+      shell: bash
+      run: |
+        if [[ echo $(gh pr list) | grep -w -q ${BRANCH_NAME} ]]
+        then
+          echo "Starting e2e tests";
+        else
+          exit 1;
+        fi
 
     - name: Set up Go 1.15
       uses: actions/setup-go@v2
