@@ -10,9 +10,14 @@ jobs:
     name: Run e2e tests
     runs-on: ubuntu-latest
     steps:
+
+    - uses: actions/checkout@v2
+
     - name: Check open pr
       shell: bash
       run: |
+        gh auth login --with-token < ${{ secrets.CI_TOKEN }}
+
         if echo $(gh pr list) | grep -w -q $(git rev-parse --abbrev-ref HEAD)
         then
           echo "Starting e2e tests";
