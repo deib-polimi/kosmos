@@ -7,11 +7,12 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-.PHONY: all build coverage clean manifests release test
+.PHONY: all build coverage clean e2e fmt install install-crds install-rbac manifests release test vet
 
 all: build test coverage manifests release clean
 
-build:
+# Build binary
+build: fmt manifests test vet
 	$(call action, build)
 
 coverage:
@@ -20,14 +21,36 @@ coverage:
 clean:
 	$(call action, clean)
 
+fmt:
+	$(call action, fmt)
+
+install: install-crds install-rbac
+
+install-crds: manifests
+	@echo "install CRDs manifests"
+	@kubectl apply -f config/crd/bases
+
+install-rbac:
+	@echo "install RBAC"
+	@kubectl apply -f config/permissions
+
 release:
 	$(call action, release)
 
 test:
+	@echo "run local tests"
 	$(call action, test)
+
+e2e: install test
+	@echo "run e2e tests"
+	$(call action, e2e)
+
+vet:
+	$(call action, vet)
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
+	@echo "generate CRDs manifests"
 	$(CONTROLLER_GEN) crd paths="./pkg/apis/systemautoscaler/..." output:crd:artifacts:config=config/crd/bases
 
 controller-gen:

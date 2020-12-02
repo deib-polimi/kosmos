@@ -13,12 +13,12 @@ import (
 )
 
 var (
-	defaultPort      = 5000
-	defaultListPath  = "/metrics/list"
+	defaultPort     = 5000
+	defaultListPath = "/metrics/list"
 )
 
 type Client struct {
-	HttpClient  http.Client
+	HttpClient http.Client
 }
 
 // NewMetricClient returns a new MetricClient representing a metric client.
@@ -76,7 +76,6 @@ func (c Client) GetMetrics(pod *v1.Pod) (map[string]string, error) {
 		return nil, err
 	}
 
-
 	// Cast it to to map for better handling
 	metricMap := MetricListToMap(metricList)
 
@@ -85,7 +84,7 @@ func (c Client) GetMetrics(pod *v1.Pod) (map[string]string, error) {
 
 // Given a MetricValueList which is composed by a list of MetricValue
 // returns a map key-value, where the key is the name of the metric, and the value is its value.
-func MetricListToMap (metrics custom_metrics.MetricValueList) map[string]string {
+func MetricListToMap(metrics custom_metrics.MetricValueList) map[string]string {
 	metricMap := make(map[string]string)
 	for _, item := range metrics.Items {
 		metricMap[item.Metric.Name] = item.Value.String()

@@ -38,8 +38,6 @@ func main() {
 		klog.Fatalf("Error building example clientset: %s", err.Error())
 	}
 
-
-
 	podScalesInformerFactory := informers.NewSharedInformerFactory(podScalesClient, time.Second*30)
 
 	// TODO: adjust arguments to recommender

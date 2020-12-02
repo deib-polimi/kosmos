@@ -31,7 +31,7 @@ func computeMemoryResource(pod *v1.Pod, podScale *v1beta1.PodScale, metricMap ma
 	newDesiredResource := resource.NewQuantity(desiredResource.Value()+1, resource.BinarySI)
 
 	// For logging purpose
-	klog.Info("Computing memory resource for Pod: %s, actual value: %s, desired value: %s, new value: %s", pod.Name, actualResource.String(), desiredResource.String(), newDesiredResource.String())
+	klog.Infof("Computing memory resource for Pod: %s, actual value: %s, desired value: %s, new value: %s", pod.Name, actualResource.String(), desiredResource.String(), newDesiredResource.String())
 
 	return newDesiredResource
 }
@@ -46,7 +46,7 @@ func computeCPUResource(pod *v1.Pod, podScale *v1beta1.PodScale, metricMap map[s
 	newDesiredResource := resource.NewQuantity(desiredResource.Value()+1, resource.BinarySI)
 
 	// For logging purpose
-	klog.Info("Computing CPU resource for Pod: %s, actual value: %s, desired value: %s, new value: %s", pod.Name, actualResource.String(), desiredResource.String(), newDesiredResource.String())
+	klog.Infof("Computing CPU resource for Pod: %s, actual value: %s, desired value: %s, new value: %s", pod.Name, actualResource.String(), desiredResource.String(), newDesiredResource.String())
 
 	return newDesiredResource
 }

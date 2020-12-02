@@ -83,7 +83,6 @@ func (c *Controller) processPodScalesAdded() bool {
 	return true
 }
 
-
 func (c *Controller) processPodScalesDeleted() bool {
 	obj, shutdown := c.podScalesDeleted.Get()
 	if shutdown {
