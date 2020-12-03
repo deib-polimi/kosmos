@@ -1,10 +1,10 @@
 package recommender
 
 import (
-	"context"
 	"fmt"
+	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
+	"github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/types"
 	"github.com/modern-go/concurrent"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -50,34 +50,61 @@ type Controller struct {
 	// podScalesClientset is a clientset for our own API group
 	podScalesClientset podscalesclientset.Interface
 
+	podScalesInformer informers.PodScaleInformer
+
 	podScalesLister listers.PodScaleLister
 
 	podScalesSynced cache.InformerSynced
 
+	slaLister listers.ServiceLevelAgreementLister
+
 	// kubernetesCLientset is the client-go of kubernetes
 	kubernetesClientset kubernetes.Clientset
 
-	// podScalesAdded contains all the pods that should be monitored
-	podScalesAdded workqueue.RateLimitingInterface
+	// podScalesAddedQueue contains all the pods that should be monitored
+	podScalesAddedQueue workqueue.RateLimitingInterface
 
-	// podScalesDeleted contains all the pods that should not be monitored
-	podScalesDeleted workqueue.RateLimitingInterface
+	// podScalesDeletedQueue contains all the pods that should not be monitored
+	podScalesDeletedQueue workqueue.RateLimitingInterface
 
-	// podsMap is a map. The keys are a set a of namaspace/name of the podscale and the values are the pods.
-	podsMap concurrent.Map
+	// recommendNodeQueue contains all the nodes that needs a recommendation
+	recommendNodeQueue workqueue.RateLimitingInterface
+
+	// status represents the state of the controller
+	status *Status
 
 	// metricPoller is a client that polls the metrics from the pod.
-	metricPoller Client
+	metricPoller *Client
 
 	// recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
 	recorder record.EventRecorder
+
+	// out is the output channel of the recommender.
+	out chan types.NodeScales
+}
+
+// Represents the state of the controller
+type Status struct {
+
+	// Key: NodeName, Value: namespace-name of the pod scale
+	nodeMap concurrent.Map
+
+	// Key: namespace-name of the pod scale, Value: assigned pod
+	podMap concurrent.Map
+
+	// Key: namespace-name of the pod scale, Value: assigned logic
+	logicMap concurrent.Map
 }
 
 // NewController returns a new sample controller
 func NewController(
+	kubernetesClientset *kubernetes.Clientset,
 	podScalesClientset podscalesclientset.Interface,
-	podScaleInformer informers.PodScaleInformer) *Controller {
+	podScaleInformer informers.PodScaleInformer,
+	slaInformer informers.ServiceLevelAgreementInformer,
+	out chan types.NodeScales,
+	) *Controller {
 
 	// Create event broadcaster
 	// Add sample-controller types to the default Kubernetes Scheme so Events can be
@@ -88,16 +115,28 @@ func NewController(
 	eventBroadcaster.StartStructuredLogging(0)
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
+	// Create Controller status
+	status := &Status{
+		nodeMap:  *concurrent.NewMap(),
+		podMap:   *concurrent.NewMap(),
+		logicMap: *concurrent.NewMap(),
+	}
+
 	// Instantiate the Controller
 	controller := &Controller{
-		podScalesClientset: podScalesClientset,
-		podScalesLister:    podScaleInformer.Lister(),
-		podScalesSynced:    podScaleInformer.Informer().HasSynced,
-		podScalesAdded:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "PodScalesAdded"),
-		podScalesDeleted:   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "PodScalesDeleted"),
-		podsMap:            *concurrent.NewMap(),
-		metricPoller:       NewMetricClient(),
-		recorder:           recorder,
+		podScalesClientset:    podScalesClientset,
+		podScalesInformer:     podScaleInformer,
+		podScalesLister:       podScaleInformer.Lister(),
+		slaLister:             slaInformer.Lister(),
+		podScalesSynced:       podScaleInformer.Informer().HasSynced,
+		kubernetesClientset:   *kubernetesClientset,
+		podScalesAddedQueue:   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "PodScalesAdded"),
+		podScalesDeletedQueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "PodScalesDeleted"),
+		recommendNodeQueue:    workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "RecommendQueue"),
+		status:                status,
+		metricPoller:          NewMetricClient(),
+		recorder:              recorder,
+		out:                   out,
 	}
 
 	klog.Info("Setting up event handlers")
@@ -117,8 +156,8 @@ func NewController(
 // workers to finish processing their current work items.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer utilruntime.HandleCrash()
-	defer c.podScalesAdded.ShutDown()
-	defer c.podScalesDeleted.ShutDown()
+	defer c.podScalesAddedQueue.ShutDown()
+	defer c.podScalesDeletedQueue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches
 	klog.Info("Starting podScale controller")
@@ -135,6 +174,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 		go wait.Until(c.runPodScaleAddedWorker, time.Second, stopCh)
 		go wait.Until(c.runPodScaleRemovedWorker, time.Second, stopCh)
 		go wait.Until(c.runRecommenderWorker, 5*time.Second, stopCh)
+		go wait.Until(c.runRecommendNodeWorker, time.Second, stopCh)
 	}
 
 	klog.Info("Started workers")
@@ -144,50 +184,110 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	return nil
 }
 
+// Handle all the pod scales that has been added
 func (c *Controller) runPodScaleAddedWorker() {
 	for c.processPodScalesAdded() {
 	}
 }
 
+// Handle all the pod scales that has been deleted
 func (c *Controller) runPodScaleRemovedWorker() {
-	for c.processPodScalesAdded() {
+	for c.processPodScalesRemoved() {
 	}
 }
 
+// Enqueue a node to the recommend node queue
 func (c *Controller) runRecommenderWorker() {
-	for c.recommend() {
-	}
-}
-
-func (c *Controller) recommend() bool {
-
-	c.podsMap.Range(func(key, value interface{}) bool {
-		// Retrieve the pod scale namespace and name
-		namespace, name, err := cache.SplitMetaNamespaceKey(key.(string))
-		if err != nil {
-			utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key))
-			return true
-		}
-		// Get the PodScale resource with this namespace/name
-		podScale, err := c.podScalesLister.PodScales(namespace).Get(name)
-		if err != nil {
-			klog.Error(err)
-		}
-		// Retrieve the pod
-		pod := value.(*corev1.Pod)
-		metrics, err := c.metricPoller.GetMetrics(pod)
-		if err != nil {
-			klog.Error(err)
-		}
-		newPodScale := c.computePodScale(pod, podScale, metrics)
-
-		// Update the PodScale
-		_, err = c.podScalesClientset.SystemautoscalerV1beta1().PodScales(podScale.Namespace).Update(context.TODO(), newPodScale, metav1.UpdateOptions{})
-		if err != nil {
-			klog.Error(err)
-		}
-
+	c.status.nodeMap.Range(func(key, value interface{}) bool {
+		c.recommendNodeQueue.Add(key)
 		return true
 	})
-	return true
+}
+
+// Handle all the nodes that needs a recommendation
+func (c *Controller) runRecommendNodeWorker() {
+	for c.processRecommendNode() {
+	}
+	klog.Info("Finished")
+}
+
+func (c *Controller) recommendNode(node string) error {
+	klog.Info("Recommending to node ", node)
+	result, ok := c.status.nodeMap.Load(node)
+	if !ok {
+		return fmt.Errorf("the node does not have any pod scale associated with it")
+	}
+	keys := result.(map[string]struct{})
+	newPodScales := make([]v1beta1.PodScale, 0)
+	for key, _ := range keys {
+		newPodScale, err := c.recommend(key)
+		if err != nil {
+			//utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key))
+			return err
+		}
+		newPodScales = append(newPodScales, *newPodScale)
+	}
+	nodeScales := types.NodeScales {
+		Node: node,
+		PodScales: newPodScales,
+	}
+	c.out <- nodeScales
+	return nil
+}
+
+func (c *Controller) recommend(key string) (*v1beta1.PodScale, error) {
+	klog.Info("Recommending for ", key)
+
+	// Retrieve the pod scale namespace and name
+	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		//utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key))
+		return nil, err
+	}
+
+	// Get the PodScale resource with this namespace/name
+	podScale, err := c.podScalesLister.PodScales(namespace).Get(name)
+	if err != nil {
+		//utilruntime.HandleError(fmt.Errorf("error: %s, failed to get pod scale with name %s and namespace %s from lister", err, name, namespace))
+		return nil, err
+	}
+
+	// Retrieve the pod
+	podInterface, ok := c.status.podMap.Load(key)
+	if !ok {
+		return nil, fmt.Errorf("the key %s has no pod associated with it", key)
+	}
+	pod, ok := podInterface.(*corev1.Pod)
+	if !ok {
+		return nil, fmt.Errorf("error: %s, failed to cast logic with name %s and namespace %s", err, podScale.Spec.SLARef.Name, podScale.Spec.SLARef.Namespace)
+	}
+
+	// Retrieve the sla
+	sla, err := c.slaLister.ServiceLevelAgreements(podScale.Spec.SLARef.Namespace).Get(podScale.Spec.SLARef.Name)
+	if err != nil {
+		//utilruntime.HandleError(fmt.Errorf("error: %s, failed to get sla with name %s and namespace %s from lister", err, podScale.Spec.SLARef.Name, podScale.Spec.SLARef.Namespace))
+		return nil, err
+	}
+
+	// Retrieve the logic
+	logicInterface, ok := c.status.logicMap.Load(key)
+	if !ok {
+		return nil, fmt.Errorf("the key %s has no logic associated with it", key)
+	}
+	logic, ok := logicInterface.(Logic)
+	if !ok {
+		return nil, fmt.Errorf("error: %s, failed to cast logic with name %s and namespace %s", err, podScale.Spec.SLARef.Name, podScale.Spec.SLARef.Namespace)
+	}
+
+	// Retrieve the metrics
+	metrics, err := c.metricPoller.getMetrics(pod)
+	if err != nil {
+		return nil, fmt.Errorf("error: %s, failed to get metrics from pod with name %s and namespace %s from lister", err, pod.GetName(), pod.GetNamespace())
+	}
+
+	// Compute the new resources
+	newPodScale := logic.computePodScale(pod, podScale, sla, metrics)
+
+	return newPodScale, nil
+
 }

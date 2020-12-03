@@ -9,55 +9,52 @@ import (
 )
 
 func (c *Controller) enqueuePodScaleAdded(new interface{}) {
-	podScale, _ := new.(v1beta1.PodScale)
-	klog.Info("Add PodScale ", podScale.Name, " in namespace ", podScale.Namespace)
 	var key string
 	var err error
-	if key, err = cache.MetaNamespaceKeyFunc(podScale); err != nil {
+	if key, err = cache.MetaNamespaceKeyFunc(new); err != nil {
 		utilruntime.HandleError(err)
 		return
 	}
-	c.podScalesAdded.Add(key)
+	c.podScalesAddedQueue.Add(key)
 }
 
 func (c *Controller) enqueuePodScaleUpdated(old, new interface{}) {
-	oldPodScale := old.(v1beta1.PodScale)
-	newPodScale := new.(v1beta1.PodScale)
-	// To avoid race condition when unnecessary
-	if oldPodScale.Spec.PodRef.Name != newPodScale.Spec.PodRef.Name {
-		c.podScalesAdded.Add(new)
-		c.podScalesDeleted.Add(old)
+	oldPodScale := old.(*v1beta1.PodScale)
+	newPodScale := new.(*v1beta1.PodScale)
+	if oldPodScale.Spec.PodRef.Name == newPodScale.Spec.PodRef.Name &&
+		oldPodScale.Spec.PodRef.Namespace == newPodScale.Spec.PodRef.Namespace {
+		return
 	}
+	c.enqueuePodScaleAdded(new)
+	c.enqueuePodScaleDeleted(old)
 }
 
 func (c *Controller) enqueuePodScaleDeleted(old interface{}) {
-	podScale, _ := old.(v1beta1.PodScale)
-	klog.Info("Deleted PodScale ", podScale.Name, " in namespace ", podScale.Namespace)
 	var key string
 	var err error
-	if key, err = cache.MetaNamespaceKeyFunc(podScale); err != nil {
+	if key, err = cache.MetaNamespaceKeyFunc(old); err != nil {
 		utilruntime.HandleError(err)
 		return
 	}
-	c.podScalesDeleted.Add(key)
+	c.podScalesDeletedQueue.Add(key)
 }
 
 //
 func (c *Controller) processPodScalesAdded() bool {
-	obj, shutdown := c.podScalesAdded.Get()
+	obj, shutdown := c.podScalesAddedQueue.Get()
 	if shutdown {
 		return false
 	}
 
 	err := func(obj interface{}) error {
 		// Signals to the queue that the element has been processed
-		defer c.podScalesAdded.Done(obj)
+		defer c.podScalesAddedQueue.Done(obj)
 		var key string
 		var ok bool
 		// We expect strings to come off the workqueue. These are of the form namespace/name.
 		if key, ok = obj.(string); !ok {
 			// If the item is invalid
-			c.podScalesAdded.Forget(obj)
+			c.podScalesAddedQueue.Forget(obj)
 			utilruntime.HandleError(fmt.Errorf("expected string in workqueue but got %#v", obj))
 			return nil
 		}
@@ -65,12 +62,12 @@ func (c *Controller) processPodScalesAdded() bool {
 		// podScale resource to be synced.
 		if err := c.syncPodScalesAdded(key); err != nil {
 			// Put the item back on the workqueue to handle any transient errors.
-			c.podScalesAdded.AddRateLimited(key)
+			c.podScalesAddedQueue.AddRateLimited(key)
 			return fmt.Errorf("error syncing '%s': %s, requeuing", key, err.Error())
 		}
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
-		c.podScalesAdded.Forget(obj)
+		c.podScalesAddedQueue.Forget(obj)
 		klog.Infof("Successfully synced '%s'", key)
 		return nil
 	}(obj)
@@ -91,13 +88,13 @@ func (c *Controller) processPodScalesDeleted() bool {
 
 	err := func(obj interface{}) error {
 		// Signals to the queue that the element has been processed
-		defer c.podScalesDeleted.Done(obj)
+		defer c.podScalesDeletedQueue.Done(obj)
 		var key string
 		var ok bool
 		// We expect strings to come off the workqueue. These are of the form namespace/name.
 		if key, ok = obj.(string); !ok {
 			// If the item is invalid
-			c.podScalesDeleted.Forget(obj)
+			c.podScalesDeletedQueue.Forget(obj)
 			utilruntime.HandleError(fmt.Errorf("expected string in workqueue but got %#v", obj))
 			return nil
 		}
@@ -105,12 +102,53 @@ func (c *Controller) processPodScalesDeleted() bool {
 		// podScale resource to be synced.
 		if err := c.syncPodScalesDeleted(key); err != nil {
 			// Put the item back on the workqueue to handle any transient errors.
-			c.podScalesDeleted.AddRateLimited(key)
+			c.podScalesDeletedQueue.AddRateLimited(key)
 			return fmt.Errorf("error syncing '%s': %s, requeuing", key, err.Error())
 		}
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
-		c.podScalesDeleted.Forget(obj)
+		c.podScalesDeletedQueue.Forget(obj)
+		klog.Infof("Successfully synced '%s'", key)
+		return nil
+	}(obj)
+
+	if err != nil {
+		utilruntime.HandleError(err)
+		return true
+	}
+
+	return true
+}
+
+
+func (c *Controller) processRecommendNode() bool {
+	obj, shutdown := c.recommendNodeQueue.Get()
+	if shutdown {
+		return false
+	}
+
+	err := func(obj interface{}) error {
+		// Signals to the queue that the element has been processed
+		defer c.recommendNodeQueue.Done(obj)
+		var key string
+		var ok bool
+		// We expect strings to come off the workqueue. These are of the form namespace/name.
+		if key, ok = obj.(string); !ok {
+			// If the item is invalid
+			c.recommendNodeQueue.Forget(obj)
+			utilruntime.HandleError(fmt.Errorf("expected string in workqueue but got %#v", obj))
+			return nil
+		}
+		// Run the syncHandler, passing it the namespace/name string of the
+		// podScale resource to be synced.
+		if err := c.recommendNode(key); err != nil {
+			// Put the item back on the workqueue to handle any transient errors.
+			c.recommendNodeQueue.AddRateLimited(key)
+			return fmt.Errorf("error syncing '%s': %s, requeuing", key, err.Error())
+		}
+		// Finally, if no error occurs we Forget this item so it does not
+		// get queued again until another change happens.
+		c.recommendNodeQueue.Forget(obj)
 		klog.Infof("Successfully synced '%s'", key)
 		return nil
 	}(obj)
