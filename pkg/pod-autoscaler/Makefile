@@ -3,15 +3,21 @@ IMAGE = pod-autoscaler
 IMAGE_VERSION = $(shell git tag --points-at HEAD | sed '/$(IMAGE)\/.*/!s/.*//' | sed 's/\//:/')
 REPO = systemautoscaler
 
-.PHONY: all build test coverage clean release
+.PHONY: all build coverage clean e2e fmt release test vet
 
 all: build test coverage clean
 
-build:
+build: fmt vet test
 	$(BUILD_SETTINGS) go build -trimpath -o "$(IMAGE)" ./main.go
 
+fmt:
+	@go fmt ./...
+
 test:
-	@go test -race ./... --coverprofile=coverage.out
+	@go test -race $(shell go list ./... | grep -v e2e) --coverprofile=coverage.out
+
+e2e:
+	@go test -race $(go list ./... | grep e2e)
 
 coverage: test
 	@go tool cover -func=coverage.out
@@ -24,6 +30,9 @@ release:
 	else \
 		echo "$(IMAGE) unchanged: no version tag on HEAD commit" ;\
 	fi
+
+vet:
+	@go vet ./...
 
 clean:
 	@rm -rf ./$(IMAGE)
