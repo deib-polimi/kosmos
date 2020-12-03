@@ -144,6 +144,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer utilruntime.HandleCrash()
 	defer c.podScalesAddedQueue.ShutDown()
 	defer c.podScalesDeletedQueue.ShutDown()
+	defer c.recommendNodeQueue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches
 	klog.Info("Starting podScale controller")

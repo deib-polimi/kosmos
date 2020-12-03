@@ -41,6 +41,9 @@ func (c *Controller) syncPodScalesAdded(key string) error {
 
 	// Retrieve the node where the pod is deployed
 	node := pod.Spec.NodeName
+	if node != "" {
+		return fmt.Errorf("the node name is empty")
+	}
 
 	// Store in the controller state
 	result, _ := c.status.nodeMap.LoadOrStore(node, make(map[string]struct{}))
@@ -83,6 +86,9 @@ func (c *Controller) syncPodScalesDeleted(key string) error {
 
 	// Retrieve the node where the pod is deployed
 	node := pod.Spec.NodeName
+	if node != "" {
+		return fmt.Errorf("the node name is empty")
+	}
 
 	// Delete the key from controller state
 	result, _ := c.status.nodeMap.LoadOrStore(node, make(map[string]struct{}))
