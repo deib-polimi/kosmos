@@ -4,22 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/klog/v2"
 	"net"
 	"net/http"
 	"net/url"
 	"time"
-)
 
-// TODO: for now, the default port is 5000 and the path is on /metrics/list
-// in future it could be changed allowing the users to insert the port and path
-// another future work is allow to list the path of the metric in the CRD, in this way
-// is not needed to poll all the metrics of the pods, and we can selectively poll
-// the metric we need to use
-var (
-	defaultPort     = 5000
-	defaultListPath = "/metrics/list"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/klog/v2"
 )
 
 type Client struct {
@@ -43,7 +34,7 @@ func NewMetricClient() *Client {
 	}
 	client := &Client{
 		httpClient: httpClient,
-		host: "metrics.pod-autoscaler.com:30080",
+		host:       "ingress-nginx-controller.ingress-nginx.svc.cluster.local:7000",
 	}
 	return client
 }
@@ -73,13 +64,10 @@ func (c Client) getMetrics(pod *v1.Pod) (map[string]interface{}, error) {
 		return nil, err
 	}
 
-	klog.Info(request)
-
 	// Send the request
 	response, err := c.httpClient.Do(request)
 	if err != nil {
 		klog.Error(err)
-		return nil, err
 	}
 
 	// Parse the response

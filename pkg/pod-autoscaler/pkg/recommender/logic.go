@@ -8,15 +8,18 @@ import (
 	"math"
 )
 
+// Logic is the logic with which the recommender suggests new resources
 type Logic interface {
 	computePodScale(pod *v1.Pod, podScale *v1beta1.PodScale, sla *v1beta1.ServiceLevelAgreement, metricMap map[string]interface{}) *v1beta1.PodScale
 }
 
+// ControlTheoryLogic is the logic that apply control theory in order to recommend new resources
 type ControlTheoryLogic struct {
 	xcprec float64
 	cores  float64
 }
 
+// newControlTheoryLogic returns a new control theory logic
 func newControlTheoryLogic() *ControlTheoryLogic {
 	return &ControlTheoryLogic{
 		xcprec: 1,
@@ -36,6 +39,8 @@ const (
 	DC          = 0.5
 )
 
+// computePodScale computes a new pod scale for a given pod.
+// It also requires the old pod scale, the service level agreement and the pod metrics.
 func (logic *ControlTheoryLogic) computePodScale(pod *v1.Pod, podScale *v1beta1.PodScale, sla *v1beta1.ServiceLevelAgreement, metricMap map[string]interface{}) *v1beta1.PodScale {
 
 	// Compute the cpu and memory value for the pod
@@ -52,6 +57,7 @@ func (logic *ControlTheoryLogic) computePodScale(pod *v1.Pod, podScale *v1beta1.
 	return newPodScale
 }
 
+// computeMemoryResource computes memory resources for a given pod.
 func (logic *ControlTheoryLogic) computeMemoryResource(pod *v1.Pod, podScale *v1beta1.PodScale, sla *v1beta1.ServiceLevelAgreement, metricMap map[string]interface{}) *resource.Quantity {
 
 	// Retrieve the value of actual and desired cpu resources
@@ -67,6 +73,7 @@ func (logic *ControlTheoryLogic) computeMemoryResource(pod *v1.Pod, podScale *v1
 	return newDesiredResource
 }
 
+// computeMemoryResource computes cpu resources for a given pod.
 func (logic *ControlTheoryLogic) computeCPUResource(pod *v1.Pod, podScale *v1beta1.PodScale, sla *v1beta1.ServiceLevelAgreement, metricMap map[string]interface{}) *resource.Quantity {
 
 	// Retrieve the value of actual and desired cpu resources

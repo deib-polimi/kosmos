@@ -2,10 +2,11 @@ package recommender
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
 	"github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/types"
 	"github.com/modern-go/concurrent"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -25,21 +26,6 @@ import (
 )
 
 const controllerAgentName = "recommender"
-
-const (
-	// SuccessSynced is used as part of the Event 'reason' when a podScale is synced
-	SuccessSynced = "Synced"
-	// ErrResourceExists is used as part of the Event 'reason' when a podScale fails
-	// to sync due to a Deployment of the same name already existing.
-	ErrResourceExists = "ErrResourceExists"
-
-	// MessageResourceExists is the message used for Events when a resource
-	// fails to sync due to a Deployment already existing
-	MessageResourceExists = "Resource %q already exists and is not managed by podScale"
-	// MessageResourceSynced is the message used for an Event fired when a podScale
-	// is synced successfully
-	MessageResourceSynced = "podScale synced successfully"
-)
 
 // Controller is the controller that recommends resources to the pods.
 // For each Pod Scale assigned to the recommender, it will have a pod saved in a list.
@@ -84,7 +70,7 @@ type Controller struct {
 	out chan types.NodeScales
 }
 
-// Represents the state of the controller
+// Status represents the state of the controller
 type Status struct {
 
 	// Key: NodeName, Value: namespace-name of the pod scale
@@ -97,14 +83,14 @@ type Status struct {
 	logicMap concurrent.Map
 }
 
-// NewController returns a new sample controller
+// NewController returns a new recommender
 func NewController(
 	kubernetesClientset *kubernetes.Clientset,
 	podScalesClientset podscalesclientset.Interface,
 	podScaleInformer informers.PodScaleInformer,
 	slaInformer informers.ServiceLevelAgreementInformer,
 	out chan types.NodeScales,
-	) *Controller {
+) *Controller {
 
 	// Create event broadcaster
 	// Add sample-controller types to the default Kubernetes Scheme so Events can be
@@ -169,7 +155,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	}
 
 	klog.Info("Starting workers")
-	// Launch two workers to process podScale resources
+	// Launch the workers to process podScale resources and recommend new pod scales
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runPodScaleAddedWorker, time.Second, stopCh)
 		go wait.Until(c.runPodScaleRemovedWorker, time.Second, stopCh)
@@ -192,7 +178,7 @@ func (c *Controller) runPodScaleAddedWorker() {
 
 // Handle all the pod scales that has been deleted
 func (c *Controller) runPodScaleRemovedWorker() {
-	for c.processPodScalesRemoved() {
+	for c.processPodScalesDeleted() {
 	}
 }
 
@@ -208,18 +194,23 @@ func (c *Controller) runRecommenderWorker() {
 func (c *Controller) runRecommendNodeWorker() {
 	for c.processRecommendNode() {
 	}
-	klog.Info("Finished")
 }
 
 func (c *Controller) recommendNode(node string) error {
+	// Recommend to all pods in a node new pod scales resources.
 	klog.Info("Recommending to node ", node)
-	result, ok := c.status.nodeMap.Load(node)
-	if !ok {
+
+	result, present := c.status.nodeMap.Load(node)
+	if !present {
 		return fmt.Errorf("the node does not have any pod scale associated with it")
 	}
-	keys := result.(map[string]struct{})
+	keys, ok := result.(map[string]struct{})
+	if !ok {
+		return fmt.Errorf("unable to cast the podscale keys from node map")
+	}
+
 	newPodScales := make([]v1beta1.PodScale, 0)
-	for key, _ := range keys {
+	for key := range keys {
 		newPodScale, err := c.recommend(key)
 		if err != nil {
 			//utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key))
@@ -227,10 +218,14 @@ func (c *Controller) recommendNode(node string) error {
 		}
 		newPodScales = append(newPodScales, *newPodScale)
 	}
-	nodeScales := types.NodeScales {
-		Node: node,
+
+	nodeScales := types.NodeScales{
+		Node:      node,
 		PodScales: newPodScales,
 	}
+
+	// Send to output channel.
+	// The contention manager will handle the new pod scales of the node.
 	c.out <- nodeScales
 	return nil
 }

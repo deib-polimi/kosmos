@@ -21,7 +21,6 @@ func usersMock(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(`{'response_time':5.0}`))
 }
 
-
 func TestGetMetrics(t *testing.T) {
 	client := NewMetricClient()
 	server := serverMock()

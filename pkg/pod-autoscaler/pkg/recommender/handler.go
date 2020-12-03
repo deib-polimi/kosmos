@@ -81,7 +81,7 @@ func (c *Controller) processPodScalesAdded() bool {
 }
 
 func (c *Controller) processPodScalesDeleted() bool {
-	obj, shutdown := c.podScalesDeleted.Get()
+	obj, shutdown := c.podScalesDeletedQueue.Get()
 	if shutdown {
 		return false
 	}
@@ -119,7 +119,6 @@ func (c *Controller) processPodScalesDeleted() bool {
 
 	return true
 }
-
 
 func (c *Controller) processRecommendNode() bool {
 	obj, shutdown := c.recommendNodeQueue.Get()
