@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example-flask
+spec:
+  selector:
+    matchLabels:
+      app: example-flask
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: example-flask
+    spec:
+      containers:
+        - name: example-flask
+          image: pentabanana/metrics
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: example-flask
+  labels:
+    app: example-flask
+spec:
+  ports:
+    - port: 5000
+  selector:
+    app: example-flask
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: example-flask
+spec:
+  rules:
+    - host: "flask.k-test.com"
+      http:
+        paths:
+          - pathType: Prefix
+            path: "/"
+            backend:
+              service:
+                name: example-flask
+                port:
+                  number: 5000
