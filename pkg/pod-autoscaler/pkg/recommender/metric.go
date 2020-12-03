@@ -4,90 +4,86 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/metrics/pkg/apis/custom_metrics"
 	"net"
 	"net/http"
 	"net/url"
 	"time"
-)
 
-var (
-	defaultPort     = 5000
-	defaultListPath = "/metrics/list"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/klog/v2"
 )
 
 type Client struct {
-	HttpClient http.Client
+	httpClient http.Client
+	host       string
 }
 
 // NewMetricClient returns a new MetricClient representing a metric client.
-func NewMetricClient() Client {
+func NewMetricClient() *Client {
 	httpClient := http.Client{
 		Transport: &http.Transport{
 			DialContext: (&net.Dialer{
 				Timeout: 90 * time.Second,
 			}).DialContext,
-			MaxIdleConns:          0,
+			// TODO: Some of those value should be tuned
+			MaxIdleConns:          10,
 			IdleConnTimeout:       90 * time.Second,
 			ExpectContinueTimeout: 1 * time.Second,
 		},
-		Timeout: 90 * time.Second,
+		Timeout: 5 * time.Second,
 	}
-	client := Client{
-		HttpClient: httpClient,
+	client := &Client{
+		httpClient: httpClient,
+		host:       "ingress-nginx-controller.ingress-nginx.svc.cluster.local:7000",
 	}
 	return client
 }
 
-// GetMetrics returns a list of the the metrics of a pod.
-func (c Client) GetMetrics(pod *v1.Pod) (map[string]string, error) {
+// getMetrics returns a list of the the metrics of a pod.
+func (c Client) getMetrics(pod *v1.Pod) (map[string]interface{}, error) {
 
 	// Retrieve the location of the pod's metrics server
 	address := pod.Status.PodIP
-	port := defaultPort
-	path := defaultListPath
+
+	// Compose host and path
+	host := c.host
+	path := fmt.Sprintf("%s/metrics/window/minute/5", address)
 
 	// Create the request
 	metricServerURL := url.URL{
+		// TODO: http is not a good protocol for polling data
+		// grpc can be a good alternative, but the pods should implement a grpc server
+		// offerings the metrics
 		Scheme: "http",
-		Host:   fmt.Sprintf("%s:%d", address, port),
+		Host:   host,
 		Path:   path,
 	}
 	request, err := http.NewRequest(http.MethodGet, metricServerURL.String(), nil)
 	if err != nil {
+		klog.Error(err)
 		return nil, err
 	}
 
 	// Send the request
-	response, err := c.HttpClient.Do(request)
+	response, err := c.httpClient.Do(request)
 	if err != nil {
-		return nil, err
+		klog.Error(err)
 	}
 
 	// Parse the response
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return nil, err
-	}
-	var metricList custom_metrics.MetricValueList
-	err = json.Unmarshal(body, &metricList)
-	if err != nil {
+		klog.Error(err)
 		return nil, err
 	}
 
-	// Cast it to to map for better handling
-	metricMap := MetricListToMap(metricList)
+	var metricMap map[string]interface{}
+	klog.Info(string(body))
+	err = json.Unmarshal(body, &metricMap)
+	if err != nil {
+		klog.Error(err)
+		return nil, err
+	}
 
 	return metricMap, nil
-}
-
-// Given a MetricValueList which is composed by a list of MetricValue
-// returns a map key-value, where the key is the name of the metric, and the value is its value.
-func MetricListToMap(metrics custom_metrics.MetricValueList) map[string]string {
-	metricMap := make(map[string]string)
-	for _, item := range metrics.Items {
-		metricMap[item.Metric.Name] = item.Value.String()
-	}
-	return metricMap
 }

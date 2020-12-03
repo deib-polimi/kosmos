@@ -7,7 +7,7 @@ on:
       - development
     tags:
       - "podscale-controller/v*"
-      - "pod-autoscaling/v*"
+      - "pod-autoscaler/v*"
 
 jobs:
 

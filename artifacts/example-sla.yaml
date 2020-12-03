@@ -4,10 +4,10 @@ metadata:
   name: example-sla
 spec:
   metric:
-    responseTime: 4
+    responseTime: 10
   defaultResources:
-    cpu: 40m
+    cpu: 50m
     memory: 70Mi
   serviceSelector:
     matchLabels:
-      app: example-nginx
+      app: example-flask
