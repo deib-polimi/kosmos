@@ -7,13 +7,25 @@ import (
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
 
 	"github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/types"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
 
-func (c *Controller) processNextPodscale(podscalesInfos <-chan types.NodeScales) bool {
+// solverFn is responsible of solving resource contentions on the node.
+type solverFn func(desired, totalDesired, totalAvailable int64) int64
+
+// proportional is the default policy to handle resource contentions.
+// It divides the node resources based on the amount of resources requested
+// with respect to the total amount and it adjust them according to
+// the actual node capacity.
+func proportional(desired, totalDesired, totalAvailable int64) int64 {
+	quota := float64(desired) / float64(totalDesired)
+	return int64(quota * float64(totalAvailable))
+}
+
+// processNextNode adjust the resources of all the pods scheduled on a node
+func (c *Controller) processNextNode(podscalesInfos <-chan types.NodeScales) bool {
 
 	for info := range podscalesInfos {
 
@@ -26,8 +38,8 @@ func (c *Controller) processNextPodscale(podscalesInfos <-chan types.NodeScales)
 
 		nodeResources := node.Status.Capacity
 
-		var desiredResourcesCPU *resource.Quantity
-		var desiredResourcesMemory *resource.Quantity
+		desiredResourcesCPU := &resource.Quantity{}
+		desiredResourcesMemory := &resource.Quantity{}
 
 		for _, podscale := range info.PodScales {
 			desiredResourcesCPU.Add(*podscale.Spec.DesiredResources.Cpu())
@@ -35,7 +47,7 @@ func (c *Controller) processNextPodscale(podscalesInfos <-chan types.NodeScales)
 		}
 
 		if desiredResourcesCPU.Value() > nodeResources.Cpu().Value() {
-			err := solveResourceContentions(corev1.ResourceCPU, info.PodScales, desiredResourcesCPU.Value(), nodeResources.Cpu().Value())
+			err := solveCPUResourceContentions(info.PodScales, desiredResourcesCPU.Value(), nodeResources.Cpu().Value(), proportional)
 
 			if err != nil {
 				utilruntime.HandleError(fmt.Errorf("error while solving cpu contentions for node: %#v \n error: %#v", node.GetName(), err))
@@ -44,7 +56,7 @@ func (c *Controller) processNextPodscale(podscalesInfos <-chan types.NodeScales)
 		}
 
 		if desiredResourcesMemory.Value() > nodeResources.Memory().Value() {
-			err := solveResourceContentions(corev1.ResourceMemory, info.PodScales, desiredResourcesMemory.Value(), nodeResources.Memory().Value())
+			err := solveMemoryResourceContentions(info.PodScales, desiredResourcesMemory.Value(), nodeResources.Memory().Value(), proportional)
 
 			if err != nil {
 				utilruntime.HandleError(fmt.Errorf("error while solving memory contentions for node: %#v \n error: %#v", node.GetName(), err))
@@ -65,6 +77,30 @@ func (c *Controller) processNextPodscale(podscalesInfos <-chan types.NodeScales)
 	return true
 }
 
-func solveResourceContentions(resourceName corev1.ResourceName, podScales []*v1beta1.PodScale, desired int64, capacity int64) error {
+func solveCPUResourceContentions(podScales []*v1beta1.PodScale, desired int64, capacity int64, solver solverFn) error {
+	for _, p := range podScales {
+		p.Status.ActualResources.Cpu().SetScaled(
+			solver(
+				p.Spec.DesiredResources.Cpu().MilliValue(),
+				desired,
+				capacity,
+			),
+			resource.Milli,
+		)
+	}
+	return nil
+}
+
+func solveMemoryResourceContentions(podScales []*v1beta1.PodScale, desired int64, capacity int64, solver solverFn) error {
+	for _, p := range podScales {
+		p.Status.ActualResources.Memory().SetScaled(
+			solver(
+				p.Spec.DesiredResources.Memory().MilliValue(),
+				desired,
+				capacity,
+			),
+			resource.Mega,
+		)
+	}
 	return nil
 }

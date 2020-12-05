@@ -129,6 +129,6 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 // processNextWorkItem function in order to read and process a message on the
 // workqueue.
 func (c *Controller) runWorker() {
-	for c.processNextPodscale(c.in) {
+	for c.processNextNode(c.in) {
 	}
 }
