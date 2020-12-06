@@ -58,7 +58,8 @@ type Controller struct {
 
 	recorder record.EventRecorder
 
-	in chan types.NodeScales
+	in  chan types.NodeScales
+	out chan types.NodeScales
 }
 
 // NewController returns a new PodScale controller

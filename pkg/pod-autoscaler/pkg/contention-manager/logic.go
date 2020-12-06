@@ -5,14 +5,16 @@ import (
 	"fmt"
 
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
-
 	"github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/types"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
 
-// solverFn is responsible of solving resource contentions on the node.
+// TODO wrap it into a structure/interface to enable multiple solver policies
+// solverFn solves resource contentions on the node.
 type solverFn func(desired, totalDesired, totalAvailable int64) int64
 
 // proportional is the default policy to handle resource contentions.
@@ -24,83 +26,137 @@ func proportional(desired, totalDesired, totalAvailable int64) int64 {
 	return int64(quota * float64(totalAvailable))
 }
 
+// ContentionManager embeds the contention resolution logic on a given Node.
+type ContentionManager struct {
+	solverFn
+	CPUCapacity    *resource.Quantity
+	MemoryCapacity *resource.Quantity
+	PodScales      []*v1beta1.PodScale
+}
+
+// NewContentionManager returns a new ContentionManager instance
+func NewContentionManager(n *corev1.Node, ns types.NodeScales, p []corev1.Pod, solver solverFn) *ContentionManager {
+	// exclude from the computation the resources allocated to pod not tracked by System Autoscaler
+	var err error
+	untrackedCPU := &resource.Quantity{}
+	untrackedMemory := &resource.Quantity{}
+
+	for _, pod := range p {
+		if !ns.Contains(pod.Name, pod.Namespace) {
+			for _, c := range pod.Spec.Containers {
+				untrackedCPU.Add(*c.Resources.Requests.Cpu())
+				untrackedMemory.Add(*c.Resources.Requests.Memory())
+			}
+		}
+
+		// This must never happen. In place resource update could not work properly if requests and
+		// limits do not coincide.
+		// TODO remove this when webhook server is implemented
+		if ns.Contains(pod.Name, pod.Namespace) && pod.Status.QOSClass != corev1.PodQOSGuaranteed {
+			_, err = ns.Remove(pod.Name, pod.Namespace)
+			if err != nil {
+				utilruntime.HandleError(fmt.Errorf("error while creating the contention manager: %#v", err))
+				return nil
+			}
+			for _, c := range pod.Spec.Containers {
+				untrackedCPU.Add(*c.Resources.Requests.Cpu())
+				untrackedMemory.Add(*c.Resources.Requests.Memory())
+			}
+		}
+	}
+
+	allocatableCPU := n.Status.Capacity.Cpu()
+	untrackedCPU.Neg()
+	allocatableCPU.Add(*untrackedCPU)
+
+	allocatableMemory := n.Status.Capacity.Memory()
+	untrackedMemory.Neg()
+	allocatableMemory.Add(*untrackedMemory)
+
+	if allocatableCPU.Sign() < 0 || allocatableMemory.Sign() < 0 {
+		utilruntime.HandleError(fmt.Errorf("error while creating the contention manager: allocatable resources shouldn't be negative. CPU: %#v Memory: %#v", allocatableCPU.MilliValue(), allocatableMemory.MilliValue()))
+		return nil
+	}
+
+	return &ContentionManager{
+		solverFn:       solver,
+		CPUCapacity:    allocatableCPU,
+		MemoryCapacity: allocatableMemory,
+		PodScales:      ns.PodScales,
+	}
+}
+
+// Solve resolves the contentions between the podscales
+func (m *ContentionManager) Solve() []*v1beta1.PodScale {
+	desiredResourcesCPU := &resource.Quantity{}
+	desiredResourcesMemory := &resource.Quantity{}
+
+	for _, podscale := range m.PodScales {
+		desiredResourcesCPU.Add(*podscale.Spec.DesiredResources.Cpu())
+		desiredResourcesMemory.Add(*podscale.Spec.DesiredResources.Memory())
+	}
+
+	if desiredResourcesCPU.Cmp(*m.CPUCapacity) == 1 {
+		for _, p := range m.PodScales {
+			p.Status.ActualResources.Cpu().SetScaled(
+				m.solverFn(
+					p.Spec.DesiredResources.Cpu().MilliValue(),
+					desiredResourcesCPU.MilliValue(),
+					m.CPUCapacity.MilliValue(),
+				),
+				resource.Milli,
+			)
+		}
+	}
+
+	if desiredResourcesMemory.Cmp(*m.MemoryCapacity) == 1 {
+		for _, p := range m.PodScales {
+			p.Status.ActualResources.Memory().SetScaled(
+				m.solverFn(
+					p.Spec.DesiredResources.Memory().MilliValue(),
+					desiredResourcesMemory.MilliValue(),
+					m.MemoryCapacity.MilliValue(),
+				),
+				resource.Mega,
+			)
+		}
+	}
+
+	return m.PodScales
+}
+
 // processNextNode adjust the resources of all the pods scheduled on a node
+// according to the actual capacity. Resources not tracked by System Autoscaler
+// are not considered.
 func (c *Controller) processNextNode(podscalesInfos <-chan types.NodeScales) bool {
+	for podscalesInfo := range podscalesInfos {
 
-	for info := range podscalesInfos {
-
-		node, err := c.nodeLister.Get(info.Node)
+		node, err := c.nodeLister.Get(podscalesInfo.Node)
 
 		if err != nil {
 			utilruntime.HandleError(fmt.Errorf("error while getting node: %#v", err))
 			return true
 		}
 
-		nodeResources := node.Status.Capacity
+		pods, err := c.kubeClientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
+			FieldSelector: fields.SelectorFromSet(map[string]string{
+				"spec.nodeName": node.Name,
+			}).String(),
+		})
 
-		desiredResourcesCPU := &resource.Quantity{}
-		desiredResourcesMemory := &resource.Quantity{}
-
-		for _, podscale := range info.PodScales {
-			desiredResourcesCPU.Add(*podscale.Spec.DesiredResources.Cpu())
-			desiredResourcesMemory.Add(*podscale.Spec.DesiredResources.Memory())
+		if err != nil {
+			utilruntime.HandleError(fmt.Errorf("error while getting node pods: %#v", err))
+			return true
 		}
 
-		if desiredResourcesCPU.Value() > nodeResources.Cpu().Value() {
-			err := solveCPUResourceContentions(info.PodScales, desiredResourcesCPU.Value(), nodeResources.Cpu().Value(), proportional)
+		cm := NewContentionManager(node, podscalesInfo, pods.Items, proportional)
 
-			if err != nil {
-				utilruntime.HandleError(fmt.Errorf("error while solving cpu contentions for node: %#v \n error: %#v", node.GetName(), err))
-				return true
-			}
-		}
+		nodeScale := cm.Solve()
 
-		if desiredResourcesMemory.Value() > nodeResources.Memory().Value() {
-			err := solveMemoryResourceContentions(info.PodScales, desiredResourcesMemory.Value(), nodeResources.Memory().Value(), proportional)
+		podscalesInfo.PodScales = nodeScale
 
-			if err != nil {
-				utilruntime.HandleError(fmt.Errorf("error while solving memory contentions for node: %#v \n error: %#v", node.GetName(), err))
-				return true
-			}
-		}
-
-		for _, podscale := range info.PodScales {
-			_, err = c.podScalesClientset.SystemautoscalerV1beta1().PodScales(podscale.GetNamespace()).UpdateStatus(context.TODO(), podscale, metav1.UpdateOptions{})
-			if err != nil {
-				utilruntime.HandleError(fmt.Errorf("error while updating podscale: %#v \n error: %#v", podscale, err))
-				return true
-			}
-		}
-
+		c.out <- podscalesInfo
 	}
 
 	return true
-}
-
-func solveCPUResourceContentions(podScales []*v1beta1.PodScale, desired int64, capacity int64, solver solverFn) error {
-	for _, p := range podScales {
-		p.Status.ActualResources.Cpu().SetScaled(
-			solver(
-				p.Spec.DesiredResources.Cpu().MilliValue(),
-				desired,
-				capacity,
-			),
-			resource.Milli,
-		)
-	}
-	return nil
-}
-
-func solveMemoryResourceContentions(podScales []*v1beta1.PodScale, desired int64, capacity int64, solver solverFn) error {
-	for _, p := range podScales {
-		p.Status.ActualResources.Memory().SetScaled(
-			solver(
-				p.Spec.DesiredResources.Memory().MilliValue(),
-				desired,
-				capacity,
-			),
-			resource.Mega,
-		)
-	}
-	return nil
 }
