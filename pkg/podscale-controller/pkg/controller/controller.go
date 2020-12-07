@@ -36,13 +36,7 @@ const SubjectToLabel = "app.kubernetes.io/subject-to"
 const (
 	// SuccessSynced is used as part of the Event 'reason' when a podScale is synced
 	SuccessSynced = "Synced"
-	// ErrResourceExists is used as part of the Event 'reason' when a podScale fails
-	// to sync due to a Deployment of the same name already existing.
-	ErrResourceExists = "ErrResourceExists"
 
-	// MessageResourceExists is the message used for Events when a resource
-	// fails to sync due to a Deployment already existing
-	MessageResourceExists = "Resource %q already exists and is not managed by podScale"
 	// MessageResourceSynced is the message used for an Event fired when a podScale
 	// is synced successfully
 	MessageResourceSynced = "podScale synced successfully"

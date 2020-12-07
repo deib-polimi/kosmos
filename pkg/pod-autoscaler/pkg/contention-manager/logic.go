@@ -52,6 +52,7 @@ func NewContentionManager(n *corev1.Node, ns types.NodeScales, p []corev1.Pod, s
 		// This must never happen. In place resource update could not work properly if requests and
 		// limits do not coincide.
 		// TODO remove this when webhook server is implemented
+		// TODO Discuss about QOS behaviour for external pods
 		if ns.Contains(pod.Name, pod.Namespace) && pod.Status.QOSClass != corev1.PodQOSGuaranteed {
 			_, err = ns.Remove(pod.Name, pod.Namespace)
 			if err != nil {
@@ -105,10 +106,14 @@ func (m *ContentionManager) Solve() []*v1beta1.PodScale {
 			actualCPU = resource.NewScaledQuantity(m.solverFn(
 				p.Spec.DesiredResources.Cpu().MilliValue(),
 				desiredCPU.MilliValue(),
-				m.CPUCapacity.MilliValue()), resource.Milli)
+				m.CPUCapacity.MilliValue(),
+			),
+				resource.Milli,
+			)
 		} else {
 			actualCPU = resource.NewScaledQuantity(
-				p.Spec.DesiredResources.Cpu().MilliValue(), resource.Milli)
+				p.Spec.DesiredResources.Cpu().MilliValue(), resource.Milli,
+			)
 		}
 
 		if desiredMemory.Cmp(*m.MemoryCapacity) == 1 {

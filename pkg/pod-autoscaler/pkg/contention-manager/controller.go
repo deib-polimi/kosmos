@@ -27,22 +27,8 @@ import (
 
 // AgentName is the controller name used
 // both in logs and labels to identify it
-const AgentName = "controller-manager"
+const AgentName = "contention-manager"
 
-const (
-	// SuccessSynced is used as part of the Event 'reason' when a podScale is synced
-	SuccessSynced = "Synced"
-	// ErrResourceExists is used as part of the Event 'reason' when a podScale fails
-	// to sync due to a Deployment of the same name already existing.
-	ErrResourceExists = "ErrResourceExists"
-
-	// MessageResourceExists is the message used for Events when a resource
-	// fails to sync due to a Deployment already existing
-	MessageResourceExists = "Resource %q already exists and is not managed by podScale"
-	// MessageResourceSynced is the message used for an Event fired when a podScale
-	// is synced successfully
-	MessageResourceSynced = "Actual resources computed successfully"
-)
 
 // Controller is responsible of adjusting podscale partially computed by the recommender
 // taking into account the actual node capacity
@@ -68,7 +54,8 @@ func NewController(
 	podScalesClient clientset.Interface,
 	podScaleInformer informers.PodScaleInformer,
 	nodeInformer coreinformers.NodeInformer,
-	in chan types.NodeScales) *Controller {
+	in chan types.NodeScales,
+	out chan types.NodeScales) *Controller {
 
 	// Create event broadcaster
 	// Add System Autoscaler types to the default Kubernetes Scheme so Events can be
@@ -90,6 +77,9 @@ func NewController(
 		nodesSynced:     nodeInformer.Informer().HasSynced,
 
 		recorder: recorder,
+
+		in: in,
+		out: out,
 	}
 
 	return controller
