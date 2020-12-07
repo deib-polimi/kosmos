@@ -285,3 +285,158 @@ func TestNewContentionManager(t *testing.T) {
 		})
 	}
 }
+
+func TestSolve(t *testing.T) {
+
+	testcases := []struct {
+		description string
+		ContentionManager
+		expected []*v1beta1.PodScale
+		asserts  func(*testing.T, []*v1beta1.PodScale, []*v1beta1.PodScale)
+	}{
+		{
+			description: "should get the desired resources",
+			ContentionManager: ContentionManager{
+				solverFn:       proportional,
+				CPUCapacity:    resource.NewScaledQuantity(100, resource.Milli),
+				MemoryCapacity: resource.NewScaledQuantity(100, resource.Mega),
+				PodScales: []*v1beta1.PodScale{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "",
+							Namespace: "",
+						},
+						Spec: v1beta1.PodScaleSpec{
+							DesiredResources: corev1.ResourceList{
+								corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
+								corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
+							},
+						},
+					},
+				},
+			},
+			expected: []*v1beta1.PodScale{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "",
+						Namespace: "",
+					},
+					Spec: v1beta1.PodScaleSpec{
+						DesiredResources: corev1.ResourceList{
+							corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
+							corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
+						},
+					},
+					Status: v1beta1.PodScaleStatus{
+						ActualResources: corev1.ResourceList{
+							corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
+							corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
+						},
+					},
+				},
+			},
+			asserts: func(t *testing.T, expected []*v1beta1.PodScale, actual []*v1beta1.PodScale) {
+				for i := range expected {
+					require.Equal(t, 0, expected[i].Status.ActualResources.Cpu().Cmp(*actual[i].Status.ActualResources.Cpu()))
+					require.Equal(t, 0, expected[i].Status.ActualResources.Memory().Cmp(*actual[i].Status.ActualResources.Memory()))
+				}
+			},
+		},
+		{
+			description: "should get the half of desired resources",
+			ContentionManager: ContentionManager{
+				solverFn:       proportional,
+				CPUCapacity:    resource.NewScaledQuantity(100, resource.Milli),
+				MemoryCapacity: resource.NewScaledQuantity(100, resource.Mega),
+				PodScales: []*v1beta1.PodScale{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "",
+							Namespace: "",
+						},
+						Spec: v1beta1.PodScaleSpec{
+							DesiredResources: corev1.ResourceList{
+								corev1.ResourceCPU:    *resource.NewScaledQuantity(100, resource.Milli),
+								corev1.ResourceMemory: *resource.NewScaledQuantity(100, resource.Mega),
+							},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "",
+							Namespace: "",
+						},
+						Spec: v1beta1.PodScaleSpec{
+							DesiredResources: corev1.ResourceList{
+								corev1.ResourceCPU:    *resource.NewScaledQuantity(100, resource.Milli),
+								corev1.ResourceMemory: *resource.NewScaledQuantity(100, resource.Mega),
+							},
+						},
+					},
+				},
+			},
+			expected: []*v1beta1.PodScale{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "",
+						Namespace: "",
+					},
+					Spec: v1beta1.PodScaleSpec{
+						DesiredResources: corev1.ResourceList{
+							corev1.ResourceCPU:    *resource.NewScaledQuantity(100, resource.Milli),
+							corev1.ResourceMemory: *resource.NewScaledQuantity(100, resource.Mega),
+						},
+					},
+					Status: v1beta1.PodScaleStatus{
+						ActualResources: corev1.ResourceList{
+							corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
+							corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "",
+						Namespace: "",
+					},
+					Spec: v1beta1.PodScaleSpec{
+						DesiredResources: corev1.ResourceList{
+							corev1.ResourceCPU:    *resource.NewScaledQuantity(100, resource.Milli),
+							corev1.ResourceMemory: *resource.NewScaledQuantity(100, resource.Mega),
+						},
+					},
+					Status: v1beta1.PodScaleStatus{
+						ActualResources: corev1.ResourceList{
+							corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
+							corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
+						},
+					},
+				},
+			},
+			asserts: func(t *testing.T, expected []*v1beta1.PodScale, actual []*v1beta1.PodScale) {
+				for i := range expected {
+					require.Equal(t, 0, expected[i].Status.ActualResources.Cpu().Cmp(*actual[i].Status.ActualResources.Cpu()))
+					require.Equal(t, 0, expected[i].Status.ActualResources.Memory().Cmp(*actual[i].Status.ActualResources.Memory()))
+				}
+			},
+		},
+	}
+	for _, tt := range testcases {
+		t.Run(tt.description, func(t *testing.T) {
+			podscales := tt.ContentionManager.Solve()
+
+			totalCPU := resource.Quantity{}
+			totalMemory := resource.Quantity{}
+
+			for _, p := range podscales {
+				totalCPU.Add(*p.Status.ActualResources.Cpu())
+				totalMemory.Add(*p.Status.ActualResources.Memory())
+			}
+
+			require.GreaterOrEqual(t, tt.ContentionManager.CPUCapacity.MilliValue(), totalCPU.MilliValue())
+			require.GreaterOrEqual(t, tt.ContentionManager.MemoryCapacity.MilliValue(), totalMemory.MilliValue())
+
+			tt.asserts(t, tt.expected, podscales)
+		})
+	}
+}

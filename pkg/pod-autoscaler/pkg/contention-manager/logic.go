@@ -88,37 +88,48 @@ func NewContentionManager(n *corev1.Node, ns types.NodeScales, p []corev1.Pod, s
 
 // Solve resolves the contentions between the podscales
 func (m *ContentionManager) Solve() []*v1beta1.PodScale {
-	desiredResourcesCPU := &resource.Quantity{}
-	desiredResourcesMemory := &resource.Quantity{}
+	desiredCPU := &resource.Quantity{}
+	desiredMemory := &resource.Quantity{}
 
 	for _, podscale := range m.PodScales {
-		desiredResourcesCPU.Add(*podscale.Spec.DesiredResources.Cpu())
-		desiredResourcesMemory.Add(*podscale.Spec.DesiredResources.Memory())
+		desiredCPU.Add(*podscale.Spec.DesiredResources.Cpu())
+		desiredMemory.Add(*podscale.Spec.DesiredResources.Memory())
 	}
 
-	if desiredResourcesCPU.Cmp(*m.CPUCapacity) == 1 {
-		for _, p := range m.PodScales {
-			p.Status.ActualResources.Cpu().SetScaled(
+	var actualCPU *resource.Quantity
+	var actualMemory *resource.Quantity
+
+	for _, p := range m.PodScales {
+
+		if desiredCPU.Cmp(*m.CPUCapacity) == 1 {
+			actualCPU = resource.NewScaledQuantity(m.solverFn(
+				p.Spec.DesiredResources.Cpu().MilliValue(),
+				desiredCPU.MilliValue(),
+				m.CPUCapacity.MilliValue()), resource.Milli)
+		} else {
+			actualCPU = resource.NewScaledQuantity(
+				p.Spec.DesiredResources.Cpu().MilliValue(), resource.Milli)
+		}
+
+		if desiredMemory.Cmp(*m.MemoryCapacity) == 1 {
+			actualMemory = resource.NewScaledQuantity(
 				m.solverFn(
-					p.Spec.DesiredResources.Cpu().MilliValue(),
-					desiredResourcesCPU.MilliValue(),
-					m.CPUCapacity.MilliValue(),
+					p.Spec.DesiredResources.Memory().MilliValue(),
+					desiredMemory.MilliValue(),
+					m.MemoryCapacity.MilliValue(),
 				),
 				resource.Milli,
 			)
-		}
-	}
-
-	if desiredResourcesMemory.Cmp(*m.MemoryCapacity) == 1 {
-		for _, p := range m.PodScales {
-			p.Status.ActualResources.Memory().SetScaled(
-				m.solverFn(
-					p.Spec.DesiredResources.Memory().MilliValue(),
-					desiredResourcesMemory.MilliValue(),
-					m.MemoryCapacity.MilliValue(),
-				),
-				resource.Mega,
+		} else {
+			actualMemory = resource.NewScaledQuantity(
+				p.Spec.DesiredResources.Memory().MilliValue(),
+				resource.Milli,
 			)
+		}
+
+		p.Status.ActualResources = corev1.ResourceList{
+			corev1.ResourceCPU:    *actualCPU,
+			corev1.ResourceMemory: *actualMemory,
 		}
 	}
 
