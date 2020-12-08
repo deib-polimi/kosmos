@@ -1,11 +1,12 @@
 package recommender
 
 import (
+	"math"
+
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/klog/v2"
-	"math"
 )
 
 // Logic is the logic with which the recommender suggests new resources

@@ -1,4 +1,4 @@
-package controller
+package contentionmanager
 
 import (
 	"fmt"
@@ -16,60 +16,46 @@ import (
 
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
 	clientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
 	samplescheme "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned/scheme"
 	informers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions/systemautoscaler/v1beta1"
 	listers "github.com/lterrac/system-autoscaler/pkg/generated/listers/systemautoscaler/v1beta1"
+	"github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/types"
 )
 
 // AgentName is the controller name used
 // both in logs and labels to identify it
-const AgentName = "podscale-controller"
+const AgentName = "contention-manager"
 
-// SubjectToLabel is used to identify the ServiceLevelAgreement
-// matched by the Service
-const SubjectToLabel = "app.kubernetes.io/subject-to"
 
-const (
-	// SuccessSynced is used as part of the Event 'reason' when a podScale is synced
-	SuccessSynced = "Synced"
-
-	// MessageResourceSynced is the message used for an Event fired when a podScale
-	// is synced successfully
-	MessageResourceSynced = "podScale synced successfully"
-)
-
-// Controller is the controller implementation for podScale resources
+// Controller is responsible of adjusting podscale partially computed by the recommender
+// taking into account the actual node capacity
 type Controller struct {
 	kubeClientset      kubernetes.Interface
 	podScalesClientset clientset.Interface
 
-	slasLister      listers.ServiceLevelAgreementLister
 	podScalesLister listers.PodScaleLister
-	servicesLister  corelisters.ServiceLister
-	podLister       corelisters.PodLister
+	nodeLister      corelisters.NodeLister
 
-	slasSynced      cache.InformerSynced
 	podScalesSynced cache.InformerSynced
-	servicesSynced  cache.InformerSynced
-	podSynced       cache.InformerSynced
-
-	slasworkqueue workqueue.RateLimitingInterface
+	nodesSynced     cache.InformerSynced
 
 	recorder record.EventRecorder
+
+	in  chan types.NodeScales
+	out chan types.NodeScales
 }
 
 // NewController returns a new PodScale controller
 func NewController(
 	kubeClient kubernetes.Interface,
 	podScalesClient clientset.Interface,
-	slaInformer informers.ServiceLevelAgreementInformer,
 	podScaleInformer informers.PodScaleInformer,
-	serviceInformer coreinformers.ServiceInformer,
-	podInformer coreinformers.PodInformer) *Controller {
+	nodeInformer coreinformers.NodeInformer,
+	in chan types.NodeScales,
+	out chan types.NodeScales) *Controller {
 
 	// Create event broadcaster
 	// Add System Autoscaler types to the default Kubernetes Scheme so Events can be
@@ -84,27 +70,17 @@ func NewController(
 		kubeClientset:      kubeClient,
 		podScalesClientset: podScalesClient,
 
-		slasLister:      slaInformer.Lister(),
 		podScalesLister: podScaleInformer.Lister(),
-		servicesLister:  serviceInformer.Lister(),
-		podLister:       podInformer.Lister(),
+		nodeLister:      nodeInformer.Lister(),
 
-		slasSynced:      slaInformer.Informer().HasSynced,
 		podScalesSynced: podScaleInformer.Informer().HasSynced,
-		servicesSynced:  serviceInformer.Informer().HasSynced,
-		podSynced:       podInformer.Informer().HasSynced,
+		nodesSynced:     nodeInformer.Informer().HasSynced,
 
-		slasworkqueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "ServiceLevelAgreements"),
-		recorder:      recorder,
+		recorder: recorder,
+
+		in: in,
+		out: out,
 	}
-
-	klog.Info("Setting up event handlers")
-	// Set up an event handler for when ServiceLevelAgreements resources change
-	slaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.handleServiceLevelAgreementAdd,
-		UpdateFunc: controller.handleServiceLevelAgreementUpdate,
-		DeleteFunc: controller.handleServiceLevelAgreementDeletion,
-	})
 
 	return controller
 }
@@ -115,18 +91,15 @@ func NewController(
 // workers to finish processing their current work items.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer utilruntime.HandleCrash()
-	defer c.slasworkqueue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches
-	klog.Info("Starting podScale controller")
+	klog.Info("Starting contention manager")
 
 	// Wait for the caches to be synced before starting workers
 	klog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh,
-		c.slasSynced,
-		c.servicesSynced,
 		c.podScalesSynced,
-		c.podSynced); !ok {
+		c.nodesSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
@@ -147,6 +120,6 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 // processNextWorkItem function in order to read and process a message on the
 // workqueue.
 func (c *Controller) runWorker() {
-	for c.processNextQueueItem(c.slasworkqueue, c.syncServiceLevelAgreement) {
+	for c.processNextNode(c.in) {
 	}
 }
