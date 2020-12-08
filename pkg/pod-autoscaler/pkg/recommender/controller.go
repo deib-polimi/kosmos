@@ -210,14 +210,14 @@ func (c *Controller) recommendNode(node string) error {
 		return fmt.Errorf("unable to cast the podscale keys from node map")
 	}
 
-	newPodScales := make([]v1beta1.PodScale, 0)
+	newPodScales := make([]*v1beta1.PodScale, 0)
 	for key := range keys {
 		newPodScale, err := c.recommend(key)
 		if err != nil {
 			//utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key))
 			return err
 		}
-		newPodScales = append(newPodScales, *newPodScale)
+		newPodScales = append(newPodScales, newPodScale)
 	}
 
 	nodeScales := types.NodeScales{
