@@ -141,6 +141,7 @@ func (c *Controller) processRecommendNode() bool {
 		// Run the syncHandler, passing it the namespace/name string of the
 		// podScale resource to be synced.
 		if err := c.recommendNode(key); err != nil {
+			// TODO: better handling for pod scales without pods.
 			// Put the item back on the workqueue to handle any transient errors.
 			c.recommendNodeQueue.AddRateLimited(key)
 			return fmt.Errorf("error syncing '%s': %s, requeuing", key, err.Error())

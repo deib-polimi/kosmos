@@ -459,14 +459,22 @@ spec:
             requests:
               cpu: 1000m
               memory: 500Mi
-        - name: nginx-metrics-exposer
-          image: pentabanana/nginx-metrics-exposer
+        - name: nginx-metrics-ingestion
+          image: pentabanana/pod-autoscaler-metrics-ingestion
           imagePullPolicy: Always
-          ports:
-            - containerPort: 7000
           volumeMounts:
             - name: nginx-log
               mountPath: /var/log/nginx
+          env:
+            - name: POSTGRES_USER
+              value: "amazinguser"
+            - name: POSTGRES_PASSWORD
+              value: "perfectpassword"
+            - name: POSTGRES_DB
+              value: "awesomedb"
+#          envFrom:
+#            - configMapRef:
+#                name: postgres-configuration
       nodeSelector:
         kubernetes.io/os: linux
       serviceAccountName: ingress-nginx
@@ -729,6 +737,7 @@ spec:
         runAsNonRoot: true
         runAsUser: 2000
 ---
+#TODO: this should be deleted because it is not necessary
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:

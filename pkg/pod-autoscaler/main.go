@@ -2,7 +2,11 @@ package main
 
 import (
 	"flag"
+	sainformers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions"
+	cm "github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/contention-manager"
+	resupd "github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/pod-resource-updater"
 	"github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/types"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"time"
 
@@ -13,7 +17,6 @@ import (
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	clientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
-	informers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions"
 	"github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/recommender"
 	"github.com/lterrac/system-autoscaler/pkg/signals"
 )
@@ -39,31 +42,68 @@ func main() {
 	if err != nil {
 		klog.Fatalf("Error building example clientset: %s", err.Error())
 	}
+
 	kubernetesClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		klog.Fatalf("Error building example clientset: %s", err.Error())
 	}
 
-	crdInformerFactory := informers.NewSharedInformerFactory(client, time.Second*30)
+	//TODO: should be renamed
+	crdInformerFactory := sainformers.NewSharedInformerFactory(client, time.Second*30)
+	coreInformerFactory := informers.NewSharedInformerFactory(kubernetesClient, time.Second*30)
 
-	out := make(chan types.NodeScales, 10)
+	//TODO: should be renamed
+	//TODO: we should try without buffer
+	recommenderOut := make(chan types.NodeScales, 100)
+	contentionManagerOut := make(chan types.NodeScales, 100)
 
 	// TODO: adjust arguments to recommender
-	controller := recommender.NewController(
+	recommenderController := recommender.NewController(
 		kubernetesClient,
 		client,
 		crdInformerFactory.Systemautoscaler().V1beta1().PodScales(),
 		crdInformerFactory.Systemautoscaler().V1beta1().ServiceLevelAgreements(),
-		out,
+		recommenderOut,
+	)
+
+	contentionManagerController := cm.NewController(
+		kubernetesClient,
+		client,
+		crdInformerFactory.Systemautoscaler().V1beta1().PodScales(),
+		coreInformerFactory.Core().V1().Nodes(),
+		recommenderOut,
+		contentionManagerOut,
+	)
+
+	updaterController := resupd.NewController(
+		kubernetesClient,
+		client,
+		contentionManagerOut,
 	)
 
 	// notice that there is no need to run Start methods in a separate goroutine. (i.e. go kubeInformerFactory.Start(stopCh)
-	// Start method is non-blocking and runs all registered informers in a dedicated goroutine.
+	// Start method is non-blocking and runs all registered sainformers in a dedicated goroutine.
 	crdInformerFactory.Start(stopCh)
+	coreInformerFactory.Start(stopCh)
 
-	if err = controller.Run(1, stopCh); err != nil {
-		klog.Fatalf("Error running controller: %s", err.Error())
+	if err = recommenderController.Run(2, stopCh); err != nil {
+		klog.Fatalf("Error running recommender: %s", err.Error())
 	}
+	defer recommenderController.Shutdown()
+
+	if err = contentionManagerController.Run(2, stopCh); err != nil {
+		klog.Fatalf("Error running update controller: %s", err.Error())
+	}
+	defer contentionManagerController.Shutdown()
+
+	if err = updaterController.Run(2, stopCh); err != nil {
+		klog.Fatalf("Error running update controller: %s", err.Error())
+	}
+	defer updaterController.Shutdown()
+
+	<-stopCh
+	klog.Info("Shutting down workers")
+
 }
 
 func init() {

@@ -29,7 +29,6 @@ import (
 // both in logs and labels to identify it
 const AgentName = "contention-manager"
 
-
 // Controller is responsible of adjusting podscale partially computed by the recommender
 // taking into account the actual node capacity
 type Controller struct {
@@ -78,7 +77,7 @@ func NewController(
 
 		recorder: recorder,
 
-		in: in,
+		in:  in,
 		out: out,
 	}
 
@@ -90,10 +89,9 @@ func NewController(
 // is closed, at which point it will shutdown the workqueue and wait for
 // workers to finish processing their current work items.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
-	defer utilruntime.HandleCrash()
 
 	// Start the informer factories to begin populating the informer caches
-	klog.Info("Starting contention manager")
+	klog.Info("Starting contention manager controller")
 
 	// Wait for the caches to be synced before starting workers
 	klog.Info("Waiting for informer caches to sync")
@@ -103,17 +101,19 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
-	klog.Info("Starting workers")
+	klog.Info("Starting contention manager  workers")
 	// Launch two workers to process podScale resources
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
-	klog.Info("Started workers")
-	<-stopCh
-	klog.Info("Shutting down workers")
+	klog.Info("Started contention manager  workers")
 
 	return nil
+}
+
+func (c *Controller) Shutdown() {
+	utilruntime.HandleCrash()
 }
 
 // runWorker is a long-running function that will continually call the
