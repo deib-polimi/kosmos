@@ -3,6 +3,7 @@ package contentionmanager
 import (
 	"context"
 	"fmt"
+	"k8s.io/klog/v2"
 
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
 	"github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/types"
@@ -67,8 +68,11 @@ func NewContentionManager(n *corev1.Node, ns types.NodeScales, p []corev1.Pod, s
 	}
 
 	allocatableCPU := n.Status.Capacity.Cpu()
+	klog.Info("Node total capacity is:", allocatableCPU)
 	untrackedCPU.Neg()
+	klog.Info("Pod desired resources is:", untrackedCPU)
 	allocatableCPU.Add(*untrackedCPU)
+	klog.Info("Node allocatable capacity is:", allocatableCPU)
 
 	allocatableMemory := n.Status.Capacity.Memory()
 	untrackedMemory.Neg()
@@ -154,15 +158,21 @@ func (c *Controller) processNextNode(podscalesInfos <-chan types.NodeScales) boo
 			return true
 		}
 
+		// TODO: should use lister if possible
 		pods, err := c.kubeClientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
 			FieldSelector: fields.SelectorFromSet(map[string]string{
 				"spec.nodeName": node.Name,
 			}).String(),
 		})
 
+
 		if err != nil {
 			utilruntime.HandleError(fmt.Errorf("error while getting node pods: %#v", err))
 			return true
+		}
+
+		for _, pod := range pods.Items {
+			klog.Info("Node: ", node.Name, ",pod: ", pod.Name)
 		}
 
 		cm := NewContentionManager(node, podscalesInfo, pods.Items, proportional)

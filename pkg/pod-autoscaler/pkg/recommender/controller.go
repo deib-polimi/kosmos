@@ -1,7 +1,9 @@
 package recommender
 
 import (
+	"context"
 	"fmt"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
 
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
@@ -47,6 +49,7 @@ type Controller struct {
 	// kubernetesCLientset is the client-go of kubernetes
 	kubernetesClientset kubernetes.Clientset
 
+	// TODO: we have three queues? Do we really need all of them?
 	// podScalesAddedQueue contains all the pods that should be monitored
 	podScalesAddedQueue workqueue.RateLimitingInterface
 
@@ -141,13 +144,9 @@ func NewController(
 // is closed, at which point it will shutdown the workqueue and wait for
 // workers to finish processing their current work items.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
-	defer utilruntime.HandleCrash()
-	defer c.podScalesAddedQueue.ShutDown()
-	defer c.podScalesDeletedQueue.ShutDown()
-	defer c.recommendNodeQueue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches
-	klog.Info("Starting podScale controller")
+	klog.Info("Starting recommender controller")
 
 	// Wait for the caches to be synced before starting workers
 	klog.Info("Waiting for informer caches to sync")
@@ -155,20 +154,25 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
-	klog.Info("Starting workers")
+	klog.Info("Starting recommender workers")
 	// Launch the workers to process podScale resources and recommend new pod scales
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runPodScaleAddedWorker, time.Second, stopCh)
 		go wait.Until(c.runPodScaleRemovedWorker, time.Second, stopCh)
-		go wait.Until(c.runRecommenderWorker, 5*time.Second, stopCh)
 		go wait.Until(c.runRecommendNodeWorker, time.Second, stopCh)
 	}
+	go wait.Until(c.runRecommenderWorker, 5*time.Second, stopCh)
 
-	klog.Info("Started workers")
-	<-stopCh
-	klog.Info("Shutting down workers")
+	klog.Info("Started recommender workers")
 
 	return nil
+}
+
+func (c *Controller) Shutdown() {
+	utilruntime.HandleCrash()
+	c.podScalesAddedQueue.ShutDown()
+	c.podScalesDeletedQueue.ShutDown()
+	c.recommendNodeQueue.ShutDown()
 }
 
 // Handle all the pod scales that has been added
@@ -191,6 +195,7 @@ func (c *Controller) runRecommenderWorker() {
 	})
 }
 
+// TODO: the name is not auto-explicative
 // Handle all the nodes that needs a recommendation
 func (c *Controller) runRecommendNodeWorker() {
 	for c.processRecommendNode() {
@@ -231,6 +236,7 @@ func (c *Controller) recommendNode(node string) error {
 	return nil
 }
 
+// TODO: need to document it
 func (c *Controller) recommend(key string) (*v1beta1.PodScale, error) {
 	klog.Info("Recommending for ", key)
 
@@ -249,15 +255,21 @@ func (c *Controller) recommend(key string) (*v1beta1.PodScale, error) {
 	}
 
 	// Retrieve the pod
-	podInterface, ok := c.status.podMap.Load(key)
-	if !ok {
-		return nil, fmt.Errorf("the key %s has no pod associated with it", key)
+	//podInterface, ok := c.status.podMap.Load(key)
+	//if !ok {
+	//	return nil, fmt.Errorf("the key %s has no pod associated with it", key)
+	//}
+	//pod, ok := podInterface.(*corev1.Pod)
+	//if !ok {
+	//	return nil, fmt.Errorf("error: %s, failed to cast logic with name %s and namespace %s", err, podScale.Spec.SLARef.Name, podScale.Spec.SLARef.Namespace)
+	//}
+	// Get the pod associated with the pod scale
+	// TODO: the pod should be taken from the lister if possible.
+	pod, err := c.kubernetesClientset.CoreV1().Pods(podScale.Spec.PodRef.Namespace).Get(context.TODO(), podScale.Spec.PodRef.Name, v1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("error: %s, cannot retrieve pod with name %s and namespace %s", err, podScale.Spec.PodRef.Name, podScale.Spec.PodRef.Namespace)
 	}
-	pod, ok := podInterface.(*corev1.Pod)
-	if !ok {
-		return nil, fmt.Errorf("error: %s, failed to cast logic with name %s and namespace %s", err, podScale.Spec.SLARef.Name, podScale.Spec.SLARef.Namespace)
-	}
-
+	// TODO: the pod should be taken from the lister if possible.
 	// Retrieve the sla
 	sla, err := c.slaLister.ServiceLevelAgreements(podScale.Spec.SLARef.Namespace).Get(podScale.Spec.SLARef.Name)
 	if err != nil {

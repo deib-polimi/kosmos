@@ -26,15 +26,15 @@ func NewMetricClient() *Client {
 				Timeout: 90 * time.Second,
 			}).DialContext,
 			// TODO: Some of those value should be tuned
-			MaxIdleConns:          10,
+			MaxIdleConns:          50,
 			IdleConnTimeout:       90 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
+			ExpectContinueTimeout: 5 * time.Second,
 		},
-		Timeout: 5 * time.Second,
+		Timeout: 20 * time.Second,
 	}
 	client := &Client{
 		httpClient: httpClient,
-		host:       "ingress-nginx-controller.ingress-nginx.svc.cluster.local:7000",
+		host:       "pod-autoscaler-metrics-expose.default.svc.cluster.local:7000",
 	}
 	return client
 }

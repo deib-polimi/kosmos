@@ -11,12 +11,11 @@ type NodeScales struct {
 	PodScales []*v1beta1.PodScale
 }
 
-
 func (n *NodeScales) Contains(name, namespace string) bool {
 	for _, podscale := range n.PodScales {
 		podReference := podscale.Spec.PodRef
-		if podReference.Namespace == name &&
-			podReference.Name == namespace {
+		if podReference.Namespace == namespace &&
+			podReference.Name == name {
 			return true
 		}
 	}

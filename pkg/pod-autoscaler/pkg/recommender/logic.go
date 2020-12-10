@@ -21,10 +21,10 @@ type ControlTheoryLogic struct {
 }
 
 // newControlTheoryLogic returns a new control theory logic
-func newControlTheoryLogic() *ControlTheoryLogic {
+func newControlTheoryLogic(podScale *v1beta1.PodScale) *ControlTheoryLogic {
 	return &ControlTheoryLogic{
-		xcprec: 1,
-		cores:  1,
+		xcprec: float64(podScale.Status.ActualResources.Cpu().ScaledValue(cpuDefaultScale)),
+		cores:  float64(podScale.Status.ActualResources.Cpu().ScaledValue(cpuDefaultScale)),
 	}
 }
 
@@ -33,11 +33,18 @@ const (
 	cpuDefaultScale    = resource.Milli
 	memoryDefaultScale = resource.Mega
 
+	// TODO: for now, all pods have this min and max resources.
+	cpuMinQuantity = 50
+	memMinQuantity = 50
+	cpuMaxQuantity = 1000
+	memMaxQuantity = 1000
+
 	// Control theory constants
 	maxScaleOut = 3
+	// TODO: sometime this constraint does not work. Check why.
 	minCPU      = 1000
-	BC          = 0.5
-	DC          = 0.5
+	BC          = 100
+	DC          = 100
 )
 
 // computePodScale computes a new pod scale for a given pod.
@@ -88,7 +95,8 @@ func (logic *ControlTheoryLogic) computeCPUResource(pod *v1.Pod, podScale *v1bet
 		return desiredResource
 	}
 	responseTime := result.(float64)
-	setPoint := float64(*sla.Spec.Metric.ResponseTime)
+	// TODO: decide if to use milliseconds or seconds as default unit
+	setPoint := float64(*sla.Spec.Metric.ResponseTime) / 1000
 	e := 1/setPoint - 1/responseTime
 	xc := float64(logic.xcprec + BC*e)
 	oldcores := logic.cores
