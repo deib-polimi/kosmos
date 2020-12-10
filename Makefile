@@ -70,11 +70,16 @@ endif
 
 
 define action
+	@$(eval my_var :=0)
 	@for c in $(COMPONENTS); \
 		do \
 		$(MAKE) $(1) -C pkg/$$c; \
 		if [ $$? -ne 0 ]; then \
-			return 1; \
+			$(eval my_var := 1) \
+			echo "failed for component $$c"; \
 		fi \
     done
+	@if [ $(my_var) -ne 0 ]; then \
+		return 1; \
+	fi
 endef

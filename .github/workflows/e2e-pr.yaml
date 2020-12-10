@@ -1,4 +1,4 @@
-name: e2e-pr-tests
+name: e2e-tests
 
 on:
   - push
