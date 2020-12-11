@@ -41,7 +41,7 @@ test:
 	@echo "run local tests"
 	$(call action, test)
 
-e2e: install test
+e2e: install
 	@echo "run e2e tests"
 	$(call action, e2e)
 
