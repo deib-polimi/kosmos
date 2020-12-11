@@ -87,8 +87,8 @@ func TestNewContentionManager(t *testing.T) {
 			},
 			solver: proportional,
 			asserts: func(t *testing.T, cm *ContentionManager, ns types.NodeScales, n *corev1.Node, p []corev1.Pod) {
-				require.Equal(t, n.Status.Capacity.Cpu(), cm.CPUCapacity)
-				require.Equal(t, n.Status.Capacity.Memory(), cm.MemoryCapacity)
+				require.Equal(t, n.Status.Capacity.Cpu().MilliValue(), cm.CPUCapacity.MilliValue())
+				require.Equal(t, n.Status.Capacity.Memory().MilliValue(), cm.MemoryCapacity.MilliValue())
 			},
 		},
 		{
@@ -137,8 +137,8 @@ func TestNewContentionManager(t *testing.T) {
 				},
 			},
 			asserts: func(t *testing.T, cm *ContentionManager, ns types.NodeScales, n *corev1.Node, p []corev1.Pod) {
-				require.Equal(t, resource.NewScaledQuantity(50, resource.Milli), cm.CPUCapacity)
-				require.Equal(t, resource.NewScaledQuantity(50, resource.Mega), cm.MemoryCapacity)
+				require.Equal(t, resource.NewScaledQuantity(50, resource.Milli).MilliValue(), cm.CPUCapacity.MilliValue())
+				require.Equal(t, resource.NewScaledQuantity(50, resource.Mega).MilliValue(), cm.MemoryCapacity.MilliValue())
 			},
 		},
 		{
@@ -271,8 +271,8 @@ func TestNewContentionManager(t *testing.T) {
 				},
 			},
 			asserts: func(t *testing.T, cm *ContentionManager, ns types.NodeScales, n *corev1.Node, p []corev1.Pod) {
-				require.Equal(t, resource.NewScaledQuantity(50, resource.Milli), cm.CPUCapacity)
-				require.Equal(t, resource.NewScaledQuantity(50, resource.Mega), cm.MemoryCapacity)
+				require.Equal(t, resource.NewScaledQuantity(50, resource.Milli).MilliValue(), cm.CPUCapacity.MilliValue())
+				require.Equal(t, resource.NewScaledQuantity(50, resource.Mega).MilliValue(), cm.MemoryCapacity.MilliValue())
 			},
 		},
 	}

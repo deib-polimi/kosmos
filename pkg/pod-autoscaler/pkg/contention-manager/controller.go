@@ -112,6 +112,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	return nil
 }
 
+// Shutdown stops the contention manager
 func (c *Controller) Shutdown() {
 	utilruntime.HandleCrash()
 }

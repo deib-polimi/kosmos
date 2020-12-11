@@ -41,7 +41,7 @@ test:
 	@echo "run local tests"
 	$(call action, test)
 
-e2e: install test
+e2e: install
 	@echo "run e2e tests"
 	$(call action, e2e)
 
@@ -73,5 +73,8 @@ define action
 	@for c in $(COMPONENTS); \
 		do \
 		$(MAKE) $(1) -C pkg/$$c; \
+		if [ $$? -ne 0 ]; then \
+			return 1; \
+		fi \
     done
 endef
