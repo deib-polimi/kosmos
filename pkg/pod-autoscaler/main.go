@@ -2,13 +2,14 @@ package main
 
 import (
 	"flag"
+	"time"
+
 	sainformers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions"
 	cm "github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/contention-manager"
 	resupd "github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/pod-resource-updater"
 	"github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/types"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"time"
 
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
@@ -78,6 +79,8 @@ func main() {
 	updaterController := resupd.NewController(
 		kubernetesClient,
 		client,
+		crdInformerFactory.Systemautoscaler().V1beta1().PodScales(),
+		coreInformerFactory.Core().V1().Pods(),
 		contentionManagerOut,
 	)
 
