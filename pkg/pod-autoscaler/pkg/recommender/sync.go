@@ -69,7 +69,7 @@ func (c *Controller) syncPodScalesDeleted(key string) error {
 
 	obj, ok := c.status.podScaleMap.Load(key)
 	if !ok {
-		return fmt.Errorf("the key %s can not be found in the pod scale map")
+		return fmt.Errorf("the key %s can not be found in the pod scale map", key)
 	}
 	node := obj.(string)
 
