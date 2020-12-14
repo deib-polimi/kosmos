@@ -37,9 +37,6 @@ jobs:
           node_image: "systemautoscaler/kindest-node:latest"
           config: "./config/cluster-conf/development-cluster.yaml"
 
-      - name: Create namespace
-        run: kubectl create namespace e2e
-
       - name: Deploy CRDs, RBAC in kind and run tests
         run: make e2e
 
