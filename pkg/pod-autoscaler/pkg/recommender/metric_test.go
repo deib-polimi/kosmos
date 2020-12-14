@@ -1,6 +1,7 @@
 package recommender
 
 import (
+	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 	"net/http"
@@ -18,16 +19,16 @@ func serverMock() *httptest.Server {
 }
 
 func usersMock(w http.ResponseWriter, r *http.Request) {
-	_, _ = w.Write([]byte(`{'response_time':5.0}`))
+	_, _ = w.Write([]byte(`{"response_time":5.0}`))
 }
 
 func TestGetMetrics(t *testing.T) {
 	client := NewMetricClient()
 	server := serverMock()
-	client.host = server.URL[7:]
-	_, err := client.getMetrics(&v1.Pod{})
+	client.Host = server.URL[7:]
+	metrics, err := client.getMetrics(&v1.Pod{})
 	if err != nil {
 		klog.Error(err)
 	}
-	//klog.Fatal(result)
+	require.Equal(t, 5.0, metrics["response_time"])
 }

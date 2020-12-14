@@ -42,9 +42,9 @@ const (
 	// Control theory constants
 	maxScaleOut = 3
 	// TODO: sometime this constraint does not work. Check why.
-	minCPU      = 1000
-	BC          = 100
-	DC          = 100
+	minCPU = 1000
+	BC     = 100
+	DC     = 100
 )
 
 // computePodScale computes a new pod scale for a given pod.

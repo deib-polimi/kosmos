@@ -15,7 +15,7 @@ func (c *Controller) enqueuePodScaleAdded(new interface{}) {
 		utilruntime.HandleError(err)
 		return
 	}
-	c.podScalesAddedQueue.Add(key)
+	c.podScalesAddedQueue.AddRateLimited(key)
 }
 
 func (c *Controller) enqueuePodScaleUpdated(old, new interface{}) {
@@ -36,7 +36,7 @@ func (c *Controller) enqueuePodScaleDeleted(old interface{}) {
 		utilruntime.HandleError(err)
 		return
 	}
-	c.podScalesDeletedQueue.Add(key)
+	c.podScalesDeletedQueue.AddRateLimited(key)
 }
 
 //
@@ -68,7 +68,7 @@ func (c *Controller) processPodScalesAdded() bool {
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
 		c.podScalesAddedQueue.Forget(obj)
-		klog.Infof("Successfully synced '%s'", key)
+		klog.Infof("Successfully added '%s'", key)
 		return nil
 	}(obj)
 
@@ -108,7 +108,7 @@ func (c *Controller) processPodScalesDeleted() bool {
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
 		c.podScalesDeletedQueue.Forget(obj)
-		klog.Infof("Successfully synced '%s'", key)
+		klog.Infof("Successfully deleted '%s'", key)
 		return nil
 	}(obj)
 
@@ -125,7 +125,6 @@ func (c *Controller) processRecommendNode() bool {
 	if shutdown {
 		return false
 	}
-
 	err := func(obj interface{}) error {
 		// Signals to the queue that the element has been processed
 		defer c.recommendNodeQueue.Done(obj)
@@ -143,13 +142,13 @@ func (c *Controller) processRecommendNode() bool {
 		if err := c.recommendNode(key); err != nil {
 			// TODO: better handling for pod scales without pods.
 			// Put the item back on the workqueue to handle any transient errors.
-			c.recommendNodeQueue.AddRateLimited(key)
+			// c.recommendNodeQueue.AddRateLimited(key)
 			return fmt.Errorf("error syncing '%s': %s, requeuing", key, err.Error())
 		}
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
 		c.recommendNodeQueue.Forget(obj)
-		klog.Infof("Successfully synced '%s'", key)
+		klog.Infof("Successfully recommended to '%s'", key)
 		return nil
 	}(obj)
 
