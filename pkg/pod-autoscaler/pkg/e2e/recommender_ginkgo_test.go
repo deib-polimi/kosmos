@@ -2,13 +2,8 @@ package e2e_test
 
 import (
 	"context"
-	"math/rand"
-	"strconv"
-	"time"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -17,23 +12,13 @@ var _ = Describe("PodScale controller", func() {
 		ctx := context.Background()
 
 		BeforeEach(func() {
-			namespace = strconv.Itoa(rand.Intn(time.Now().Nanosecond()*200)) + "e2e"
-			By("creating testing namespace")
-			nsSpec := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}}
-			_, err := kubeClient.CoreV1().Namespaces().Create(ctx, nsSpec, metav1.CreateOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
+
 		})
 
 		AfterEach(func() {
-			By("deleting testing namespace")
-			err := kubeClient.CoreV1().Namespaces().Delete(ctx, namespace, metav1.DeleteOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
 
 		})
 
-		// Test 1: Add a service and verify that it is monitored.
-		// Test 2: Add a service and verify that it is monitored, than delete it and verify it is not monitored.
-		// Test 3: Verify that pods running in a node, receives recommendations all together.
 		It("Monitor pods whenever a new pod scale is created", func() {
 
 			slaName := "foo-sla"

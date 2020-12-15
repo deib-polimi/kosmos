@@ -4,16 +4,12 @@ import (
 	"context"
 	sa "github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
 	"github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/types"
-	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/klog/v2"
-	"math/rand"
-	"strconv"
-	"time"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog/v2"
 )
 
 var _ = Describe("PodScale controller", func() {
@@ -21,21 +17,13 @@ var _ = Describe("PodScale controller", func() {
 		ctx := context.Background()
 
 		BeforeEach(func() {
-			namespace = strconv.Itoa(rand.Intn(time.Now().Nanosecond()*200)) + "e2e"
-			By("creating testing namespace")
-			nsSpec := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}}
-			_, err := kubeClient.CoreV1().Namespaces().Create(ctx, nsSpec, metav1.CreateOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
+
 		})
 
 		AfterEach(func() {
-			By("deleting testing namespace")
-			err := kubeClient.CoreV1().Namespaces().Delete(ctx, namespace, metav1.DeleteOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
 
 		})
 
-		// Test 1: Verify normal behaviour
 		It("Update the pods as described in the pod scales contained in the channel", func() {
 
 			slaName := "foo-sla"
@@ -94,7 +82,7 @@ var _ = Describe("PodScale controller", func() {
 					requestCpu == updatedPodScale.Status.ActualResources.Cpu().ScaledValue(resource.Milli) &&
 					requestMem == updatedPodScale.Status.ActualResources.Memory().ScaledValue(resource.Mega)
 			}, timeout, interval).Should(BeTrue())
-			
+
 			err = saClient.SystemautoscalerV1beta1().PodScales(namespace).Delete(ctx, podScale.Name, metav1.DeleteOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
