@@ -12,17 +12,9 @@ import (
 	"k8s.io/klog/v2"
 )
 
-var _ = Describe("PodScale controller", func() {
+var _ = Describe("Resource Updater controller", func() {
 	Context("With an application deployed inside the cluster", func() {
 		ctx := context.Background()
-
-		BeforeEach(func() {
-
-		})
-
-		AfterEach(func() {
-
-		})
 
 		It("Update the pods as described in the pod scales contained in the channel", func() {
 

@@ -22,10 +22,8 @@ import (
 	clientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
 	. "github.com/onsi/gomega"
 
-	systemautoscalerv1beta1 "github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
 	systemautoscaler "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
 	. "github.com/onsi/ginkgo"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
@@ -41,6 +39,8 @@ var kubeClient *kubernetes.Clientset
 var saClient *systemautoscaler.Clientset
 var recommenderOut chan types.NodeScales
 var contentionManagerOut chan types.NodeScales
+var recommenderController *recommender.Controller
+var updaterController *resupd.Controller
 
 const namespace = "e2e"
 const timeout = 60 * time.Second
@@ -61,9 +61,6 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(cfg).ToNot(BeNil())
 
-	err = systemautoscalerv1beta1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-
 	By("bootstrapping clients")
 	kubeClient = kubernetes.NewForConfigOrDie(cfg)
 	saClient = clientset.NewForConfigOrDie(cfg)
@@ -81,7 +78,7 @@ var _ = BeforeSuite(func(done Done) {
 	contentionManagerOut = make(chan types.NodeScales, 100)
 
 	By("instantiating recommender")
-	recommenderController := recommender.NewController(
+	recommenderController = recommender.NewController(
 		kubeClient,
 		saClient,
 		crdInformerFactory.Systemautoscaler().V1beta1().PodScales(),
@@ -104,7 +101,7 @@ var _ = BeforeSuite(func(done Done) {
 	//)
 
 	By("instantiating pod resource updater")
-	updaterController := resupd.NewController(
+	updaterController = resupd.NewController(
 		kubeClient,
 		saClient,
 		contentionManagerOut,
@@ -133,6 +130,8 @@ var _ = BeforeSuite(func(done Done) {
 }, 15)
 
 var _ = AfterSuite(func() {
+	recommenderController.Shutdown()
+	updaterController.Shutdown()
 	By("tearing down the test environment")
 	err := testEnv.Stop()
 	Expect(err).ToNot(HaveOccurred())

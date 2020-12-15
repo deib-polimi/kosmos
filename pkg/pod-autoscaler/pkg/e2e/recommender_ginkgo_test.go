@@ -7,17 +7,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("PodScale controller", func() {
+var _ = Describe("Recommender controller", func() {
 	Context("With an application deployed inside the cluster", func() {
 		ctx := context.Background()
-
-		BeforeEach(func() {
-
-		})
-
-		AfterEach(func() {
-
-		})
 
 		It("Monitor pods whenever a new pod scale is created", func() {
 
