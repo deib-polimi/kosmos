@@ -10,10 +10,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
-	"math/rand"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"testing"
 	"time"
 
@@ -44,9 +42,7 @@ var saClient *systemautoscaler.Clientset
 var recommenderOut chan types.NodeScales
 var contentionManagerOut chan types.NodeScales
 
-//const namespace = "e2e"
-var namespace = strconv.Itoa(rand.Intn(time.Now().Nanosecond()*200)) + "e2e"
-
+const namespace = "e2e"
 const timeout = 60 * time.Second
 const interval = 1 * time.Second
 

@@ -26,8 +26,8 @@ var _ = Describe("PodScale controller", func() {
 
 		It("Update the pods as described in the pod scales contained in the channel", func() {
 
-			slaName := "foo-sla"
-			appName := "foo-app"
+			slaName := "foo-sla-ru1"
+			appName := "foo-app-ru1"
 
 			labels := map[string]string{
 				"app": "foo",

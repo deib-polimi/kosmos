@@ -21,8 +21,8 @@ var _ = Describe("PodScale controller", func() {
 
 		It("Monitor pods whenever a new pod scale is created", func() {
 
-			slaName := "foo-sla"
-			appName := "foo-app"
+			slaName := "foo-sla-rec1"
+			appName := "foo-app-rec1"
 
 			labels := map[string]string{
 				"app": "foo",
@@ -75,8 +75,8 @@ var _ = Describe("PodScale controller", func() {
 
 		It("Stop to monitor pods whenever a pod scale is deleted", func() {
 
-			slaName := "foo-sla"
-			appName := "foo-app"
+			slaName := "foo-sla-rec2"
+			appName := "foo-app-rec2"
 
 			labels := map[string]string{
 				"app": "foo",
