@@ -7,7 +7,7 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-.PHONY: all build coverage clean e2e fmt install install-crds install-rbac manifests release test vet
+.PHONY: all build cluster clean coverage controller-gen e2e fmt install install-crds install-rbac manifests release test vet
 
 all: build test coverage manifests release clean
 
@@ -20,6 +20,9 @@ coverage:
 
 clean:
 	$(call action, clean)
+
+cluster: kind
+	@kind create cluster --config ./config/cluster-conf/development-cluster.yaml --image systemautoscaler/kindest-node:latest
 
 fmt:
 	$(call action, fmt)
@@ -43,6 +46,7 @@ test:
 
 e2e: install
 	@echo "run e2e tests"
+	@kubectl apply -f ./config/cluster-conf/e2e-namespace.yaml
 	$(call action, e2e)
 
 vet:
@@ -67,7 +71,6 @@ CONTROLLER_GEN=$(GOBIN)/controller-gen
 else
 CONTROLLER_GEN=$(shell which controller-gen)
 endif
-
 
 define action
 	@for c in $(COMPONENTS); \

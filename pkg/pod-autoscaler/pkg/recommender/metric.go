@@ -14,8 +14,8 @@ import (
 )
 
 type Client struct {
+	Host       string
 	httpClient http.Client
-	host       string
 }
 
 // NewMetricClient returns a new MetricClient representing a metric client.
@@ -34,7 +34,7 @@ func NewMetricClient() *Client {
 	}
 	client := &Client{
 		httpClient: httpClient,
-		host:       "pod-autoscaler-metrics-expose.default.svc.cluster.local:7000",
+		Host:       "pod-autoscaler-metrics-expose.default.svc.cluster.local:7000",
 	}
 	return client
 }
@@ -46,7 +46,7 @@ func (c Client) getMetrics(pod *v1.Pod) (map[string]interface{}, error) {
 	address := pod.Status.PodIP
 
 	// Compose host and path
-	host := c.host
+	host := c.Host
 	path := fmt.Sprintf("%s/metrics/window/minute/5", address)
 
 	// Create the request

@@ -62,8 +62,8 @@ type Controller struct {
 	// status represents the state of the controller
 	status *Status
 
-	// metricPoller is a client that polls the metrics from the pod.
-	metricPoller *Client
+	// MetricClient is a client that polls the metrics from the pod.
+	MetricClient *Client
 
 	// recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
@@ -84,6 +84,9 @@ type Status struct {
 
 	// Key: namespace-name of the pod scale, Value: assigned logic
 	logicMap concurrent.Map
+
+	// Key: namespace-name of the pod scale, Value: node where the pod is running
+	podScaleMap concurrent.Map
 }
 
 // NewController returns a new recommender
@@ -109,6 +112,7 @@ func NewController(
 		nodeMap:  *concurrent.NewMap(),
 		podMap:   *concurrent.NewMap(),
 		logicMap: *concurrent.NewMap(),
+		podScaleMap: *concurrent.NewMap(),
 	}
 
 	// Instantiate the Controller
@@ -123,7 +127,7 @@ func NewController(
 		podScalesDeletedQueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "PodScalesDeleted"),
 		recommendNodeQueue:    workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "RecommendQueue"),
 		status:                status,
-		metricPoller:          NewMetricClient(),
+		MetricClient:          NewMetricClient(),
 		recorder:              recorder,
 		out:                   out,
 	}
@@ -190,7 +194,7 @@ func (c *Controller) runPodScaleRemovedWorker() {
 // Enqueue a node to the recommend node queue
 func (c *Controller) runRecommenderWorker() {
 	c.status.nodeMap.Range(func(key, value interface{}) bool {
-		c.recommendNodeQueue.Add(key)
+		c.recommendNodeQueue.AddRateLimited(key)
 		return true
 	})
 }
@@ -288,7 +292,7 @@ func (c *Controller) recommend(key string) (*v1beta1.PodScale, error) {
 	}
 
 	// Retrieve the metrics
-	metrics, err := c.metricPoller.getMetrics(pod)
+	metrics, err := c.MetricClient.getMetrics(pod)
 	if err != nil {
 		return nil, fmt.Errorf("error: %s, failed to get metrics from pod with name %s and namespace %s from lister", err, pod.GetName(), pod.GetNamespace())
 	}

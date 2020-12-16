@@ -17,7 +17,7 @@ test:
 	@go test -race $(shell go list ./... | grep -v e2e) --coverprofile=coverage.out
 
 e2e:
-	@go test -race $(go list ./... | grep e2e)
+	@go test -race $(shell go list ./... | grep e2e)
 
 coverage: test
 	@go tool cover -func=coverage.out
