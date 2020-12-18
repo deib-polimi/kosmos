@@ -138,6 +138,8 @@ func (c *Controller) runNodeScaleWorker() {
 
 			if err != nil {
 				klog.Error("Error while updating pod and podscale: ", err)
+				//TODO: We are using this channel as a workqueue. Why don't use one?
+				c.in <- nodeScale
 				return
 			}
 
@@ -150,6 +152,7 @@ func (c *Controller) runNodeScaleWorker() {
 
 // AtomicResourceUpdate updates a Pod and its Podscale consistently in order to keep synchronized the two resources. Before performing the real update
 // it runs the two requests in dry-run and checks any potential error
+// TODO: this comment is not very clear
 func (c *Controller) AtomicResourceUpdate(pod *corev1.Pod, podScale *v1beta1.PodScale) (*corev1.Pod, *v1beta1.PodScale, error) {
 	var err error
 	_, _, err = c.updateResources(pod, podScale, true)
