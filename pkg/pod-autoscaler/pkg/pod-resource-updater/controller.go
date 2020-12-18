@@ -133,8 +133,8 @@ func (c *Controller) runNodeScaleWorker() {
 				return
 			}
 
-			// try both updates in dry-run in order to perform them consistently
-			updatedPod, updatedPodScale, err := c.updateResources(newPod, podScale, true)
+			// try both updates in dry-run first and then actuate them consistently
+			updatedPod, updatedPodScale, err := c.AtomicResourceUpdate(newPod, podScale)
 
 			if err != nil {
 				klog.Error("Error while updating pod and podscale: ", err)
@@ -150,7 +150,8 @@ func (c *Controller) runNodeScaleWorker() {
 
 // AtomicResourceUpdate updates a Pod and its Podscale consistently in order to keep synchronized the two resources. Before performing the real update
 // it runs the two requests in dry-run and checks any potential error
-func (c *Controller) AtomicResourceUpdate(pod *corev1.Pod, podScale *v1beta1.PodScale) (newPod *corev1.Pod, newPodScale *v1beta1.PodScale, err error) {
+func (c *Controller) AtomicResourceUpdate(pod *corev1.Pod, podScale *v1beta1.PodScale) (*corev1.Pod, *v1beta1.PodScale, error) {
+	var err error
 	_, _, err = c.updateResources(pod, podScale, true)
 
 	if err != nil {
@@ -164,13 +165,13 @@ func (c *Controller) AtomicResourceUpdate(pod *corev1.Pod, podScale *v1beta1.Pod
 // updateResources performs Pod and Podscale resource update in dry-run mode or not whether the corresponding flag is passed
 func (c *Controller) updateResources(pod *corev1.Pod, podScale *v1beta1.PodScale, dryRun bool) (newPod *corev1.Pod, newPodScale *v1beta1.PodScale, err error) {
 
-	var opts *metav1.UpdateOptions
+	opts := &metav1.UpdateOptions{}
 
 	if dryRun {
 		opts.DryRun = []string{metav1.DryRunAll}
 	}
 
-	newPod, err = c.kubernetesClientset.CoreV1().Pods(podScale.Spec.PodRef.Namespace).Update(context.TODO(), newPod, *opts)
+	newPod, err = c.kubernetesClientset.CoreV1().Pods(podScale.Spec.PodRef.Namespace).Update(context.TODO(), pod, *opts)
 
 	if err != nil {
 		klog.Error("Error updating the pod: ", err)
