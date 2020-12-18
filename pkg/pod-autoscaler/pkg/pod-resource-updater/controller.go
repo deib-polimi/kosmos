@@ -1,4 +1,4 @@
-package pod_resource_updater
+package resourceupdater
 
 import (
 	"context"

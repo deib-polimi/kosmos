@@ -1,7 +1,8 @@
-package pod_resource_updater
+package resourceupdater
 
 import (
 	"fmt"
+
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
