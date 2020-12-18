@@ -58,7 +58,6 @@ func main() {
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
 	systemAutoscalerInformerFactory := informers.NewSharedInformerFactory(systemAutoscalerClient, time.Second*30)
 
-	// TODO: adjust arguments to recommender
 	controller := podScaleController.NewController(
 		kubeClient,
 		systemAutoscalerClient,

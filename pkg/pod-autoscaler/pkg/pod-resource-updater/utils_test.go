@@ -1,13 +1,14 @@
-package pod_resource_updater
+package resourceupdater
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
 func TestSyncPod(t *testing.T) {

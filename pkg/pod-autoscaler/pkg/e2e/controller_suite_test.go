@@ -1,6 +1,11 @@
 package e2e_test
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+
 	sainformers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions"
 	resupd "github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/pod-resource-updater"
 	"github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/recommender"
@@ -10,10 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
-	"net/http"
-	"net/http/httptest"
-	"testing"
-	"time"
 
 	sa "github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
 	"github.com/lterrac/system-autoscaler/pkg/signals"
@@ -70,7 +71,6 @@ var _ = BeforeSuite(func(done Done) {
 	coreInformerFactory := informers.NewSharedInformerFactory(kubeClient, time.Second*30)
 
 	By("bootstrapping controller")
-	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 
 	By("starting channels")
@@ -90,20 +90,12 @@ var _ = BeforeSuite(func(done Done) {
 	client.Host = server.URL[7:]
 	recommenderController.MetricClient = client
 
-	//By("instantiating contention manager")
-	//contentionManagerController := cm.NewController(
-	//	kubeClient,
-	//	saClient,
-	//	crdInformerFactory.Systemautoscaler().V1beta1().PodScales(),
-	//	coreInformerFactory.Core().V1().Nodes(),
-	//	recommenderOut,
-	//	contentionManagerOut,
-	//)
-
 	By("instantiating pod resource updater")
 	updaterController = resupd.NewController(
 		kubeClient,
 		saClient,
+		crdInformerFactory.Systemautoscaler().V1beta1().PodScales(),
+		coreInformerFactory.Core().V1().Pods(),
 		contentionManagerOut,
 	)
 
@@ -114,17 +106,10 @@ var _ = BeforeSuite(func(done Done) {
 	By("running recommender")
 	err = recommenderController.Run(2, stopCh)
 	Expect(err).NotTo(HaveOccurred())
-	//defer recommenderController.Shutdown()
-
-	//By("running contention manager")
-	//err = contentionManagerController.Run(2, stopCh)
-	//Expect(err).NotTo(HaveOccurred())
-	//defer contentionManagerController.Shutdown()
 
 	By("running pod resource updater")
-	err = updaterController.Run(2, stopCh)
+	err = updaterController.Run(1, stopCh)
 	Expect(err).NotTo(HaveOccurred())
-	//defer updaterController.Shutdown()
 
 	close(done)
 }, 15)
@@ -166,7 +151,7 @@ func newSLA(name string, labels map[string]string) *sa.ServiceLevelAgreement {
 				ResponseTime: &responseTime,
 			},
 			DefaultResources: map[corev1.ResourceName]resource.Quantity{
-				corev1.ResourceCPU: *resource.NewScaledQuantity(50, resource.Milli),
+				corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
 				corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
 			},
 		},
@@ -212,11 +197,11 @@ func newPod(name string, podLabels map[string]string) *corev1.Pod {
 					Image: "gcr.io/distroless/static:nonroot",
 					Resources: corev1.ResourceRequirements{
 						Limits: map[corev1.ResourceName]resource.Quantity{
-							corev1.ResourceCPU: *resource.NewScaledQuantity(50, resource.Milli),
+							corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
 							corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
 						},
 						Requests: map[corev1.ResourceName]resource.Quantity{
-							corev1.ResourceCPU: *resource.NewScaledQuantity(50, resource.Milli),
+							corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
 							corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
 						},
 					},
