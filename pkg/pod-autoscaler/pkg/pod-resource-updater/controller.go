@@ -151,8 +151,7 @@ func (c *Controller) runNodeScaleWorker() {
 }
 
 // AtomicResourceUpdate updates a Pod and its Podscale consistently in order to keep synchronized the two resources. Before performing the real update
-// it runs the two requests in dry-run and checks any potential error
-// TODO: this comment is not very clear
+// it runs a request in dry-run and it checks for any potential error
 func (c *Controller) AtomicResourceUpdate(pod *corev1.Pod, podScale *v1beta1.PodScale) (*corev1.Pod, *v1beta1.PodScale, error) {
 	var err error
 	_, _, err = c.updateResources(pod, podScale, true)
