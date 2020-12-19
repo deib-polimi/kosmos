@@ -151,14 +151,13 @@ func (m *ContentionManager) Solve() []*v1beta1.PodScale {
 func (c *Controller) processNextNode(podscalesInfos <-chan types.NodeScales) bool {
 	for podscalesInfo := range podscalesInfos {
 
-		node, err := c.nodeLister.Get(podscalesInfo.Node)
+		node, err := c.listers.NodeLister.Get(podscalesInfo.Node)
 
 		if err != nil {
 			utilruntime.HandleError(fmt.Errorf("error while getting node: %#v", err))
 			return true
 		}
 
-		// TODO: should use lister if possible
 		pods, err := c.kubeClientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
 			FieldSelector: fields.SelectorFromSet(map[string]string{
 				"spec.nodeName": node.Name,

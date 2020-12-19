@@ -2,9 +2,10 @@ package main
 
 import (
 	"flag"
+	informers "github.com/lterrac/system-autoscaler/pkg/informers"
 	"time"
 
-	kubeinformers "k8s.io/client-go/informers"
+	coreinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -14,7 +15,7 @@ import (
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	clientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
-	informers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions"
+	sainformers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions"
 	podScaleController "github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/controller"
 	"github.com/lterrac/system-autoscaler/pkg/signals"
 )
@@ -55,22 +56,27 @@ func main() {
 		klog.Fatalf("Error building example clientset: %s", err.Error())
 	}
 
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
-	systemAutoscalerInformerFactory := informers.NewSharedInformerFactory(systemAutoscalerClient, time.Second*30)
+	coreInformerFactory := coreinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
+	saInformerFactory := sainformers.NewSharedInformerFactory(systemAutoscalerClient, time.Second*30)
+
+	informers := informers.Informers{
+		Pod:                   coreInformerFactory.Core().V1().Pods(),
+		Node:                  coreInformerFactory.Core().V1().Nodes(),
+		Service:               coreInformerFactory.Core().V1().Services(),
+		PodScale:              saInformerFactory.Systemautoscaler().V1beta1().PodScales(),
+		ServiceLevelAgreement: saInformerFactory.Systemautoscaler().V1beta1().ServiceLevelAgreements(),
+	}
 
 	controller := podScaleController.NewController(
 		kubeClient,
 		systemAutoscalerClient,
-		systemAutoscalerInformerFactory.Systemautoscaler().V1beta1().ServiceLevelAgreements(),
-		systemAutoscalerInformerFactory.Systemautoscaler().V1beta1().PodScales(),
-		kubeInformerFactory.Core().V1().Services(),
-		kubeInformerFactory.Core().V1().Pods(),
+		informers,
 	)
 
-	// notice that there is no need to run Start methods in a separate goroutine. (i.e. go kubeInformerFactory.Start(stopCh)
-	// Start method is non-blocking and runs all registered informers in a dedicated goroutine.
-	kubeInformerFactory.Start(stopCh)
-	systemAutoscalerInformerFactory.Start(stopCh)
+	// notice that there is no need to run Start methods in a separate goroutine. (i.e. go coreInformerFactory.Start(stopCh)
+	// Start method is non-blocking and runs all registered sainformers in a dedicated goroutine.
+	coreInformerFactory.Start(stopCh)
+	saInformerFactory.Start(stopCh)
 
 	if err = controller.Run(2, stopCh); err != nil {
 		klog.Fatalf("Error running controller: %s", err.Error())

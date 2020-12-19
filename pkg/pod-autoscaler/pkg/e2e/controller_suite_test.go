@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"github.com/lterrac/system-autoscaler/pkg/informers"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -14,7 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/informers"
+	coreinformers "k8s.io/client-go/informers"
 
 	sa "github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
 	"github.com/lterrac/system-autoscaler/pkg/signals"
@@ -68,7 +69,16 @@ var _ = BeforeSuite(func(done Done) {
 
 	By("bootstrapping informers")
 	crdInformerFactory := sainformers.NewSharedInformerFactory(saClient, time.Second*30)
-	coreInformerFactory := informers.NewSharedInformerFactory(kubeClient, time.Second*30)
+	coreInformerFactory := coreinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
+
+	By("creating informers")
+	informers := informers.Informers{
+		Pod:                   coreInformerFactory.Core().V1().Pods(),
+		Node:                  coreInformerFactory.Core().V1().Nodes(),
+		Service:               coreInformerFactory.Core().V1().Services(),
+		PodScale:              crdInformerFactory.Systemautoscaler().V1beta1().PodScales(),
+		ServiceLevelAgreement: crdInformerFactory.Systemautoscaler().V1beta1().ServiceLevelAgreements(),
+	}
 
 	By("bootstrapping controller")
 	stopCh := signals.SetupSignalHandler()
@@ -81,9 +91,7 @@ var _ = BeforeSuite(func(done Done) {
 	recommenderController = recommender.NewController(
 		kubeClient,
 		saClient,
-		crdInformerFactory.Systemautoscaler().V1beta1().PodScales(),
-		crdInformerFactory.Systemautoscaler().V1beta1().ServiceLevelAgreements(),
-		coreInformerFactory.Core().V1().Pods(),
+		informers,
 		recommenderOut,
 	)
 	client := recommender.NewMetricClient()
@@ -95,8 +103,7 @@ var _ = BeforeSuite(func(done Done) {
 	updaterController = resupd.NewController(
 		kubeClient,
 		saClient,
-		crdInformerFactory.Systemautoscaler().V1beta1().PodScales(),
-		coreInformerFactory.Core().V1().Pods(),
+		informers,
 		contentionManagerOut,
 	)
 

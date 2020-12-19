@@ -3,10 +3,9 @@ package recommender
 import (
 	"context"
 	"fmt"
+	informers "github.com/lterrac/system-autoscaler/pkg/informers"
 	"github.com/lterrac/system-autoscaler/pkg/queue"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	coreinformers "k8s.io/client-go/informers/core/v1"
-	corelisters "k8s.io/client-go/listers/core/v1"
 	"time"
 
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
@@ -25,8 +24,6 @@ import (
 
 	podscalesclientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
 	samplescheme "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned/scheme"
-	informers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions/systemautoscaler/v1beta1"
-	listers "github.com/lterrac/system-autoscaler/pkg/generated/listers/systemautoscaler/v1beta1"
 )
 
 const controllerAgentName = "recommender"
@@ -40,26 +37,20 @@ type Controller struct {
 	// podScalesClientset is a clientset for our own API group
 	podScalesClientset podscalesclientset.Interface
 
-	podScalesInformer informers.PodScaleInformer
-
-	podScalesLister listers.PodScaleLister
+	listers informers.Listers
 
 	podScalesSynced cache.InformerSynced
-
-	slaLister listers.ServiceLevelAgreementLister
-
-	podLister corelisters.PodLister
 
 	// kubernetesCLientset is the client-go of kubernetes
 	kubernetesClientset kubernetes.Clientset
 
 	// TODO: we have three queues? Do we really need all of them?
 	// podScalesAddedQueue contains all the pods that should be monitored
-	podScalesAddedQueue   queue.Queue
+	podScalesAddedQueue queue.Queue
 	// podScalesDeletedQueue contains all the pods that should not be monitored
 	podScalesDeletedQueue queue.Queue
 	// recommendNodeQueue contains all the nodes that needs a recommendation
-	recommendNodeQueue    queue.Queue
+	recommendNodeQueue queue.Queue
 
 	// status represents the state of the controller
 	status *Status
@@ -96,9 +87,7 @@ type Status struct {
 func NewController(
 	kubernetesClientset *kubernetes.Clientset,
 	podScalesClientset podscalesclientset.Interface,
-	podScaleInformer informers.PodScaleInformer,
-	slaInformer informers.ServiceLevelAgreementInformer,
-	podInformer coreinformers.PodInformer,
+	informers informers.Informers,
 	out chan types.NodeScales,
 ) *Controller {
 
@@ -122,11 +111,8 @@ func NewController(
 	// Instantiate the Controller
 	controller := &Controller{
 		podScalesClientset:    podScalesClientset,
-		podScalesInformer:     podScaleInformer,
-		podScalesLister:       podScaleInformer.Lister(),
-		slaLister:             slaInformer.Lister(),
-		podLister:             podInformer.Lister(),
-		podScalesSynced:       podScaleInformer.Informer().HasSynced,
+		listers:               informers.GetListers(),
+		podScalesSynced:       informers.PodScale.Informer().HasSynced,
 		kubernetesClientset:   *kubernetesClientset,
 		podScalesAddedQueue:   queue.NewQueue("PodScalesAdded"),
 		podScalesDeletedQueue: queue.NewQueue("PodScalesDeleted"),
@@ -140,7 +126,7 @@ func NewController(
 	klog.Info("Setting up event handlers")
 
 	// Set up an event handler for when podScale resources change
-	podScaleInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	informers.PodScale.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.enqueuePodScaleAdded,
 		UpdateFunc: controller.enqueuePodScaleUpdated,
 		DeleteFunc: controller.enqueuePodScaleDeleted,
@@ -266,20 +252,20 @@ func (c *Controller) recommendPod(key string) (*v1beta1.PodScale, error) {
 	}
 
 	// Get the PodScale resource with this namespace/name
-	podScale, err := c.podScalesLister.PodScales(namespace).Get(name)
+	podScale, err := c.listers.PodScales(namespace).Get(name)
 	if err != nil {
 		//utilruntime.HandleError(fmt.Errorf("error: %s, failed to get pod scale with name %s and namespace %s from lister", err, name, namespace))
 		return nil, err
 	}
 
 	// Get the pod associated with the pod scale
-	pod, err := c.podLister.Pods(podScale.Spec.PodRef.Namespace).Get(podScale.Spec.PodRef.Name)
+	pod, err := c.listers.Pods(podScale.Spec.PodRef.Namespace).Get(podScale.Spec.PodRef.Name)
 	if err != nil {
 		return nil, fmt.Errorf("error: %s, cannot retrieve pod with name %s and namespace %s", err, podScale.Spec.PodRef.Name, podScale.Spec.PodRef.Namespace)
 	}
 
 	// Retrieve the sla
-	sla, err := c.slaLister.ServiceLevelAgreements(podScale.Spec.SLARef.Namespace).Get(podScale.Spec.SLARef.Name)
+	sla, err := c.listers.ServiceLevelAgreements(podScale.Spec.SLARef.Namespace).Get(podScale.Spec.SLARef.Name)
 	if err != nil {
 		//utilruntime.HandleError(fmt.Errorf("error: %s, failed to get sla with name %s and namespace %s from lister", err, podScale.Spec.SLARef.Name, podScale.Spec.SLARef.Namespace))
 		return nil, err

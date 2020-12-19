@@ -3,19 +3,15 @@ package resourceupdater
 import (
 	"context"
 	"fmt"
+	"github.com/lterrac/system-autoscaler/pkg/informers"
 
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
 	podscalesclientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
 	samplescheme "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned/scheme"
-	informers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions/systemautoscaler/v1beta1"
-	listers "github.com/lterrac/system-autoscaler/pkg/generated/listers/systemautoscaler/v1beta1"
 	"github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/types"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	coreinformers "k8s.io/client-go/informers/core/v1"
-	corelisters "k8s.io/client-go/listers/core/v1"
-
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -40,8 +36,7 @@ type Controller struct {
 	// kubernetesCLientset is the client-go of kubernetes
 	kubernetesClientset kubernetes.Interface
 
-	podScalesLister listers.PodScaleLister
-	podLister       corelisters.PodLister
+	listers informers.Listers
 
 	podScalesSynced cache.InformerSynced
 	podSynced       cache.InformerSynced
@@ -57,8 +52,7 @@ type Controller struct {
 // NewController returns a new sample controller
 func NewController(kubernetesClientset *kubernetes.Clientset,
 	podScalesClientset podscalesclientset.Interface,
-	podScaleInformer informers.PodScaleInformer,
-	podInformer coreinformers.PodInformer,
+	informers informers.Informers,
 	in chan types.NodeScales) *Controller {
 
 	// Create event broadcaster
@@ -75,10 +69,9 @@ func NewController(kubernetesClientset *kubernetes.Clientset,
 		podScalesClientset:  podScalesClientset,
 		kubernetesClientset: kubernetesClientset,
 		recorder:            recorder,
-		podScalesLister:     podScaleInformer.Lister(),
-		podLister:           podInformer.Lister(),
-		podScalesSynced:     podScaleInformer.Informer().HasSynced,
-		podSynced:           podInformer.Informer().HasSynced,
+		listers:             informers.GetListers(),
+		podScalesSynced:     informers.PodScale.Informer().HasSynced,
+		podSynced:           informers.Pod.Informer().HasSynced,
 		in:                  in,
 	}
 
@@ -121,7 +114,7 @@ func (c *Controller) runNodeScaleWorker() {
 		klog.Info("Processing ", nodeScale)
 		for _, podScale := range nodeScale.PodScales {
 
-			pod, err := c.podLister.Pods(podScale.Spec.PodRef.Namespace).Get(podScale.Spec.PodRef.Name)
+			pod, err := c.listers.Pods(podScale.Spec.PodRef.Namespace).Get(podScale.Spec.PodRef.Name)
 			if err != nil {
 				klog.Error("Error retrieving the pod: ", err)
 				return
