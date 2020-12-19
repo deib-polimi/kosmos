@@ -1,8 +1,10 @@
 package recommender
 
 import (
+	"context"
 	"fmt"
 	"github.com/lterrac/system-autoscaler/pkg/queue"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"time"
@@ -51,18 +53,12 @@ type Controller struct {
 	// kubernetesCLientset is the client-go of kubernetes
 	kubernetesClientset kubernetes.Clientset
 
-	//// TODO: we have three queues? Do we really need all of them?
-	//// podScalesAddedQueue contains all the pods that should be monitored
-	//podScalesAddedQueue workqueue.RateLimitingInterface
-	//
-	//// podScalesDeletedQueue contains all the pods that should not be monitored
-	//podScalesDeletedQueue workqueue.RateLimitingInterface
-	//
-	//// recommendNodeQueue contains all the nodes that needs a recommendation
-	//recommendNodeQueue workqueue.RateLimitingInterface
-
+	// TODO: we have three queues? Do we really need all of them?
+	// podScalesAddedQueue contains all the pods that should be monitored
 	podScalesAddedQueue   queue.Queue
+	// podScalesDeletedQueue contains all the pods that should not be monitored
 	podScalesDeletedQueue queue.Queue
+	// recommendNodeQueue contains all the nodes that needs a recommendation
 	recommendNodeQueue    queue.Queue
 
 	// status represents the state of the controller
@@ -82,9 +78,10 @@ type Controller struct {
 // Status represents the state of the controller
 type Status struct {
 
-	// Key: NodeName, Value: namespace-name of the pod scale
+	// Key: NodeName, Value: set of namespace-name of the pod scales
 	nodeMap concurrent.Map
 
+	// TODO: could be deleted
 	// Key: namespace-name of the pod scale, Value: assigned pod
 	podMap concurrent.Map
 
@@ -124,23 +121,20 @@ func NewController(
 
 	// Instantiate the Controller
 	controller := &Controller{
-		podScalesClientset:  podScalesClientset,
-		podScalesInformer:   podScaleInformer,
-		podScalesLister:     podScaleInformer.Lister(),
-		slaLister:           slaInformer.Lister(),
-		podLister:           podInformer.Lister(),
-		podScalesSynced:     podScaleInformer.Informer().HasSynced,
-		kubernetesClientset: *kubernetesClientset,
-		//podScalesAddedQueue:   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "PodScalesAdded"),
-		podScalesAddedQueue: queue.NewQueue("PodScalesAdded"),
-		//podScalesDeletedQueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "PodScalesDeleted"),
+		podScalesClientset:    podScalesClientset,
+		podScalesInformer:     podScaleInformer,
+		podScalesLister:       podScaleInformer.Lister(),
+		slaLister:             slaInformer.Lister(),
+		podLister:             podInformer.Lister(),
+		podScalesSynced:       podScaleInformer.Informer().HasSynced,
+		kubernetesClientset:   *kubernetesClientset,
+		podScalesAddedQueue:   queue.NewQueue("PodScalesAdded"),
 		podScalesDeletedQueue: queue.NewQueue("PodScalesDeleted"),
-		//recommendNodeQueue:    workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "RecommendQueue"),
-		recommendNodeQueue: queue.NewQueue("RecommendQueue"),
-		status:             status,
-		MetricClient:       NewMetricClient(),
-		recorder:           recorder,
-		out:                out,
+		recommendNodeQueue:    queue.NewQueue("RecommendQueue"),
+		status:                status,
+		MetricClient:          NewMetricClient(),
+		recorder:              recorder,
+		out:                   out,
 	}
 
 	klog.Info("Setting up event handlers")
@@ -185,9 +179,9 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 
 func (c *Controller) Shutdown() {
 	utilruntime.HandleCrash()
-	c.podScalesAddedQueue.Queue.ShutDown()
-	c.podScalesDeletedQueue.Queue.ShutDown()
-	c.recommendNodeQueue.Queue.ShutDown()
+	c.podScalesAddedQueue.ShutDown()
+	c.podScalesDeletedQueue.ShutDown()
+	c.recommendNodeQueue.ShutDown()
 }
 
 // Handle all the pod scales that has been added
@@ -205,7 +199,14 @@ func (c *Controller) runPodScaleRemovedWorker() {
 // Enqueue a node to the recommend node queue
 func (c *Controller) runRecommenderWorker() {
 	c.status.nodeMap.Range(func(key, value interface{}) bool {
-		c.recommendNodeQueue.Queue.AddRateLimited(key)
+		nodeName := key.(string)
+		// TODO: retrieve the node from the lister
+		node, err := c.kubernetesClientset.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
+		if err != nil {
+			klog.Error(err)
+			return true
+		}
+		c.recommendNodeQueue.Enqueue(node)
 		return true
 	})
 }

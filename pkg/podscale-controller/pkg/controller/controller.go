@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"github.com/lterrac/system-autoscaler/pkg/queue"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -16,7 +17,6 @@ import (
 
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
 	clientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
@@ -57,7 +57,7 @@ type Controller struct {
 	servicesSynced  cache.InformerSynced
 	podSynced       cache.InformerSynced
 
-	slasworkqueue workqueue.RateLimitingInterface
+	slasworkqueue queue.Queue
 
 	recorder record.EventRecorder
 }
@@ -94,7 +94,7 @@ func NewController(
 		servicesSynced:  serviceInformer.Informer().HasSynced,
 		podSynced:       podInformer.Informer().HasSynced,
 
-		slasworkqueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "ServiceLevelAgreements"),
+		slasworkqueue: queue.NewQueue("ServiceLevelAgreements"),
 		recorder:      recorder,
 	}
 
@@ -147,6 +147,6 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 // processNextWorkItem function in order to read and process a message on the
 // workqueue.
 func (c *Controller) runWorker() {
-	for c.processNextQueueItem(c.slasworkqueue, c.syncServiceLevelAgreement) {
+	for c.slasworkqueue.ProcessNextItem(c.syncServiceLevelAgreement) {
 	}
 }
