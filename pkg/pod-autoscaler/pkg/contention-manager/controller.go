@@ -2,17 +2,15 @@ package contentionmanager
 
 import (
 	"fmt"
+	"github.com/lterrac/system-autoscaler/pkg/informers"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
-
-	corelisters "k8s.io/client-go/listers/core/v1"
 
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -20,8 +18,6 @@ import (
 
 	clientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
 	samplescheme "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned/scheme"
-	informers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions/systemautoscaler/v1beta1"
-	listers "github.com/lterrac/system-autoscaler/pkg/generated/listers/systemautoscaler/v1beta1"
 	"github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/types"
 )
 
@@ -35,8 +31,7 @@ type Controller struct {
 	kubeClientset      kubernetes.Interface
 	podScalesClientset clientset.Interface
 
-	podScalesLister listers.PodScaleLister
-	nodeLister      corelisters.NodeLister
+	listers informers.Listers
 
 	podScalesSynced cache.InformerSynced
 	nodesSynced     cache.InformerSynced
@@ -51,8 +46,7 @@ type Controller struct {
 func NewController(
 	kubeClient kubernetes.Interface,
 	podScalesClient clientset.Interface,
-	podScaleInformer informers.PodScaleInformer,
-	nodeInformer coreinformers.NodeInformer,
+	informers informers.Informers,
 	in chan types.NodeScales,
 	out chan types.NodeScales) *Controller {
 
@@ -69,11 +63,10 @@ func NewController(
 		kubeClientset:      kubeClient,
 		podScalesClientset: podScalesClient,
 
-		podScalesLister: podScaleInformer.Lister(),
-		nodeLister:      nodeInformer.Lister(),
+		listers: informers.GetListers(),
 
-		podScalesSynced: podScaleInformer.Informer().HasSynced,
-		nodesSynced:     nodeInformer.Informer().HasSynced,
+		podScalesSynced: informers.PodScale.Informer().HasSynced,
+		nodesSynced:     informers.Node.Informer().HasSynced,
 
 		recorder: recorder,
 

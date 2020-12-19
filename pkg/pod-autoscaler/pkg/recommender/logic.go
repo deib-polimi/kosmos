@@ -14,7 +14,7 @@ type Logic interface {
 	computePodScale(pod *v1.Pod, podScale *v1beta1.PodScale, sla *v1beta1.ServiceLevelAgreement, metricMap map[string]interface{}) *v1beta1.PodScale
 }
 
-// ControlTheoryLogic is the logic that apply control theory in order to recommend new resources
+// ControlTheoryLogic is the logic that apply control theory in order to recommendPod new resources
 type ControlTheoryLogic struct {
 	xcprec float64
 	cores  float64
@@ -33,16 +33,12 @@ const (
 	cpuDefaultScale    = resource.Milli
 	memoryDefaultScale = resource.Mega
 
-	// TODO: for now, all pods have this min and max resources.
-	cpuMinQuantity = 50
-	memMinQuantity = 50
-	cpuMaxQuantity = 1000
-	memMaxQuantity = 1000
-
 	// Control theory constants
 	maxScaleOut = 3
 	// TODO: sometime this constraint does not work. Check why.
-	minCPU = 1000
+	// the min value sometimes has conflict with max scale out.
+	// For example if CPU is 50m, and max scaleout is 3, then the maximum value is 150m, but it is still less than minCPU
+	minCPU = 50
 	BC     = 100
 	DC     = 100
 )

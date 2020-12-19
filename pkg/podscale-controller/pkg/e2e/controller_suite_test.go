@@ -1,12 +1,13 @@
 package e2e_test
 
 import (
+	"github.com/lterrac/system-autoscaler/pkg/informers"
 	"testing"
 	"time"
 
-	informers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions"
+	sainformers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions"
 	"github.com/lterrac/system-autoscaler/pkg/signals"
-	kubeinformers "k8s.io/client-go/informers"
+	coreinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 
 	clientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
@@ -29,7 +30,7 @@ func TestController(t *testing.T) {
 var cfg *rest.Config
 var testEnv *envtest.Environment
 var kubeClient *kubernetes.Clientset
-var systemAutoscalerClient *systemautoscaler.Clientset
+var saClient *systemautoscaler.Clientset
 
 var _ = BeforeSuite(func(done Done) {
 	useCluster := true
@@ -52,23 +53,28 @@ var _ = BeforeSuite(func(done Done) {
 	By("bootstrapping clients")
 
 	kubeClient = kubernetes.NewForConfigOrDie(cfg)
-
-	systemAutoscalerClient = clientset.NewForConfigOrDie(cfg)
+	saClient = clientset.NewForConfigOrDie(cfg)
 
 	By("bootstrapping informers")
 
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
-	systemAutoscalerInformerFactory := informers.NewSharedInformerFactory(systemAutoscalerClient, time.Second*30)
+	crdInformerFactory := sainformers.NewSharedInformerFactory(saClient, time.Second*30)
+	coreInformerFactory := coreinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
+
+	By("creating informers")
+	informers := informers.Informers{
+		Pod:                   coreInformerFactory.Core().V1().Pods(),
+		Node:                  coreInformerFactory.Core().V1().Nodes(),
+		Service:               coreInformerFactory.Core().V1().Services(),
+		PodScale:              crdInformerFactory.Systemautoscaler().V1beta1().PodScales(),
+		ServiceLevelAgreement: crdInformerFactory.Systemautoscaler().V1beta1().ServiceLevelAgreements(),
+	}
 
 	By("bootstrapping controller")
 
 	controller := podscale.NewController(
 		kubeClient,
-		systemAutoscalerClient,
-		systemAutoscalerInformerFactory.Systemautoscaler().V1beta1().ServiceLevelAgreements(),
-		systemAutoscalerInformerFactory.Systemautoscaler().V1beta1().PodScales(),
-		kubeInformerFactory.Core().V1().Services(),
-		kubeInformerFactory.Core().V1().Pods(),
+		saClient,
+		informers,
 	)
 
 	By("starting informers")
@@ -76,8 +82,8 @@ var _ = BeforeSuite(func(done Done) {
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 	Expect(err).ToNot(HaveOccurred())
-	kubeInformerFactory.Start(stopCh)
-	systemAutoscalerInformerFactory.Start(stopCh)
+	crdInformerFactory.Start(stopCh)
+	coreInformerFactory.Start(stopCh)
 
 	By("starting controller")
 

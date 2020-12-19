@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	informers2 "github.com/lterrac/system-autoscaler/pkg/informers"
 	"time"
 
 	sainformers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions"
@@ -49,9 +50,16 @@ func main() {
 		klog.Fatalf("Error building example clientset: %s", err.Error())
 	}
 
-	//TODO: should be renamed
-	crdInformerFactory := sainformers.NewSharedInformerFactory(client, time.Second*30)
+	saInformerFactory := sainformers.NewSharedInformerFactory(client, time.Second*30)
 	coreInformerFactory := informers.NewSharedInformerFactory(kubernetesClient, time.Second*30)
+
+	informers := informers2.Informers{
+		Pod:                   coreInformerFactory.Core().V1().Pods(),
+		Node:                  coreInformerFactory.Core().V1().Nodes(),
+		Service:               coreInformerFactory.Core().V1().Services(),
+		PodScale:              saInformerFactory.Systemautoscaler().V1beta1().PodScales(),
+		ServiceLevelAgreement: saInformerFactory.Systemautoscaler().V1beta1().ServiceLevelAgreements(),
+	}
 
 	//TODO: should be renamed
 	//TODO: we should try without buffer
@@ -62,16 +70,14 @@ func main() {
 	recommenderController := recommender.NewController(
 		kubernetesClient,
 		client,
-		crdInformerFactory.Systemautoscaler().V1beta1().PodScales(),
-		crdInformerFactory.Systemautoscaler().V1beta1().ServiceLevelAgreements(),
+		informers,
 		recommenderOut,
 	)
 
 	contentionManagerController := cm.NewController(
 		kubernetesClient,
 		client,
-		crdInformerFactory.Systemautoscaler().V1beta1().PodScales(),
-		coreInformerFactory.Core().V1().Nodes(),
+		informers,
 		recommenderOut,
 		contentionManagerOut,
 	)
@@ -79,14 +85,13 @@ func main() {
 	updaterController := resupd.NewController(
 		kubernetesClient,
 		client,
-		crdInformerFactory.Systemautoscaler().V1beta1().PodScales(),
-		coreInformerFactory.Core().V1().Pods(),
+		informers,
 		contentionManagerOut,
 	)
 
 	// notice that there is no need to run Start methods in a separate goroutine. (i.e. go kubeInformerFactory.Start(stopCh)
 	// Start method is non-blocking and runs all registered sainformers in a dedicated goroutine.
-	crdInformerFactory.Start(stopCh)
+	saInformerFactory.Start(stopCh)
 	coreInformerFactory.Start(stopCh)
 
 	if err = recommenderController.Run(2, stopCh); err != nil {

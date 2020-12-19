@@ -2,6 +2,7 @@ package e2e_test
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -49,7 +50,7 @@ var _ = Describe("PodScale controller", func() {
 			_, err = kubeClient.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
-			_, err = systemAutoscalerClient.SystemautoscalerV1beta1().ServiceLevelAgreements(namespace).Create(ctx, sla, metav1.CreateOptions{})
+			_, err = saClient.SystemautoscalerV1beta1().ServiceLevelAgreements(namespace).Create(ctx, sla, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
 			Eventually(func() bool {
@@ -58,7 +59,7 @@ var _ = Describe("PodScale controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			Eventually(func() bool {
-				actual, err := systemAutoscalerClient.SystemautoscalerV1beta1().PodScales(namespace).Get(ctx, "pod-"+pod.GetName(), metav1.GetOptions{})
+				actual, err := saClient.SystemautoscalerV1beta1().PodScales(namespace).Get(ctx, "pod-"+pod.GetName(), metav1.GetOptions{})
 				return err == nil &&
 					actual.Spec.PodRef.Name == pod.GetName() &&
 					actual.Spec.PodRef.Namespace == namespace &&
@@ -69,7 +70,7 @@ var _ = Describe("PodScale controller", func() {
 			// resource cleanup
 			err = kubeClient.CoreV1().Services(namespace).Delete(ctx, svc.GetName(), metav1.DeleteOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
-			err = systemAutoscalerClient.SystemautoscalerV1beta1().ServiceLevelAgreements(namespace).Delete(ctx, slaName, metav1.DeleteOptions{})
+			err = saClient.SystemautoscalerV1beta1().ServiceLevelAgreements(namespace).Delete(ctx, slaName, metav1.DeleteOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 			err = kubeClient.CoreV1().Pods(namespace).Delete(ctx, pod.GetName(), metav1.DeleteOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
@@ -95,11 +96,11 @@ var _ = Describe("PodScale controller", func() {
 			_, err = kubeClient.CoreV1().Pods(namespace).Create(ctx, matchedPod, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
-			sla, err = systemAutoscalerClient.SystemautoscalerV1beta1().ServiceLevelAgreements(namespace).Create(ctx, sla, metav1.CreateOptions{})
+			sla, err = saClient.SystemautoscalerV1beta1().ServiceLevelAgreements(namespace).Create(ctx, sla, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
 			Eventually(func() bool {
-				actual, err := systemAutoscalerClient.SystemautoscalerV1beta1().PodScales(namespace).Get(ctx, "pod-"+matchedPod.GetName(), metav1.GetOptions{})
+				actual, err := saClient.SystemautoscalerV1beta1().PodScales(namespace).Get(ctx, "pod-"+matchedPod.GetName(), metav1.GetOptions{})
 				return err == nil &&
 					actual.Spec.PodRef.Name == matchedPod.GetName() &&
 					actual.Spec.PodRef.Namespace == namespace &&
@@ -111,18 +112,18 @@ var _ = Describe("PodScale controller", func() {
 				MatchLabels: newServiceSelector,
 			}
 
-			_, err = systemAutoscalerClient.SystemautoscalerV1beta1().ServiceLevelAgreements(namespace).Update(ctx, sla, metav1.UpdateOptions{})
+			_, err = saClient.SystemautoscalerV1beta1().ServiceLevelAgreements(namespace).Update(ctx, sla, metav1.UpdateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
 			Eventually(func() bool {
-				_, err := systemAutoscalerClient.SystemautoscalerV1beta1().PodScales(namespace).Get(ctx, "pod-"+matchedPod.GetName(), metav1.GetOptions{})
+				_, err := saClient.SystemautoscalerV1beta1().PodScales(namespace).Get(ctx, "pod-"+matchedPod.GetName(), metav1.GetOptions{})
 				return apierrors.IsNotFound(err)
 			}, timeout, interval).Should(BeTrue())
 
 			// resource cleanup
 			err = kubeClient.CoreV1().Services(namespace).Delete(ctx, matchedSvc.GetName(), metav1.DeleteOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
-			err = systemAutoscalerClient.SystemautoscalerV1beta1().ServiceLevelAgreements(namespace).Delete(ctx, sla.GetName(), metav1.DeleteOptions{})
+			err = saClient.SystemautoscalerV1beta1().ServiceLevelAgreements(namespace).Delete(ctx, sla.GetName(), metav1.DeleteOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 			err = kubeClient.CoreV1().Pods(namespace).Delete(ctx, matchedPod.GetName(), metav1.DeleteOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
@@ -146,11 +147,11 @@ var _ = Describe("PodScale controller", func() {
 			_, err = kubeClient.CoreV1().Pods(namespace).Create(ctx, matchedPod, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
-			sla, err = systemAutoscalerClient.SystemautoscalerV1beta1().ServiceLevelAgreements(namespace).Create(ctx, sla, metav1.CreateOptions{})
+			sla, err = saClient.SystemautoscalerV1beta1().ServiceLevelAgreements(namespace).Create(ctx, sla, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
 			Eventually(func() bool {
-				actual, err := systemAutoscalerClient.SystemautoscalerV1beta1().PodScales(namespace).Get(ctx, "pod-"+matchedPod.GetName(), metav1.GetOptions{})
+				actual, err := saClient.SystemautoscalerV1beta1().PodScales(namespace).Get(ctx, "pod-"+matchedPod.GetName(), metav1.GetOptions{})
 				return err == nil &&
 					actual.Spec.PodRef.Name == matchedPod.GetName() &&
 					actual.Spec.PodRef.Namespace == namespace &&
@@ -184,7 +185,7 @@ var _ = Describe("PodScale controller", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 
 			Eventually(func() bool {
-				actual, err := systemAutoscalerClient.SystemautoscalerV1beta1().PodScales(namespace).Get(ctx, "pod-"+newPod.GetName(), metav1.GetOptions{})
+				actual, err := saClient.SystemautoscalerV1beta1().PodScales(namespace).Get(ctx, "pod-"+newPod.GetName(), metav1.GetOptions{})
 				return err == nil &&
 					actual.Spec.PodRef.Name == newPod.GetName() &&
 					actual.Spec.PodRef.Namespace == namespace &&
@@ -193,7 +194,7 @@ var _ = Describe("PodScale controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			Eventually(func() bool {
-				podscales, podscaleErr := systemAutoscalerClient.SystemautoscalerV1beta1().PodScales(namespace).List(ctx, metav1.ListOptions{
+				podscales, podscaleErr := saClient.SystemautoscalerV1beta1().PodScales(namespace).List(ctx, metav1.ListOptions{
 					LabelSelector: labels.Set(matchedSvc.Spec.Selector).AsSelector().String(),
 				})
 				pods, podErr := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
@@ -206,12 +207,12 @@ var _ = Describe("PodScale controller", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 
 			Eventually(func() bool {
-				_, err := systemAutoscalerClient.SystemautoscalerV1beta1().PodScales(namespace).Get(ctx, "pod-"+newPod.GetName(), metav1.GetOptions{})
+				_, err := saClient.SystemautoscalerV1beta1().PodScales(namespace).Get(ctx, "pod-"+newPod.GetName(), metav1.GetOptions{})
 				return apierrors.IsNotFound(err)
 			}, timeout, interval).Should(BeTrue())
 
 			Eventually(func() bool {
-				podscales, podscaleErr := systemAutoscalerClient.SystemautoscalerV1beta1().PodScales(namespace).List(ctx, metav1.ListOptions{
+				podscales, podscaleErr := saClient.SystemautoscalerV1beta1().PodScales(namespace).List(ctx, metav1.ListOptions{
 					LabelSelector: labels.Set(matchedSvc.Spec.Selector).AsSelector().String(),
 				})
 				pods, podErr := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
@@ -223,7 +224,7 @@ var _ = Describe("PodScale controller", func() {
 			// resource cleanup
 			err = kubeClient.CoreV1().Services(namespace).Delete(ctx, matchedSvc.GetName(), metav1.DeleteOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
-			err = systemAutoscalerClient.SystemautoscalerV1beta1().ServiceLevelAgreements(namespace).Delete(ctx, sla.GetName(), metav1.DeleteOptions{})
+			err = saClient.SystemautoscalerV1beta1().ServiceLevelAgreements(namespace).Delete(ctx, sla.GetName(), metav1.DeleteOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 			err = kubeClient.CoreV1().Pods(namespace).Delete(ctx, matchedPod.GetName(), metav1.DeleteOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
@@ -232,6 +233,7 @@ var _ = Describe("PodScale controller", func() {
 })
 
 func newSLA(name string, labels map[string]string) *systemautoscaler.ServiceLevelAgreement {
+	responseTime := int32(2500)
 	return &systemautoscaler.ServiceLevelAgreement{
 		TypeMeta: metav1.TypeMeta{APIVersion: systemautoscaler.SchemeGroupVersion.String()},
 		ObjectMeta: metav1.ObjectMeta{
@@ -241,6 +243,13 @@ func newSLA(name string, labels map[string]string) *systemautoscaler.ServiceLeve
 		Spec: systemautoscaler.ServiceLevelAgreementSpec{
 			ServiceSelector: &metav1.LabelSelector{
 				MatchLabels: labels,
+			},
+			Metric: systemautoscaler.MetricRequirement{
+				ResponseTime: &responseTime,
+			},
+			DefaultResources: map[corev1.ResourceName]resource.Quantity{
+				corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
+				corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
 			},
 		},
 	}

@@ -22,7 +22,7 @@ func (c *Controller) syncPodScalesAdded(key string) error {
 	}
 
 	// Get the PodScale resource with this namespace/name
-	podScale, err := c.podScalesLister.PodScales(namespace).Get(name)
+	podScale, err := c.listers.PodScales(namespace).Get(name)
 	if err != nil {
 		// The PodScale resource may no longer exist, in which case we stop processing.
 		if errors.IsNotFound(err) {

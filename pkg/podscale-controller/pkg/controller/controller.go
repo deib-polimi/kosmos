@@ -2,27 +2,23 @@ package controller
 
 import (
 	"fmt"
+	"github.com/lterrac/system-autoscaler/pkg/informers"
+	"github.com/lterrac/system-autoscaler/pkg/queue"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 
-	corelisters "k8s.io/client-go/listers/core/v1"
-
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
 	clientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
 	samplescheme "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned/scheme"
-	informers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions/systemautoscaler/v1beta1"
-	listers "github.com/lterrac/system-autoscaler/pkg/generated/listers/systemautoscaler/v1beta1"
 )
 
 // AgentName is the controller name used
@@ -47,17 +43,14 @@ type Controller struct {
 	kubeClientset      kubernetes.Interface
 	podScalesClientset clientset.Interface
 
-	slasLister      listers.ServiceLevelAgreementLister
-	podScalesLister listers.PodScaleLister
-	servicesLister  corelisters.ServiceLister
-	podLister       corelisters.PodLister
+	listers informers.Listers
 
 	slasSynced      cache.InformerSynced
 	podScalesSynced cache.InformerSynced
 	servicesSynced  cache.InformerSynced
 	podSynced       cache.InformerSynced
 
-	slasworkqueue workqueue.RateLimitingInterface
+	slasworkqueue queue.Queue
 
 	recorder record.EventRecorder
 }
@@ -66,10 +59,7 @@ type Controller struct {
 func NewController(
 	kubeClient kubernetes.Interface,
 	podScalesClient clientset.Interface,
-	slaInformer informers.ServiceLevelAgreementInformer,
-	podScaleInformer informers.PodScaleInformer,
-	serviceInformer coreinformers.ServiceInformer,
-	podInformer coreinformers.PodInformer) *Controller {
+	informers informers.Informers) *Controller {
 
 	// Create event broadcaster
 	// Add System Autoscaler types to the default Kubernetes Scheme so Events can be
@@ -84,23 +74,20 @@ func NewController(
 		kubeClientset:      kubeClient,
 		podScalesClientset: podScalesClient,
 
-		slasLister:      slaInformer.Lister(),
-		podScalesLister: podScaleInformer.Lister(),
-		servicesLister:  serviceInformer.Lister(),
-		podLister:       podInformer.Lister(),
+		listers: informers.GetListers(),
 
-		slasSynced:      slaInformer.Informer().HasSynced,
-		podScalesSynced: podScaleInformer.Informer().HasSynced,
-		servicesSynced:  serviceInformer.Informer().HasSynced,
-		podSynced:       podInformer.Informer().HasSynced,
+		slasSynced:      informers.ServiceLevelAgreement.Informer().HasSynced,
+		podScalesSynced: informers.PodScale.Informer().HasSynced,
+		servicesSynced:  informers.Service.Informer().HasSynced,
+		podSynced:       informers.Pod.Informer().HasSynced,
 
-		slasworkqueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "ServiceLevelAgreements"),
+		slasworkqueue: queue.NewQueue("ServiceLevelAgreements"),
 		recorder:      recorder,
 	}
 
 	klog.Info("Setting up event handlers")
 	// Set up an event handler for when ServiceLevelAgreements resources change
-	slaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	informers.ServiceLevelAgreement.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.handleServiceLevelAgreementAdd,
 		UpdateFunc: controller.handleServiceLevelAgreementUpdate,
 		DeleteFunc: controller.handleServiceLevelAgreementDeletion,
@@ -147,6 +134,6 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 // processNextWorkItem function in order to read and process a message on the
 // workqueue.
 func (c *Controller) runWorker() {
-	for c.processNextQueueItem(c.slasworkqueue, c.syncServiceLevelAgreement) {
+	for c.slasworkqueue.ProcessNextItem(c.syncServiceLevelAgreement) {
 	}
 }

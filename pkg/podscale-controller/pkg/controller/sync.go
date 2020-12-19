@@ -26,7 +26,7 @@ func (c *Controller) syncServiceLevelAgreement(key string) error {
 	}
 
 	// Get the SLA resource with this namespace/name
-	sla, err := c.slasLister.ServiceLevelAgreements(namespace).Get(name)
+	sla, err := c.listers.ServiceLevelAgreements(namespace).Get(name)
 
 	if err != nil {
 		// The SLA resource may no longer exist, in which case we stop
@@ -41,7 +41,7 @@ func (c *Controller) syncServiceLevelAgreement(key string) error {
 
 	// Get all desired services to track matching the SLA selector inside the namespace
 	serviceSelector := labels.Set(sla.Spec.ServiceSelector.MatchLabels).AsSelector()
-	desired, err := c.servicesLister.Services(namespace).List(serviceSelector)
+	desired, err := c.listers.Services(namespace).List(serviceSelector)
 
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("error while getting Services to track in Namespace '%s'", namespace))
@@ -52,7 +52,7 @@ func (c *Controller) syncServiceLevelAgreement(key string) error {
 	trackedSelector := labels.Set(map[string]string{
 		SubjectToLabel: name,
 	}).AsSelector()
-	actual, err := c.servicesLister.Services(namespace).List(trackedSelector)
+	actual, err := c.listers.Services(namespace).List(trackedSelector)
 
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("error while getting Services tracked in Namespace '%s'", namespace))
@@ -109,7 +109,7 @@ func (c *Controller) handleServiceSelectorChange(actual []*corev1.Service, desir
 		}
 		// get all podscales currently associated to a Service
 		podscaleSelector := labels.Set(service.Spec.Selector).AsSelector()
-		podscales, err := c.podScalesLister.List(podscaleSelector)
+		podscales, err := c.listers.PodScaleLister.List(podscaleSelector)
 
 		if err != nil {
 			utilruntime.HandleError(fmt.Errorf("error while getting PodScales for Service '%s'", service.GetName()))
@@ -133,14 +133,14 @@ func (c *Controller) handleServiceSelectorChange(actual []*corev1.Service, desir
 // a desired state so `PodScale` are changed accordingly.
 func (c *Controller) syncService(namespace string, service *corev1.Service, sla *v1beta1.ServiceLevelAgreement) error {
 	label := labels.Set(service.Spec.Selector)
-	pods, err := c.podLister.List(label.AsSelector())
+	pods, err := c.listers.PodLister.List(label.AsSelector())
 
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("error while getting Pods for Service '%s'", service.GetName()))
 		return nil
 	}
 
-	podscales, err := c.podScalesLister.List(label.AsSelector())
+	podscales, err := c.listers.PodScaleLister.List(label.AsSelector())
 
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("error while getting PodScales for Service '%s'", service.GetName()))

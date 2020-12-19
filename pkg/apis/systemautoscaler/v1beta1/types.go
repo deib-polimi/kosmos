@@ -43,6 +43,7 @@ type ServiceLevelAgreementSpec struct {
 	// Specify the selector to match Services and Service Level Agreement
 	// +kubebuilder:validation:Required
 	ServiceSelector *metav1.LabelSelector `json:"serviceSelector"`
+	// TODO: we should add resources min and max value
 }
 
 // MetricRequirement specifies a requirement for a metric.
@@ -90,6 +91,7 @@ type PodScale struct {
 type PodScaleSpec struct {
 	SLARef           SLARef          `json:"serviceLevelAgreement"`
 	PodRef           PodRef          `json:"pod"`
+	// TODO: add NodeRef
 	DesiredResources v1.ResourceList `json:"desired,omitempty" protobuf:"bytes,3,rep,name=desired,casttype=ResourceList,castkey=ResourceName"`
 }
 
@@ -104,8 +106,6 @@ type SLARef struct {
 	Name      string `json:"name"`
 	Namespace string `json:"namespace"`
 }
-
-// TODO: Decide if useful or not
 
 // PodScaleStatus contains the resources patched by the
 // `Contention Manager` according to the available node resources
