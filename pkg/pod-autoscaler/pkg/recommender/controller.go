@@ -1,9 +1,10 @@
 package recommender
 
 import (
-	"context"
 	"fmt"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/lterrac/system-autoscaler/pkg/queue"
+	coreinformers "k8s.io/client-go/informers/core/v1"
+	corelisters "k8s.io/client-go/listers/core/v1"
 	"time"
 
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
@@ -18,7 +19,6 @@ import (
 
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
 	podscalesclientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
@@ -46,18 +46,24 @@ type Controller struct {
 
 	slaLister listers.ServiceLevelAgreementLister
 
+	podLister corelisters.PodLister
+
 	// kubernetesCLientset is the client-go of kubernetes
 	kubernetesClientset kubernetes.Clientset
 
-	// TODO: we have three queues? Do we really need all of them?
-	// podScalesAddedQueue contains all the pods that should be monitored
-	podScalesAddedQueue workqueue.RateLimitingInterface
+	//// TODO: we have three queues? Do we really need all of them?
+	//// podScalesAddedQueue contains all the pods that should be monitored
+	//podScalesAddedQueue workqueue.RateLimitingInterface
+	//
+	//// podScalesDeletedQueue contains all the pods that should not be monitored
+	//podScalesDeletedQueue workqueue.RateLimitingInterface
+	//
+	//// recommendNodeQueue contains all the nodes that needs a recommendation
+	//recommendNodeQueue workqueue.RateLimitingInterface
 
-	// podScalesDeletedQueue contains all the pods that should not be monitored
-	podScalesDeletedQueue workqueue.RateLimitingInterface
-
-	// recommendNodeQueue contains all the nodes that needs a recommendation
-	recommendNodeQueue workqueue.RateLimitingInterface
+	podScalesAddedQueue   queue.Queue
+	podScalesDeletedQueue queue.Queue
+	recommendNodeQueue    queue.Queue
 
 	// status represents the state of the controller
 	status *Status
@@ -95,6 +101,7 @@ func NewController(
 	podScalesClientset podscalesclientset.Interface,
 	podScaleInformer informers.PodScaleInformer,
 	slaInformer informers.ServiceLevelAgreementInformer,
+	podInformer coreinformers.PodInformer,
 	out chan types.NodeScales,
 ) *Controller {
 
@@ -109,27 +116,31 @@ func NewController(
 
 	// Create Controller status
 	status := &Status{
-		nodeMap:  *concurrent.NewMap(),
-		podMap:   *concurrent.NewMap(),
-		logicMap: *concurrent.NewMap(),
+		nodeMap:     *concurrent.NewMap(),
+		podMap:      *concurrent.NewMap(),
+		logicMap:    *concurrent.NewMap(),
 		podScaleMap: *concurrent.NewMap(),
 	}
 
 	// Instantiate the Controller
 	controller := &Controller{
-		podScalesClientset:    podScalesClientset,
-		podScalesInformer:     podScaleInformer,
-		podScalesLister:       podScaleInformer.Lister(),
-		slaLister:             slaInformer.Lister(),
-		podScalesSynced:       podScaleInformer.Informer().HasSynced,
-		kubernetesClientset:   *kubernetesClientset,
-		podScalesAddedQueue:   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "PodScalesAdded"),
-		podScalesDeletedQueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "PodScalesDeleted"),
-		recommendNodeQueue:    workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "RecommendQueue"),
-		status:                status,
-		MetricClient:          NewMetricClient(),
-		recorder:              recorder,
-		out:                   out,
+		podScalesClientset:  podScalesClientset,
+		podScalesInformer:   podScaleInformer,
+		podScalesLister:     podScaleInformer.Lister(),
+		slaLister:           slaInformer.Lister(),
+		podLister:           podInformer.Lister(),
+		podScalesSynced:     podScaleInformer.Informer().HasSynced,
+		kubernetesClientset: *kubernetesClientset,
+		//podScalesAddedQueue:   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "PodScalesAdded"),
+		podScalesAddedQueue: queue.NewQueue("PodScalesAdded"),
+		//podScalesDeletedQueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "PodScalesDeleted"),
+		podScalesDeletedQueue: queue.NewQueue("PodScalesDeleted"),
+		//recommendNodeQueue:    workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "RecommendQueue"),
+		recommendNodeQueue: queue.NewQueue("RecommendQueue"),
+		status:             status,
+		MetricClient:       NewMetricClient(),
+		recorder:           recorder,
+		out:                out,
 	}
 
 	klog.Info("Setting up event handlers")
@@ -159,11 +170,11 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	}
 
 	klog.Info("Starting recommender workers")
-	// Launch the workers to process podScale resources and recommend new pod scales
+	// Launch the workers to process podScale resources and recommendPod new pod scales
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runPodScaleAddedWorker, time.Second, stopCh)
 		go wait.Until(c.runPodScaleRemovedWorker, time.Second, stopCh)
-		go wait.Until(c.runRecommendNodeWorker, time.Second, stopCh)
+		go wait.Until(c.runNodeRecommenderWorker, time.Second, stopCh)
 	}
 	go wait.Until(c.runRecommenderWorker, 5*time.Second, stopCh)
 
@@ -174,38 +185,40 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 
 func (c *Controller) Shutdown() {
 	utilruntime.HandleCrash()
-	c.podScalesAddedQueue.ShutDown()
-	c.podScalesDeletedQueue.ShutDown()
-	c.recommendNodeQueue.ShutDown()
+	c.podScalesAddedQueue.Queue.ShutDown()
+	c.podScalesDeletedQueue.Queue.ShutDown()
+	c.recommendNodeQueue.Queue.ShutDown()
 }
 
 // Handle all the pod scales that has been added
 func (c *Controller) runPodScaleAddedWorker() {
-	for c.processPodScalesAdded() {
+	for c.podScalesAddedQueue.ProcessNextItem(c.syncPodScalesAdded) {
 	}
 }
 
 // Handle all the pod scales that has been deleted
 func (c *Controller) runPodScaleRemovedWorker() {
-	for c.processPodScalesDeleted() {
+	for c.podScalesDeletedQueue.ProcessNextItem(c.syncPodScalesDeleted) {
 	}
 }
 
 // Enqueue a node to the recommend node queue
 func (c *Controller) runRecommenderWorker() {
 	c.status.nodeMap.Range(func(key, value interface{}) bool {
-		c.recommendNodeQueue.AddRateLimited(key)
+		c.recommendNodeQueue.Queue.AddRateLimited(key)
 		return true
 	})
 }
 
-// TODO: the name is not auto-explicative
+// TODO: make better comment. It is not very clear.
 // Handle all the nodes that needs a recommendation
-func (c *Controller) runRecommendNodeWorker() {
-	for c.processRecommendNode() {
+func (c *Controller) runNodeRecommenderWorker() {
+	for c.recommendNodeQueue.ProcessNextItem(c.recommendNode) {
 	}
 }
 
+// recommendNode recommends new resources to a set of pods that are deployed on the same node.
+// it writes on the out channel a node scale which contains all the pods that are monitored on the node.
 func (c *Controller) recommendNode(node string) error {
 	// Recommend to all pods in a node new pod scales resources.
 	klog.Info("Recommending to node ", node)
@@ -221,7 +234,7 @@ func (c *Controller) recommendNode(node string) error {
 
 	newPodScales := make([]*v1beta1.PodScale, 0)
 	for key := range keys {
-		newPodScale, err := c.recommend(key)
+		newPodScale, err := c.recommendPod(key)
 		if err != nil {
 			//utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key))
 			return err
@@ -240,8 +253,8 @@ func (c *Controller) recommendNode(node string) error {
 	return nil
 }
 
-// TODO: need to document it
-func (c *Controller) recommend(key string) (*v1beta1.PodScale, error) {
+// recommendPod recommends the new resources to assign to a pod
+func (c *Controller) recommendPod(key string) (*v1beta1.PodScale, error) {
 	klog.Info("Recommending for ", key)
 
 	// Retrieve the pod scale namespace and name
@@ -258,22 +271,12 @@ func (c *Controller) recommend(key string) (*v1beta1.PodScale, error) {
 		return nil, err
 	}
 
-	// Retrieve the pod
-	//podInterface, ok := c.status.podMap.Load(key)
-	//if !ok {
-	//	return nil, fmt.Errorf("the key %s has no pod associated with it", key)
-	//}
-	//pod, ok := podInterface.(*corev1.Pod)
-	//if !ok {
-	//	return nil, fmt.Errorf("error: %s, failed to cast logic with name %s and namespace %s", err, podScale.Spec.SLARef.Name, podScale.Spec.SLARef.Namespace)
-	//}
 	// Get the pod associated with the pod scale
-	// TODO: the pod should be taken from the lister if possible.
-	pod, err := c.kubernetesClientset.CoreV1().Pods(podScale.Spec.PodRef.Namespace).Get(context.TODO(), podScale.Spec.PodRef.Name, v1.GetOptions{})
+	pod, err := c.podLister.Pods(podScale.Spec.PodRef.Namespace).Get(podScale.Spec.PodRef.Name)
 	if err != nil {
 		return nil, fmt.Errorf("error: %s, cannot retrieve pod with name %s and namespace %s", err, podScale.Spec.PodRef.Name, podScale.Spec.PodRef.Namespace)
 	}
-	// TODO: the pod should be taken from the lister if possible.
+
 	// Retrieve the sla
 	sla, err := c.slaLister.ServiceLevelAgreements(podScale.Spec.SLARef.Namespace).Get(podScale.Spec.SLARef.Name)
 	if err != nil {

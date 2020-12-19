@@ -83,6 +83,7 @@ var _ = BeforeSuite(func(done Done) {
 		saClient,
 		crdInformerFactory.Systemautoscaler().V1beta1().PodScales(),
 		crdInformerFactory.Systemautoscaler().V1beta1().ServiceLevelAgreements(),
+		coreInformerFactory.Core().V1().Pods(),
 		recommenderOut,
 	)
 	client := recommender.NewMetricClient()
