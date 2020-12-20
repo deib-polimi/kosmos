@@ -2,13 +2,16 @@ package e2e_test
 
 import (
 	"context"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"time"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/tools/record"
 
 	systemautoscaler "github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
+	"github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/controller"
 	. "github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/controller"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -18,20 +21,12 @@ import (
 )
 
 const namespace = "e2e"
-const timeout = 60 * time.Second
+const timeout = 40 * time.Second
 const interval = 1 * time.Second
 
 var _ = Describe("PodScale controller", func() {
 	Context("With an application deployed inside the cluster", func() {
 		ctx := context.Background()
-
-		BeforeEach(func() {
-
-		})
-
-		AfterEach(func() {
-
-		})
 
 		It("Creates the podscale if it matches the SLA service selector", func() {
 			slaName := "foo-sla"
@@ -129,6 +124,7 @@ var _ = Describe("PodScale controller", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 	})
+
 	Context("With a Service Level Agreement matching and application", func() {
 		ctx := context.Background()
 
@@ -176,6 +172,16 @@ var _ = Describe("PodScale controller", func() {
 						{
 							Name:  "foobarfoo",
 							Image: "gcr.io/distroless/static:nonroot",
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
+									corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
+								},
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
+									corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
+								},
+							},
 						},
 					},
 				},
@@ -230,6 +236,71 @@ var _ = Describe("PodScale controller", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 	})
+
+	Context("With a Pod with a QOS class other than Guaranteed", func() {
+		ctx := context.Background()
+
+		It("Fires an event telling that is not able to process the Pod", func() {
+			oldServiceSelector := map[string]string{
+				"app": "foo",
+			}
+
+			sla := newSLA("foobarfooz-sla", oldServiceSelector)
+			matchedSvc, matchedPod := newApplication("foobarfooz-app", oldServiceSelector)
+			matchedSvc.Labels[SubjectToLabel] = sla.Name
+
+			// Having different request and limit will automatically foreclose Guaranteed QOS class
+			matchedPod.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    *resource.NewScaledQuantity(100, resource.Milli),
+					corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
+					corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
+				},
+			}
+
+			_, err := kubeClient.CoreV1().Services(namespace).Create(ctx, matchedSvc, metav1.CreateOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+
+			_, err = kubeClient.CoreV1().Pods(namespace).Create(ctx, matchedPod, metav1.CreateOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+
+			sla, err = saClient.SystemautoscalerV1beta1().ServiceLevelAgreements(namespace).Create(ctx, sla, metav1.CreateOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+
+			eventBroadcaster := record.NewBroadcaster()
+			eventBroadcaster.StartStructuredLogging(0)
+
+			Eventually(func() bool {
+				events, err := kubeClient.EventsV1beta1().Events(matchedPod.Namespace).List(ctx, metav1.ListOptions{})
+
+				if err != nil {
+					return false
+				}
+
+				for _, event := range events.Items {
+					if event.Reason == controller.QOSNotSupported &&
+						event.Regarding.Kind == matchedPod.Kind &&
+						event.Regarding.Name == matchedPod.Name &&
+						event.Regarding.Namespace == matchedPod.Namespace {
+						return true
+					}
+				}
+
+				return false
+			}, timeout, interval).Should(BeTrue())
+
+			// resource cleanup
+			err = kubeClient.CoreV1().Services(namespace).Delete(ctx, matchedSvc.GetName(), metav1.DeleteOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+			err = saClient.SystemautoscalerV1beta1().ServiceLevelAgreements(namespace).Delete(ctx, sla.GetName(), metav1.DeleteOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+			err = kubeClient.CoreV1().Pods(namespace).Delete(ctx, matchedPod.GetName(), metav1.DeleteOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+		})
+	})
 })
 
 func newSLA(name string, labels map[string]string) *systemautoscaler.ServiceLevelAgreement {
@@ -260,7 +331,7 @@ func newApplication(name string, labels map[string]string) (*corev1.Service, *co
 		"match": "bar",
 	}
 	return &corev1.Service{
-			TypeMeta: metav1.TypeMeta{APIVersion: corev1.SchemeGroupVersion.String(), Kind: "services"},
+			TypeMeta: metav1.TypeMeta{APIVersion: corev1.SchemeGroupVersion.String(), Kind: "Service"},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: namespace,
@@ -280,18 +351,29 @@ func newApplication(name string, labels map[string]string) (*corev1.Service, *co
 				},
 			},
 		}, &corev1.Pod{
-			TypeMeta: metav1.TypeMeta{APIVersion: corev1.SchemeGroupVersion.String(), Kind: "pods"},
+			TypeMeta: metav1.TypeMeta{APIVersion: corev1.SchemeGroupVersion.String(), Kind: "Pod"},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: namespace,
 				Labels:    podLabels,
 			},
-			Spec: corev1.PodSpec{Containers: []corev1.Container{
-				{
-					Name:  name,
-					Image: "gcr.io/distroless/static:nonroot",
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  name,
+						Image: "gcr.io/distroless/static:nonroot",
+						Resources: corev1.ResourceRequirements{
+							Limits: corev1.ResourceList{
+								corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
+								corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
+							},
+							Requests: corev1.ResourceList{
+								corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
+								corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
+							},
+						},
+					},
 				},
-			},
 			},
 		}
 }

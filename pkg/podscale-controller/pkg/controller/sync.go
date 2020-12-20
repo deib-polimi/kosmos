@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog/v2"
 )
 
 // syncHandler compares the actual state with the desired, and attempts to
@@ -150,7 +151,12 @@ func (c *Controller) syncService(namespace string, service *corev1.Service, sla 
 	stateDiff := utils.DiffPods(pods, podscales)
 
 	for _, pod := range stateDiff.AddList {
-
+		//TODO: change when a policy to handle other QOS class will be discussed
+		if pod.Status.QOSClass != corev1.PodQOSGuaranteed {
+			klog.Info("DIOCANE")
+			c.recorder.Eventf(pod, corev1.EventTypeWarning, QOSNotSupported, "Unsupported QOS for Pod %s/%s: ", pod.Namespace, pod.Name, pod.Status.QOSClass)
+			continue
+		}
 		podscale := NewPodScale(pod, sla, label)
 
 		_, err := c.podScalesClientset.SystemautoscalerV1beta1().PodScales(namespace).Create(context.TODO(), podscale, metav1.CreateOptions{})
@@ -159,6 +165,7 @@ func (c *Controller) syncService(namespace string, service *corev1.Service, sla 
 			utilruntime.HandleError(err)
 			return nil
 		}
+
 	}
 
 	for _, podscale := range stateDiff.DeleteList {
