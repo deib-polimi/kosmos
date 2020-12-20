@@ -2,11 +2,12 @@ package controller
 
 import (
 	"fmt"
-	"github.com/lterrac/system-autoscaler/pkg/informers"
-	"github.com/lterrac/system-autoscaler/pkg/queue"
 	"time"
 
+	"github.com/lterrac/system-autoscaler/pkg/informers"
+	"github.com/lterrac/system-autoscaler/pkg/queue"
 	corev1 "k8s.io/api/core/v1"
+	typev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -21,15 +22,20 @@ import (
 	samplescheme "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned/scheme"
 )
 
-// AgentName is the controller name used
-// both in logs and labels to identify it
-const AgentName = "podscale-controller"
-
-// SubjectToLabel is used to identify the ServiceLevelAgreement
-// matched by the Service
-const SubjectToLabel = "app.kubernetes.io/subject-to"
-
 const (
+
+	// AgentName is the controller name used
+	// both in logs and labels to identify it
+	AgentName = "podscale-controller"
+
+	// SubjectToLabel is used to identify the ServiceLevelAgreement
+	// matched by the Service
+	SubjectToLabel = "app.kubernetes.io/subject-to"
+
+	// QOSNotSupported is used as part of the event 'reason' fired when the controller
+	// process a pod with a QOS other than Guaranteed
+	QOSNotSupported = "Unsupported QOS"
+
 	// SuccessSynced is used as part of the Event 'reason' when a podScale is synced
 	SuccessSynced = "Synced"
 
@@ -66,8 +72,12 @@ func NewController(
 	// logged for types.
 	utilruntime.Must(samplescheme.AddToScheme(scheme.Scheme))
 	klog.V(4).Info("Creating event broadcaster")
+
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartStructuredLogging(0)
+	eventBroadcaster.StartRecordingToSink(&typev1.EventSinkImpl{
+		Interface: kubeClient.CoreV1().Events(corev1.NamespaceAll),
+	})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: AgentName})
 
 	controller := &Controller{
