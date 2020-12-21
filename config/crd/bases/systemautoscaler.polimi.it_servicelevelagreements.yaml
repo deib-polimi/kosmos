@@ -48,6 +48,15 @@ spec:
               description: Specify the default resources assigned to pods in case
                 `requests` field is empty in `PodSpec`.
               type: object
+            maxResources:
+              additionalProperties:
+                anyOf:
+                - type: integer
+                - type: string
+                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                x-kubernetes-int-or-string: true
+              description: The upper bound of resources to assign to containers.
+              type: object
             metric:
               description: Specify the metric on which the requirement is set.
               properties:
@@ -56,6 +65,15 @@ spec:
                   minimum: 10
                   multipleOf: 10
                   type: integer
+              type: object
+            minResources:
+              additionalProperties:
+                anyOf:
+                - type: integer
+                - type: string
+                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                x-kubernetes-int-or-string: true
+              description: The lower bound of resources to assign to containers.
               type: object
             serviceSelector:
               description: Specify the selector to match Services and Service Level

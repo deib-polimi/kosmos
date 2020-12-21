@@ -40,6 +40,12 @@ type ServiceLevelAgreementSpec struct {
 	// Specify the default resources assigned to pods in case `requests` field is empty in `PodSpec`.
 	// +kubebuilder:validation:Required
 	DefaultResources v1.ResourceList `json:"defaultResources,omitempty" protobuf:"bytes,3,rep,name=defaultResources,casttype=ResourceList,castkey=ResourceName"`
+	// The lower bound of resources to assign to containers.
+	// +kubebuilder:validation:Optional
+	MinResources v1.ResourceList `json:"minResources,omitempty" protobuf:"bytes,3,rep,name=minResources,casttype=ResourceList,castkey=ResourceName"`
+	// The upper bound of resources to assign to containers.
+	// +kubebuilder:validation:Optional
+	MaxResources v1.ResourceList `json:"maxResources,omitempty" protobuf:"bytes,3,rep,name=maxResources,casttype=ResourceList,castkey=ResourceName"`
 	// Specify the selector to match Services and Service Level Agreement
 	// +kubebuilder:validation:Required
 	ServiceSelector *metav1.LabelSelector `json:"serviceSelector"`

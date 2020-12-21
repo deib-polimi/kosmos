@@ -70,6 +70,7 @@ func (logic *ControlTheoryLogic) computeMemoryResource(pod *v1.Pod, podScale *v1
 
 	// Compute the new desired value
 	newDesiredResource := resource.NewScaledQuantity(desiredResource.ScaledValue(memoryDefaultScale), memoryDefaultScale)
+	newDesiredResource = applyBounds(newDesiredResource, sla.Spec.MinResources.Memory(), sla.Spec.MaxResources.Memory())
 
 	// For logging purpose
 	klog.Info("Computing memory resource for Pod: ", pod.GetName(), ", actual value: ", actualResource, ", desired value: ", desiredResource, ", new value: ", newDesiredResource)
@@ -100,9 +101,20 @@ func (logic *ControlTheoryLogic) computeCPUResource(pod *v1.Pod, podScale *v1bet
 	logic.xcprec = float64(logic.cores - BC*e)
 
 	newDesiredResource := resource.NewScaledQuantity(int64(logic.cores), cpuDefaultScale)
+	newDesiredResource = applyBounds(newDesiredResource, sla.Spec.MinResources.Cpu(), sla.Spec.MaxResources.Cpu())
 
 	// For logging purpose
 	klog.Info("Computing CPU resource for Pod: ", pod.GetName(), ", actual value: ", actualResource, ", desired value: ", desiredResource, ", new value: ", newDesiredResource)
 
 	return newDesiredResource
+}
+
+func applyBounds(value *resource.Quantity, min *resource.Quantity, max *resource.Quantity) *resource.Quantity{
+	if value.Value() > max.Value() {
+		return max
+	} else if value.Value() < min.Value() {
+		return min
+	} else {
+		return value
+	}
 }
