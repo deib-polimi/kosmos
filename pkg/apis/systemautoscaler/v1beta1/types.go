@@ -2,6 +2,7 @@ package v1beta1
 
 import (
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -49,7 +50,6 @@ type ServiceLevelAgreementSpec struct {
 	// Specify the selector to match Services and Service Level Agreement
 	// +kubebuilder:validation:Required
 	ServiceSelector *metav1.LabelSelector `json:"serviceSelector"`
-	// TODO: we should add resources min and max value
 }
 
 // MetricRequirement specifies a requirement for a metric.
@@ -64,9 +64,8 @@ type ServiceLevelAgreementSpec struct {
 // to keep the service response time below 4 on average.
 type MetricRequirement struct {
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Minimum=10
-	// +kubebuilder:validation:MultipleOf=10
-	ResponseTime *int32 `json:"responseTime,omitempty"`
+	ResponseTime resource.Quantity `json:"responseTime,omitempty"`
+	//ResponseTime *int32 `json:"responseTime,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -97,7 +96,7 @@ type PodScale struct {
 type PodScaleSpec struct {
 	SLARef           SLARef          `json:"serviceLevelAgreement"`
 	PodRef           PodRef          `json:"pod"`
-	// TODO: add NodeRef
+	NodeRef          string         `json:"node"`
 	DesiredResources v1.ResourceList `json:"desired,omitempty" protobuf:"bytes,3,rep,name=desired,casttype=ResourceList,castkey=ResourceName"`
 }
 

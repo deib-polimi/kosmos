@@ -144,7 +144,6 @@ func usersMock(w http.ResponseWriter, r *http.Request) {
 }
 
 func newSLA(name string, labels map[string]string) *sa.ServiceLevelAgreement {
-	responseTime := int32(2500)
 	return &sa.ServiceLevelAgreement{
 		TypeMeta: metav1.TypeMeta{APIVersion: sa.SchemeGroupVersion.String()},
 		ObjectMeta: metav1.ObjectMeta{
@@ -156,7 +155,7 @@ func newSLA(name string, labels map[string]string) *sa.ServiceLevelAgreement {
 				MatchLabels: labels,
 			},
 			Metric: sa.MetricRequirement{
-				ResponseTime: &responseTime,
+				ResponseTime: *resource.NewQuantity(3, resource.BinarySI),
 			},
 			DefaultResources: map[corev1.ResourceName]resource.Quantity{
 				corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),

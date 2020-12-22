@@ -93,7 +93,8 @@ func (logic *ControlTheoryLogic) computeCPUResource(pod *v1.Pod, podScale *v1bet
 	}
 	responseTime := result.(float64)
 	// TODO: decide if to use milliseconds or seconds as default unit
-	setPoint := float64(*sla.Spec.Metric.ResponseTime) / 1000
+	//setPoint := float64(*sla.Spec.Metric.ResponseTime) / 1000
+	setPoint := float64(sla.Spec.Metric.ResponseTime.Value())
 	e := 1/setPoint - 1/responseTime
 	xc := float64(logic.xcprec + BC*e)
 	oldcores := logic.cores

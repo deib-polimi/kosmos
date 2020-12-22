@@ -43,8 +43,10 @@ spec:
                 - type: string
                 pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                 x-kubernetes-int-or-string: true
-              description: 'TODO: add NodeRef'
+              description: ResourceList is a set of (resource name, quantity) pairs.
               type: object
+            node:
+              type: string
             pod:
               description: PodRef is a reference to a pod
               properties:
@@ -68,6 +70,7 @@ spec:
               - namespace
               type: object
           required:
+          - node
           - pod
           - serviceLevelAgreement
           type: object

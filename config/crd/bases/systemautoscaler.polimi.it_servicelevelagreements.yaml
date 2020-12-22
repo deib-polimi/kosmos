@@ -61,10 +61,11 @@ spec:
               description: Specify the metric on which the requirement is set.
               properties:
                 responseTime:
-                  format: int32
-                  minimum: 10
-                  multipleOf: 10
-                  type: integer
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
               type: object
             minResources:
               additionalProperties:
