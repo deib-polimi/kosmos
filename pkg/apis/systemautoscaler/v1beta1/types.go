@@ -65,7 +65,6 @@ type ServiceLevelAgreementSpec struct {
 type MetricRequirement struct {
 	// +kubebuilder:validation:Required
 	ResponseTime resource.Quantity `json:"responseTime,omitempty"`
-	//ResponseTime *int32 `json:"responseTime,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -96,7 +95,6 @@ type PodScale struct {
 type PodScaleSpec struct {
 	SLARef           SLARef          `json:"serviceLevelAgreement"`
 	PodRef           PodRef          `json:"pod"`
-	NodeRef          string         `json:"node"`
 	DesiredResources v1.ResourceList `json:"desired,omitempty" protobuf:"bytes,3,rep,name=desired,casttype=ResourceList,castkey=ResourceName"`
 }
 

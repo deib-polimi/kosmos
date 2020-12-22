@@ -21,11 +21,11 @@ func syncPod(pod v1.Pod, podScale v1beta1.PodScale) (*v1.Pod, error) {
 		return nil, fmt.Errorf("the pod has %v but it should have 'guaranteed' QOS class", newPod.Status.QOSClass)
 	}
 
-	if podScale.Status.ActualResources.Cpu().ScaledValue(resource.Milli) <= 0 {
+	if podScale.Status.ActualResources.Cpu().MilliValue() <= 0 {
 		return nil, fmt.Errorf("pod scale must have positive cpu resource value, actual value: %v", podScale.Status.ActualResources.Cpu().ScaledValue(resource.Milli))
 	}
 
-	if podScale.Status.ActualResources.Memory().ScaledValue(resource.Mega) <= 0 {
+	if podScale.Status.ActualResources.Memory().MilliValue() <= 0 {
 		return nil, fmt.Errorf("pod scale must have positive memory resource value, actual value: %v", podScale.Status.ActualResources.Memory().ScaledValue(resource.Mega))
 	}
 

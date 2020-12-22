@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 	"fmt"
-
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
 	"github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -12,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/klog/v2"
 )
 
 // syncHandler compares the actual state with the desired, and attempts to
@@ -153,7 +151,6 @@ func (c *Controller) syncService(namespace string, service *corev1.Service, sla 
 	for _, pod := range stateDiff.AddList {
 		//TODO: change when a policy to handle other QOS class will be discussed
 		if pod.Status.QOSClass != corev1.PodQOSGuaranteed {
-			klog.Info("DIOCANE")
 			c.recorder.Eventf(pod, corev1.EventTypeWarning, QOSNotSupported, "Unsupported QOS for Pod %s/%s: ", pod.Namespace, pod.Name, pod.Status.QOSClass)
 			continue
 		}
@@ -184,6 +181,7 @@ func (c *Controller) syncService(namespace string, service *corev1.Service, sla 
 // NewPodScale creates a new PodScale resource using the corresponding Pod and ServiceLevelAgreement infos.
 // The SLA is the resource Owner in order to enable garbage collection on its deletion.
 func NewPodScale(pod *corev1.Pod, sla *v1beta1.ServiceLevelAgreement, selectorLabels labels.Set) *v1beta1.PodScale {
+	selectorLabels["node"] = pod.Spec.NodeName
 	return &v1beta1.PodScale{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "systemautoscaler.polimi.it/v1beta1",

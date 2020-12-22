@@ -136,7 +136,7 @@ var _ = Describe("Recommender controller", func() {
 				// Wait for pod to be scheduled
 				pod2, err = kubeClient.CoreV1().Pods(namespace).Get(ctx, pod2.Name, metav1.GetOptions{})
 				Expect(err).ShouldNot(HaveOccurred())
-				for i:=0; i < x; i++ {
+				for i := 0; i < x; i++ {
 					nodeScale := <-recommenderOut
 					if nodeScale.Node == pod1.Spec.NodeName &&
 						len(nodeScale.PodScales) == 1 &&

@@ -68,11 +68,8 @@ func NewContentionManager(n *corev1.Node, ns types.NodeScales, p []corev1.Pod, s
 	}
 
 	allocatableCPU := n.Status.Capacity.Cpu()
-	klog.Info("Node total capacity is:", allocatableCPU)
 	untrackedCPU.Neg()
-	klog.Info("Pod desired resources is:", untrackedCPU)
 	allocatableCPU.Add(*untrackedCPU)
-	klog.Info("Node allocatable capacity is:", allocatableCPU)
 
 	allocatableMemory := n.Status.Capacity.Memory()
 	untrackedMemory.Neg()
@@ -107,32 +104,32 @@ func (m *ContentionManager) Solve() []*v1beta1.PodScale {
 	for _, p := range m.PodScales {
 
 		if desiredCPU.Cmp(*m.CPUCapacity) == 1 {
-			actualCPU = resource.NewScaledQuantity(m.solverFn(
+			actualCPU = resource.NewMilliQuantity(m.solverFn(
 				p.Spec.DesiredResources.Cpu().MilliValue(),
 				desiredCPU.MilliValue(),
 				m.CPUCapacity.MilliValue(),
 			),
-				resource.Milli,
+				resource.BinarySI,
 			)
 		} else {
-			actualCPU = resource.NewScaledQuantity(
-				p.Spec.DesiredResources.Cpu().MilliValue(), resource.Milli,
+			actualCPU = resource.NewMilliQuantity(
+				p.Spec.DesiredResources.Cpu().MilliValue(), resource.BinarySI,
 			)
 		}
 
 		if desiredMemory.Cmp(*m.MemoryCapacity) == 1 {
-			actualMemory = resource.NewScaledQuantity(
+			actualMemory = resource.NewMilliQuantity(
 				m.solverFn(
 					p.Spec.DesiredResources.Memory().MilliValue(),
 					desiredMemory.MilliValue(),
 					m.MemoryCapacity.MilliValue(),
 				),
-				resource.Milli,
+				resource.BinarySI,
 			)
 		} else {
-			actualMemory = resource.NewScaledQuantity(
+			actualMemory = resource.NewMilliQuantity(
 				p.Spec.DesiredResources.Memory().MilliValue(),
-				resource.Milli,
+				resource.BinarySI,
 			)
 		}
 
@@ -163,7 +160,6 @@ func (c *Controller) processNextNode(podscalesInfos <-chan types.NodeScales) boo
 				"spec.nodeName": node.Name,
 			}).String(),
 		})
-
 
 		if err != nil {
 			utilruntime.HandleError(fmt.Errorf("error while getting node pods: %#v", err))
