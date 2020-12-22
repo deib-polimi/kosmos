@@ -181,7 +181,11 @@ func (c *Controller) syncService(namespace string, service *corev1.Service, sla 
 // NewPodScale creates a new PodScale resource using the corresponding Pod and ServiceLevelAgreement infos.
 // The SLA is the resource Owner in order to enable garbage collection on its deletion.
 func NewPodScale(pod *corev1.Pod, sla *v1beta1.ServiceLevelAgreement, selectorLabels labels.Set) *v1beta1.PodScale {
-	selectorLabels["node"] = pod.Spec.NodeName
+	podLabels := make(labels.Set)
+	for k, v := range selectorLabels {
+		podLabels[k] = v
+	}
+	podLabels["node"] = pod.Spec.NodeName
 	return &v1beta1.PodScale{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "systemautoscaler.polimi.it/v1beta1",
@@ -190,7 +194,7 @@ func NewPodScale(pod *corev1.Pod, sla *v1beta1.ServiceLevelAgreement, selectorLa
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pod-" + pod.GetName(),
 			Namespace: sla.Namespace,
-			Labels:    selectorLabels,
+			Labels:    podLabels,
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: "systemautoscaler.polimi.it/v1beta1",

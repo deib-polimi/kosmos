@@ -2,6 +2,7 @@ package e2e_test
 
 import (
 	"github.com/lterrac/system-autoscaler/pkg/informers"
+	"k8s.io/apimachinery/pkg/labels"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -218,7 +219,12 @@ func newPod(name string, podLabels map[string]string) *corev1.Pod {
 	}
 }
 
-func newPodScale(sla *sa.ServiceLevelAgreement, pod *corev1.Pod, labels map[string]string) *sa.PodScale {
+func newPodScale(sla *sa.ServiceLevelAgreement, pod *corev1.Pod, selectorLabels map[string]string) *sa.PodScale {
+	podLabels := make(labels.Set)
+	for k, v := range selectorLabels {
+		podLabels[k] = v
+	}
+	podLabels["node"] = pod.Spec.NodeName
 	return &sa.PodScale{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "sa.polimi.it/v1beta1",
@@ -227,7 +233,7 @@ func newPodScale(sla *sa.ServiceLevelAgreement, pod *corev1.Pod, labels map[stri
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pod-" + pod.GetName(),
 			Namespace: sla.Namespace,
-			Labels:    labels,
+			Labels:    podLabels,
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: "sa.polimi.it/v1beta1",
