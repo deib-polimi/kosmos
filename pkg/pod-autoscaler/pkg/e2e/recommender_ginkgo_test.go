@@ -36,6 +36,7 @@ var _ = Describe("Recommender controller", func() {
 			pod, err = kubeClient.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
+			// TODO: wait for pod to be assigned in a better way
 			// wait for pod to be assigned to a node
 			Eventually(func() bool {
 				pod, err = kubeClient.CoreV1().Pods(namespace).Get(ctx, pod.Name, metav1.GetOptions{})

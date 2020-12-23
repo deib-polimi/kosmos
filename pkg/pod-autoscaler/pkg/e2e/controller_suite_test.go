@@ -224,7 +224,7 @@ func newPodScale(sla *sa.ServiceLevelAgreement, pod *corev1.Pod, selectorLabels 
 	for k, v := range selectorLabels {
 		podLabels[k] = v
 	}
-	podLabels["node"] = pod.Spec.NodeName
+	podLabels["system.autoscaler/node"] = pod.Spec.NodeName
 	return &sa.PodScale{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "sa.polimi.it/v1beta1",

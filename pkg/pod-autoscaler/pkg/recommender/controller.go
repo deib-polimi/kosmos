@@ -168,7 +168,7 @@ func (c *Controller) recommendNode(node string) error {
 
 	newPodScales := make([]*v1beta1.PodScale, 0)
 
-	listSelector := labels.Set(map[string]string{"node": node}).AsSelector()
+	listSelector := labels.Set(map[string]string{"system.autoscaler/node": node}).AsSelector()
 
 	podscales, err := c.listers.PodScaleLister.List(listSelector)
 	if err != nil {
@@ -203,7 +203,6 @@ func (c *Controller) recommendNode(node string) error {
 }
 
 // recommendPod recommends the new resources to assign to a pod
-//func (c *Controller) recommendPod(key string) (*v1beta1.PodScale, error) {
 func (c *Controller) recommendPod(podScale *v1beta1.PodScale) (*v1beta1.PodScale, error) {
 	key := fmt.Sprintf("%s/%s", podScale.Namespace, podScale.Name)
 
