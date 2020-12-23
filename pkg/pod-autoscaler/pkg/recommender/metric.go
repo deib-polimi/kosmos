@@ -78,7 +78,6 @@ func (c Client) getMetrics(pod *v1.Pod) (map[string]interface{}, error) {
 	}
 
 	var metricMap map[string]interface{}
-	klog.Info(string(body))
 	err = json.Unmarshal(body, &metricMap)
 	if err != nil {
 		klog.Error(err)

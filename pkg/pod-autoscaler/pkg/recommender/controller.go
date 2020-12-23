@@ -1,11 +1,10 @@
 package recommender
 
 import (
-	"context"
 	"fmt"
 	informers "github.com/lterrac/system-autoscaler/pkg/informers"
 	"github.com/lterrac/system-autoscaler/pkg/queue"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"time"
 
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
@@ -44,11 +43,6 @@ type Controller struct {
 	// kubernetesCLientset is the client-go of kubernetes
 	kubernetesClientset kubernetes.Clientset
 
-	// TODO: we have three queues? Do we really need all of them?
-	// podScalesAddedQueue contains all the pods that should be monitored
-	podScalesAddedQueue queue.Queue
-	// podScalesDeletedQueue contains all the pods that should not be monitored
-	podScalesDeletedQueue queue.Queue
 	// recommendNodeQueue contains all the nodes that needs a recommendation
 	recommendNodeQueue queue.Queue
 
@@ -69,18 +63,8 @@ type Controller struct {
 // Status represents the state of the controller
 type Status struct {
 
-	// Key: NodeName, Value: set of namespace-name of the pod scales
-	nodeMap concurrent.Map
-
-	// TODO: could be deleted
-	// Key: namespace-name of the pod scale, Value: assigned pod
-	podMap concurrent.Map
-
 	// Key: namespace-name of the pod scale, Value: assigned logic
 	logicMap concurrent.Map
-
-	// Key: namespace-name of the pod scale, Value: node where the pod is running
-	podScaleMap concurrent.Map
 }
 
 // NewController returns a new recommender
@@ -102,35 +86,24 @@ func NewController(
 
 	// Create Controller status
 	status := &Status{
-		nodeMap:     *concurrent.NewMap(),
-		podMap:      *concurrent.NewMap(),
-		logicMap:    *concurrent.NewMap(),
-		podScaleMap: *concurrent.NewMap(),
+		logicMap: *concurrent.NewMap(),
 	}
 
 	// Instantiate the Controller
 	controller := &Controller{
-		podScalesClientset:    podScalesClientset,
-		listers:               informers.GetListers(),
-		podScalesSynced:       informers.PodScale.Informer().HasSynced,
-		kubernetesClientset:   *kubernetesClientset,
-		podScalesAddedQueue:   queue.NewQueue("PodScalesAdded"),
-		podScalesDeletedQueue: queue.NewQueue("PodScalesDeleted"),
-		recommendNodeQueue:    queue.NewQueue("RecommendQueue"),
-		status:                status,
-		MetricClient:          NewMetricClient(),
-		recorder:              recorder,
-		out:                   out,
+		podScalesClientset:  podScalesClientset,
+		listers:             informers.GetListers(),
+		podScalesSynced:     informers.PodScale.Informer().HasSynced,
+		kubernetesClientset: *kubernetesClientset,
+		recommendNodeQueue:  queue.NewQueue("RecommendQueue"),
+		status:              status,
+		MetricClient:        NewMetricClient(),
+		recorder:            recorder,
+		out:                 out,
 	}
 
 	klog.Info("Setting up event handlers")
 
-	// Set up an event handler for when podScale resources change
-	informers.PodScale.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.enqueuePodScaleAdded,
-		UpdateFunc: controller.enqueuePodScaleUpdated,
-		DeleteFunc: controller.enqueuePodScaleDeleted,
-	})
 	return controller
 }
 
@@ -152,8 +125,6 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	klog.Info("Starting recommender workers")
 	// Launch the workers to process podScale resources and recommendPod new pod scales
 	for i := 0; i < threadiness; i++ {
-		go wait.Until(c.runPodScaleAddedWorker, time.Second, stopCh)
-		go wait.Until(c.runPodScaleRemovedWorker, time.Second, stopCh)
 		go wait.Until(c.runNodeRecommenderWorker, time.Second, stopCh)
 	}
 	go wait.Until(c.runRecommenderWorker, 5*time.Second, stopCh)
@@ -165,36 +136,21 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 
 func (c *Controller) Shutdown() {
 	utilruntime.HandleCrash()
-	c.podScalesAddedQueue.ShutDown()
-	c.podScalesDeletedQueue.ShutDown()
 	c.recommendNodeQueue.ShutDown()
-}
-
-// Handle all the pod scales that has been added
-func (c *Controller) runPodScaleAddedWorker() {
-	for c.podScalesAddedQueue.ProcessNextItem(c.syncPodScalesAdded) {
-	}
-}
-
-// Handle all the pod scales that has been deleted
-func (c *Controller) runPodScaleRemovedWorker() {
-	for c.podScalesDeletedQueue.ProcessNextItem(c.syncPodScalesDeleted) {
-	}
 }
 
 // Enqueue a node to the recommend node queue
 func (c *Controller) runRecommenderWorker() {
-	c.status.nodeMap.Range(func(key, value interface{}) bool {
-		nodeName := key.(string)
-		// TODO: retrieve the node from the lister
-		node, err := c.kubernetesClientset.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
-		if err != nil {
-			klog.Error(err)
-			return true
-		}
+
+	nodes, err := c.listers.NodeLister.List(labels.Everything())
+	if err != nil {
+		klog.Error(err)
+		return
+	}
+
+	for _, node := range nodes {
 		c.recommendNodeQueue.Enqueue(node)
-		return true
-	})
+	}
 }
 
 // TODO: make better comment. It is not very clear.
@@ -210,18 +166,24 @@ func (c *Controller) recommendNode(node string) error {
 	// Recommend to all pods in a node new pod scales resources.
 	klog.Info("Recommending to node ", node)
 
-	result, present := c.status.nodeMap.Load(node)
-	if !present {
-		return fmt.Errorf("the node does not have any pod scale associated with it")
-	}
-	keys, ok := result.(map[string]struct{})
-	if !ok {
-		return fmt.Errorf("unable to cast the podscale keys from node map")
+	newPodScales := make([]*v1beta1.PodScale, 0)
+
+	listSelector := labels.Set(map[string]string{"system.autoscaler/node": node}).AsSelector()
+
+	podscales, err := c.listers.PodScaleLister.List(listSelector)
+	if err != nil {
+		utilruntime.HandleError(fmt.Errorf("list pod scales failed: %s", err))
+		return nil
 	}
 
-	newPodScales := make([]*v1beta1.PodScale, 0)
-	for key := range keys {
-		newPodScale, err := c.recommendPod(key)
+	if len(podscales) == 0 {
+		utilruntime.HandleError(fmt.Errorf("no podscales found on node: %s", node))
+		return nil
+	}
+
+	for _, podscale := range podscales {
+
+		newPodScale, err := c.recommendPod(podscale)
 		if err != nil {
 			//utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key))
 			return err
@@ -241,22 +203,10 @@ func (c *Controller) recommendNode(node string) error {
 }
 
 // recommendPod recommends the new resources to assign to a pod
-func (c *Controller) recommendPod(key string) (*v1beta1.PodScale, error) {
+func (c *Controller) recommendPod(podScale *v1beta1.PodScale) (*v1beta1.PodScale, error) {
+	key := fmt.Sprintf("%s/%s", podScale.Namespace, podScale.Name)
+
 	klog.Info("Recommending for ", key)
-
-	// Retrieve the pod scale namespace and name
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		//utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key))
-		return nil, err
-	}
-
-	// Get the PodScale resource with this namespace/name
-	podScale, err := c.listers.PodScales(namespace).Get(name)
-	if err != nil {
-		//utilruntime.HandleError(fmt.Errorf("error: %s, failed to get pod scale with name %s and namespace %s from lister", err, name, namespace))
-		return nil, err
-	}
 
 	// Get the pod associated with the pod scale
 	pod, err := c.listers.Pods(podScale.Spec.PodRef.Namespace).Get(podScale.Spec.PodRef.Name)
@@ -272,7 +222,7 @@ func (c *Controller) recommendPod(key string) (*v1beta1.PodScale, error) {
 	}
 
 	// Retrieve the logic
-	logicInterface, ok := c.status.logicMap.Load(key)
+	logicInterface, ok := c.status.logicMap.LoadOrStore(key, newControlTheoryLogic(podScale))
 	if !ok {
 		return nil, fmt.Errorf("the key %s has no logic associated with it", key)
 	}

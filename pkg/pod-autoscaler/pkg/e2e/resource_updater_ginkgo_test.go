@@ -41,6 +41,12 @@ var _ = Describe("Resource Updater controller", func() {
 			pod, err = kubeClient.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
+			// wait for pod1 to be assigned to a node
+			Eventually(func() bool {
+				pod, err = kubeClient.CoreV1().Pods(namespace).Get(ctx, pod.Name, metav1.GetOptions{})
+				return pod.Spec.NodeName != ""
+			}, timeout, interval).Should(BeTrue())
+
 			podScale := newPodScale(sla, pod, labels)
 			podScale, err = saClient.SystemautoscalerV1beta1().PodScales(namespace).Create(ctx, podScale, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())

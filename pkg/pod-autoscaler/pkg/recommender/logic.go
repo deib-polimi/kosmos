@@ -23,24 +23,20 @@ type ControlTheoryLogic struct {
 // newControlTheoryLogic returns a new control theory logic
 func newControlTheoryLogic(podScale *v1beta1.PodScale) *ControlTheoryLogic {
 	return &ControlTheoryLogic{
-		xcprec: float64(podScale.Status.ActualResources.Cpu().ScaledValue(cpuDefaultScale)),
-		cores:  float64(podScale.Status.ActualResources.Cpu().ScaledValue(cpuDefaultScale)),
+		xcprec: float64(podScale.Status.ActualResources.Cpu().MilliValue()),
+		cores:  float64(podScale.Status.ActualResources.Cpu().MilliValue()),
 	}
 }
 
 const (
-	// TODO: for now, default values are MegaBytes for memory and millicpu per seconds for cpu.
-	cpuDefaultScale    = resource.Milli
-	memoryDefaultScale = resource.Mega
-
 	// Control theory constants
 	maxScaleOut = 3
 	// TODO: sometime this constraint does not work. Check why.
 	// the min value sometimes has conflict with max scale out.
 	// For example if CPU is 50m, and max scaleout is 3, then the maximum value is 150m, but it is still less than minCPU
-	minCPU = 50
-	BC     = 100
-	DC     = 100
+	minCPU = 15
+	BC     = 0.5
+	DC     = 0.5
 )
 
 // computePodScale computes a new pod scale for a given pod.
@@ -69,7 +65,8 @@ func (logic *ControlTheoryLogic) computeMemoryResource(pod *v1.Pod, podScale *v1
 	actualResource := podScale.Status.ActualResources.Memory()
 
 	// Compute the new desired value
-	newDesiredResource := resource.NewScaledQuantity(desiredResource.ScaledValue(memoryDefaultScale), memoryDefaultScale)
+	newDesiredResource := resource.NewMilliQuantity(desiredResource.MilliValue(), resource.BinarySI)
+	newDesiredResource = applyBounds(newDesiredResource, sla.Spec.MinResources.Memory(), sla.Spec.MaxResources.Memory(), sla.Spec.MinResources != nil, sla.Spec.MaxResources != nil)
 
 	// For logging purpose
 	klog.Info("Computing memory resource for Pod: ", pod.GetName(), ", actual value: ", actualResource, ", desired value: ", desiredResource, ", new value: ", newDesiredResource)
@@ -92,17 +89,28 @@ func (logic *ControlTheoryLogic) computeCPUResource(pod *v1.Pod, podScale *v1bet
 	}
 	responseTime := result.(float64)
 	// TODO: decide if to use milliseconds or seconds as default unit
-	setPoint := float64(*sla.Spec.Metric.ResponseTime) / 1000
+	setPoint := float64(sla.Spec.Metric.ResponseTime.MilliValue()) * 1000
 	e := 1/setPoint - 1/responseTime
 	xc := float64(logic.xcprec + BC*e)
 	oldcores := logic.cores
 	logic.cores = math.Min(math.Max(minCPU, xc+DC*e), oldcores*maxScaleOut)
 	logic.xcprec = float64(logic.cores - BC*e)
 
-	newDesiredResource := resource.NewScaledQuantity(int64(logic.cores), cpuDefaultScale)
+	newDesiredResource := resource.NewMilliQuantity(int64(logic.cores), resource.BinarySI)
+	newDesiredResource = applyBounds(newDesiredResource, sla.Spec.MinResources.Cpu(), sla.Spec.MaxResources.Cpu(), sla.Spec.MinResources != nil, sla.Spec.MaxResources != nil)
 
 	// For logging purpose
 	klog.Info("Computing CPU resource for Pod: ", pod.GetName(), ", actual value: ", actualResource, ", desired value: ", desiredResource, ", new value: ", newDesiredResource)
 
 	return newDesiredResource
+}
+
+func applyBounds(value *resource.Quantity, min *resource.Quantity, max *resource.Quantity, checkLower bool, checkUpper bool) *resource.Quantity {
+	if checkUpper && value.Value() > max.Value() {
+		return max
+	} else if checkLower && value.Value() < min.Value() {
+		return min
+	} else {
+		return value
+	}
 }

@@ -304,7 +304,6 @@ var _ = Describe("PodScale controller", func() {
 })
 
 func newSLA(name string, labels map[string]string) *systemautoscaler.ServiceLevelAgreement {
-	responseTime := int32(2500)
 	return &systemautoscaler.ServiceLevelAgreement{
 		TypeMeta: metav1.TypeMeta{APIVersion: systemautoscaler.SchemeGroupVersion.String()},
 		ObjectMeta: metav1.ObjectMeta{
@@ -316,7 +315,7 @@ func newSLA(name string, labels map[string]string) *systemautoscaler.ServiceLeve
 				MatchLabels: labels,
 			},
 			Metric: systemautoscaler.MetricRequirement{
-				ResponseTime: &responseTime,
+				ResponseTime: *resource.NewQuantity(3, resource.BinarySI),
 			},
 			DefaultResources: map[corev1.ResourceName]resource.Quantity{
 				corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),

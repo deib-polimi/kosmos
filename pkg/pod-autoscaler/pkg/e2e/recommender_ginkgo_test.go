@@ -36,6 +36,13 @@ var _ = Describe("Recommender controller", func() {
 			pod, err = kubeClient.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
+			// TODO: wait for pod to be assigned in a better way
+			// wait for pod to be assigned to a node
+			Eventually(func() bool {
+				pod, err = kubeClient.CoreV1().Pods(namespace).Get(ctx, pod.Name, metav1.GetOptions{})
+				return pod.Spec.NodeName != ""
+			}, timeout, interval).Should(BeTrue())
+
 			podScale := newPodScale(sla, pod, labels)
 			podScale, err = saClient.SystemautoscalerV1beta1().PodScales(namespace).Create(ctx, podScale, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
@@ -90,6 +97,12 @@ var _ = Describe("Recommender controller", func() {
 			pod1, err = kubeClient.CoreV1().Pods(namespace).Create(ctx, pod1, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
+			// wait for pod1 to be assigned to a node
+			Eventually(func() bool {
+				pod1, err = kubeClient.CoreV1().Pods(namespace).Get(ctx, pod1.Name, metav1.GetOptions{})
+				return pod1.Spec.NodeName != ""
+			}, timeout, interval).Should(BeTrue())
+
 			podScale1 := newPodScale(sla, pod1, labels)
 			podScale1, err = saClient.SystemautoscalerV1beta1().PodScales(namespace).Create(ctx, podScale1, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
@@ -108,6 +121,12 @@ var _ = Describe("Recommender controller", func() {
 			pod2 := newPod("replica2", podLabels)
 			pod2, err = kubeClient.CoreV1().Pods(namespace).Create(ctx, pod2, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
+
+			// wait for pod2 to be assigned to a node
+			Eventually(func() bool {
+				pod2, err = kubeClient.CoreV1().Pods(namespace).Get(ctx, pod2.Name, metav1.GetOptions{})
+				return pod2.Spec.NodeName != ""
+			}, timeout, interval).Should(BeTrue())
 
 			podScale2 := newPodScale(sla, pod2, labels)
 			podScale2, err = saClient.SystemautoscalerV1beta1().PodScales(namespace).Create(ctx, podScale2, metav1.CreateOptions{})
@@ -136,7 +155,7 @@ var _ = Describe("Recommender controller", func() {
 				// Wait for pod to be scheduled
 				pod2, err = kubeClient.CoreV1().Pods(namespace).Get(ctx, pod2.Name, metav1.GetOptions{})
 				Expect(err).ShouldNot(HaveOccurred())
-				for i:=0; i < x; i++ {
+				for i := 0; i < x; i++ {
 					nodeScale := <-recommenderOut
 					if nodeScale.Node == pod1.Spec.NodeName &&
 						len(nodeScale.PodScales) == 1 &&
