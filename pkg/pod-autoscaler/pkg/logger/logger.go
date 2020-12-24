@@ -3,6 +3,7 @@ package logger
 import (
 	"encoding/json"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -47,5 +48,5 @@ func (l Logger) Log(obj runtime.Object) error {
 		return err
 	}
 
-	return ioutil.WriteFile(l.path, append(data, []byte("\n")...), 0777)
+	return ioutil.WriteFile(l.path, append(data, []byte("\n")...), os.ModeAppend.Perm())
 }
