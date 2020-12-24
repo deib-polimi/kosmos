@@ -4,9 +4,16 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"path/filepath"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
 )
+
+// Data is the object to write in the log
+type Data struct {
+	Time   time.Time      `json:"timestamp"`
+	Object runtime.Object `json:"object"`
+}
 
 // Logger is used to log objects in a given format to a file
 type Logger struct {
@@ -28,7 +35,13 @@ func NewLogger(path string) (*Logger, error) {
 
 // Log the Object in JSON format
 func (l Logger) Log(obj runtime.Object) error {
-	data, err := json.Marshal(obj)
+
+	object := Data{
+		Time:   time.Now(),
+		Object: obj,
+	}
+
+	data, err := json.Marshal(object)
 
 	if err != nil {
 		return err
