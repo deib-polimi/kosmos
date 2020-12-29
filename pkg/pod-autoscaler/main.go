@@ -2,8 +2,9 @@ package main
 
 import (
 	"flag"
-	informers2 "github.com/lterrac/system-autoscaler/pkg/informers"
 	"time"
+
+	informers2 "github.com/lterrac/system-autoscaler/pkg/informers"
 
 	sainformers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions"
 	cm "github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/contention-manager"

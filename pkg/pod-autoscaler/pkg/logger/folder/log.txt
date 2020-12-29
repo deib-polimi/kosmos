@@ -1,1 +1,0 @@
-{"timestamp":"2020-12-24T15:32:49.950031746+01:00","object":{"kind":"Secret","apiVersion":"v1","metadata":{"name":"foo","namespace":"bar","creationTimestamp":null,"labels":{"system-autoscaler/node":"node"}},"data":{"my-data":"bXktdmFsdWU="},"type":"Opaque"}}
