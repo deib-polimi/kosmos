@@ -93,11 +93,14 @@ func (logic *ControlTheoryLogic) computeCPUResource(pod *v1.Pod, podScale *v1bet
 	e := 1/setPoint - 1/responseTime
 	xc := float64(logic.xcprec + BC*e)
 	oldcores := logic.cores
-	logic.cores = math.Min(math.Max(minCPU, xc+DC*e), oldcores*maxScaleOut)
-	logic.xcprec = float64(logic.cores - BC*e)
+	cores := math.Min(math.Max(minCPU, xc+DC*e), oldcores*maxScaleOut)
 
-	newDesiredResource := resource.NewMilliQuantity(int64(logic.cores), resource.BinarySI)
+	newDesiredResource := resource.NewMilliQuantity(int64(cores), resource.BinarySI)
 	newDesiredResource = applyBounds(newDesiredResource, sla.Spec.MinResources.Cpu(), sla.Spec.MaxResources.Cpu(), sla.Spec.MinResources != nil, sla.Spec.MaxResources != nil)
+
+	// Store the value in logic
+	logic.xcprec = logic.cores - BC*e
+	logic.cores = float64(newDesiredResource.MilliValue())
 
 	// For logging purpose
 	klog.Info("response time is: ", responseTime, ", set point is:", setPoint, " and error is: ", e)

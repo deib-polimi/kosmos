@@ -94,10 +94,15 @@ func main() {
 	saInformerFactory.Start(stopCh)
 	coreInformerFactory.Start(stopCh)
 
-	if err = recommenderController.Run(2, stopCh); err != nil {
+	if err = recommenderController.Run(1, stopCh); err != nil {
 		klog.Fatalf("Error running recommender: %s", err.Error())
 	}
 	defer recommenderController.Shutdown()
+
+	//c := recommender.NewMetricClient()
+	//server := serverMock()
+	//c.Host = server.URL[7:]
+	//recommenderController.MetricClient = c
 
 	if err = contentionManagerController.Run(2, stopCh); err != nil {
 		klog.Fatalf("Error running update controller: %s", err.Error())
@@ -118,3 +123,17 @@ func init() {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 }
+
+//
+//func serverMock() *httptest.Server {
+//	handler := http.NewServeMux()
+//	handler.HandleFunc("/", usersMock)
+//
+//	srv := httptest.NewServer(handler)
+//
+//	return srv
+//}
+//
+//func usersMock(w http.ResponseWriter, r *http.Request) {
+//	_, _ = w.Write([]byte(`{"response_time":2.0}`))
+//}
