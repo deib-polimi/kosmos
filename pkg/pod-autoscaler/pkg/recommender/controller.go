@@ -186,6 +186,7 @@ func (c *Controller) recommendNode(node string) error {
 		newPodScale, err := c.recommendPod(podscale)
 		if err != nil {
 			//utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key))
+			// TODO: evaluate if we should use a 'continue'
 			return err
 		}
 		newPodScales = append(newPodScales, newPodScale)

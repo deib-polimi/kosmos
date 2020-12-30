@@ -34,9 +34,9 @@ const (
 	// TODO: sometime this constraint does not work. Check why.
 	// the min value sometimes has conflict with max scale out.
 	// For example if CPU is 50m, and max scaleout is 3, then the maximum value is 150m, but it is still less than minCPU
-	minCPU = 15
-	BC     = 0.5
-	DC     = 0.5
+	minCPU = 75
+	BC     = 10
+	DC     = 10
 )
 
 // computePodScale computes a new pod scale for a given pod.
@@ -89,7 +89,7 @@ func (logic *ControlTheoryLogic) computeCPUResource(pod *v1.Pod, podScale *v1bet
 	}
 	responseTime := result.(float64)
 	// TODO: decide if to use milliseconds or seconds as default unit
-	setPoint := float64(sla.Spec.Metric.ResponseTime.MilliValue()) * 1000
+	setPoint := float64(sla.Spec.Metric.ResponseTime.MilliValue()) / 1000
 	e := 1/setPoint - 1/responseTime
 	xc := float64(logic.xcprec + BC*e)
 	oldcores := logic.cores
@@ -100,6 +100,7 @@ func (logic *ControlTheoryLogic) computeCPUResource(pod *v1.Pod, podScale *v1bet
 	newDesiredResource = applyBounds(newDesiredResource, sla.Spec.MinResources.Cpu(), sla.Spec.MaxResources.Cpu(), sla.Spec.MinResources != nil, sla.Spec.MaxResources != nil)
 
 	// For logging purpose
+	klog.Info("response time is: ", responseTime, ", set point is:", setPoint, " and error is: ", e)
 	klog.Info("Computing CPU resource for Pod: ", pod.GetName(), ", actual value: ", actualResource, ", desired value: ", desiredResource, ", new value: ", newDesiredResource)
 
 	return newDesiredResource
