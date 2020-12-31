@@ -19,9 +19,9 @@ func TestSyncPod(t *testing.T) {
 		description            string
 		podQOS                 v1.PodQOSClass
 		podNumberOfContainers  int64
-		podCpuValue            int64
+		podCPUValue            int64
 		podMemValue            int64
-		podScaleCpuActualValue int64
+		podScaleCPUActualValue int64
 		podScaleMemActualValue int64
 		success                bool
 	}{
@@ -29,9 +29,9 @@ func TestSyncPod(t *testing.T) {
 			description:            "successfully increased the resources of a pod",
 			podQOS:                 v1.PodQOSGuaranteed,
 			podNumberOfContainers:  1,
-			podCpuValue:            100,
+			podCPUValue:            100,
 			podMemValue:            100,
-			podScaleCpuActualValue: 1000,
+			podScaleCPUActualValue: 1000,
 			podScaleMemActualValue: 1000,
 			success:                true,
 		},
@@ -40,9 +40,9 @@ func TestSyncPod(t *testing.T) {
 			description:            "successfully decreased the resources of a pod",
 			podQOS:                 v1.PodQOSGuaranteed,
 			podNumberOfContainers:  1,
-			podCpuValue:            100,
+			podCPUValue:            100,
 			podMemValue:            100,
-			podScaleCpuActualValue: 1000,
+			podScaleCPUActualValue: 1000,
 			podScaleMemActualValue: 1000,
 			success:                true,
 		},
@@ -50,9 +50,9 @@ func TestSyncPod(t *testing.T) {
 			description:            "fail to update a pod with negative cpu resource value",
 			podQOS:                 v1.PodQOSGuaranteed,
 			podNumberOfContainers:  1,
-			podCpuValue:            100,
+			podCPUValue:            100,
 			podMemValue:            100,
-			podScaleCpuActualValue: -1,
+			podScaleCPUActualValue: -1,
 			podScaleMemActualValue: 1000,
 			success:                false,
 		},
@@ -60,9 +60,9 @@ func TestSyncPod(t *testing.T) {
 			description:            "fail to update a pod with negative memory resource value",
 			podQOS:                 v1.PodQOSGuaranteed,
 			podNumberOfContainers:  1,
-			podCpuValue:            100,
+			podCPUValue:            100,
 			podMemValue:            100,
-			podScaleCpuActualValue: 1000,
+			podScaleCPUActualValue: 1000,
 			podScaleMemActualValue: -1,
 			success:                false,
 		},
@@ -70,9 +70,9 @@ func TestSyncPod(t *testing.T) {
 			description:            "fail to update a pod that has BE QOS",
 			podQOS:                 v1.PodQOSBestEffort,
 			podNumberOfContainers:  1,
-			podCpuValue:            100,
+			podCPUValue:            100,
 			podMemValue:            100,
-			podScaleCpuActualValue: 1000,
+			podScaleCPUActualValue: 1000,
 			podScaleMemActualValue: 1000,
 			success:                false,
 		},
@@ -80,9 +80,9 @@ func TestSyncPod(t *testing.T) {
 			description:            "fail to update a pod that has BU QOS",
 			podQOS:                 v1.PodQOSBurstable,
 			podNumberOfContainers:  1,
-			podCpuValue:            100,
+			podCPUValue:            100,
 			podMemValue:            100,
-			podScaleCpuActualValue: 1000,
+			podScaleCPUActualValue: 1000,
 			podScaleMemActualValue: 1000,
 			success:                false,
 		},
@@ -91,9 +91,9 @@ func TestSyncPod(t *testing.T) {
 			description:            "fail to update a pod that has multiple containers",
 			podQOS:                 v1.PodQOSGuaranteed,
 			podNumberOfContainers:  2,
-			podCpuValue:            100,
+			podCPUValue:            100,
 			podMemValue:            100,
-			podScaleCpuActualValue: 1000,
+			podScaleCPUActualValue: 1000,
 			podScaleMemActualValue: 1000,
 			success:                false,
 		},
@@ -109,11 +109,11 @@ func TestSyncPod(t *testing.T) {
 					Image: "gcr.io/distroless/static:nonroot",
 					Resources: v1.ResourceRequirements{
 						Limits: v1.ResourceList{
-							v1.ResourceCPU:    *resource.NewScaledQuantity(tt.podCpuValue, resource.Milli),
+							v1.ResourceCPU:    *resource.NewScaledQuantity(tt.podCPUValue, resource.Milli),
 							v1.ResourceMemory: *resource.NewScaledQuantity(tt.podMemValue, resource.Mega),
 						},
 						Requests: v1.ResourceList{
-							v1.ResourceCPU:    *resource.NewScaledQuantity(tt.podCpuValue, resource.Milli),
+							v1.ResourceCPU:    *resource.NewScaledQuantity(tt.podCPUValue, resource.Milli),
 							v1.ResourceMemory: *resource.NewScaledQuantity(tt.podMemValue, resource.Mega),
 						},
 					},
@@ -153,13 +153,13 @@ func TestSyncPod(t *testing.T) {
 						Namespace: "default",
 					},
 					DesiredResources: v1.ResourceList{
-						v1.ResourceCPU:    *resource.NewScaledQuantity(tt.podScaleCpuActualValue, resource.Milli),
+						v1.ResourceCPU:    *resource.NewScaledQuantity(tt.podScaleCPUActualValue, resource.Milli),
 						v1.ResourceMemory: *resource.NewScaledQuantity(tt.podScaleMemActualValue, resource.Mega),
 					},
 				},
 				Status: v1beta1.PodScaleStatus{
 					ActualResources: v1.ResourceList{
-						v1.ResourceCPU:    *resource.NewScaledQuantity(tt.podScaleCpuActualValue, resource.Milli),
+						v1.ResourceCPU:    *resource.NewScaledQuantity(tt.podScaleCPUActualValue, resource.Milli),
 						v1.ResourceMemory: *resource.NewScaledQuantity(tt.podScaleMemActualValue, resource.Mega),
 					},
 				},
@@ -167,8 +167,8 @@ func TestSyncPod(t *testing.T) {
 			newPod, err := syncPod(pod, podScale)
 			if tt.success {
 				require.Nil(t, err, "Do not expect error")
-				require.Equal(t, newPod.Spec.Containers[0].Resources.Limits.Cpu().ScaledValue(resource.Milli), tt.podScaleCpuActualValue)
-				require.Equal(t, newPod.Spec.Containers[0].Resources.Requests.Cpu().ScaledValue(resource.Milli), tt.podScaleCpuActualValue)
+				require.Equal(t, newPod.Spec.Containers[0].Resources.Limits.Cpu().ScaledValue(resource.Milli), tt.podScaleCPUActualValue)
+				require.Equal(t, newPod.Spec.Containers[0].Resources.Requests.Cpu().ScaledValue(resource.Milli), tt.podScaleCPUActualValue)
 				require.Equal(t, newPod.Spec.Containers[0].Resources.Limits.Memory().ScaledValue(resource.Mega), tt.podScaleMemActualValue)
 				require.Equal(t, newPod.Spec.Containers[0].Resources.Requests.Memory().ScaledValue(resource.Mega), tt.podScaleMemActualValue)
 				require.Equal(t, newPod.Status.QOSClass, v1.PodQOSGuaranteed)
