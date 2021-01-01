@@ -3,7 +3,12 @@ package resourceupdater
 import (
 	"context"
 	"fmt"
+	"log"
+
 	"github.com/lterrac/system-autoscaler/pkg/informers"
+	"github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/logger"
+
+	"time"
 
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
 	podscalesclientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
@@ -12,7 +17,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -45,6 +49,8 @@ type Controller struct {
 	// Kubernetes API.
 	recorder record.EventRecorder
 
+	log *logger.Logger
+
 	// in is the input channel.
 	in chan types.NodeScales
 }
@@ -64,6 +70,13 @@ func NewController(kubernetesClientset *kubernetes.Clientset,
 	eventBroadcaster.StartStructuredLogging(0)
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
+	logger, err := logger.NewLogger("/var/podscale.json")
+
+	//TODO: remove as soon as possible
+	if err != nil {
+		log.Fatal("Error while setting up Logger")
+	}
+
 	// Instantiate the Controller
 	controller := &Controller{
 		podScalesClientset:  podScalesClientset,
@@ -72,6 +85,7 @@ func NewController(kubernetesClientset *kubernetes.Clientset,
 		listers:             informers.GetListers(),
 		podScalesSynced:     informers.PodScale.Informer().HasSynced,
 		podSynced:           informers.Pod.Informer().HasSynced,
+		log:                 logger,
 		in:                  in,
 	}
 
@@ -135,6 +149,8 @@ func (c *Controller) runNodeScaleWorker() {
 				c.in <- nodeScale
 				return
 			}
+
+			c.log.Log(updatedPodScale)
 
 			klog.Info("Desired resources:", updatedPodScale.Spec.DesiredResources)
 			klog.Info("Actual resources:", updatedPodScale.Status.ActualResources)

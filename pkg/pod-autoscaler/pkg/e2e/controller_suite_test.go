@@ -1,12 +1,13 @@
 package e2e_test
 
 import (
-	"github.com/lterrac/system-autoscaler/pkg/informers"
-	"k8s.io/apimachinery/pkg/labels"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/lterrac/system-autoscaler/pkg/informers"
+	"k8s.io/apimachinery/pkg/labels"
 
 	sainformers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions"
 	resupd "github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/pod-resource-updater"
