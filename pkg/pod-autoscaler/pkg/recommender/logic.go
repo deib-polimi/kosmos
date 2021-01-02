@@ -31,12 +31,9 @@ func newControlTheoryLogic(podScale *v1beta1.PodScale) *ControlTheoryLogic {
 const (
 	// Control theory constants
 	maxScaleOut = 3
-	// TODO: sometime this constraint does not work. Check why.
-	// the min value sometimes has conflict with max scale out.
-	// For example if CPU is 50m, and max scaleout is 3, then the maximum value is 150m, but it is still less than minCPU
-	minCPU = 15
-	BC     = 0.5
-	DC     = 0.5
+	minCPU = 5
+	BC     = 500
+	DC     = 950
 )
 
 // computePodScale computes a new pod scale for a given pod.
@@ -66,7 +63,7 @@ func (logic *ControlTheoryLogic) computeMemoryResource(pod *v1.Pod, podScale *v1
 
 	// Compute the new desired value
 	newDesiredResource := resource.NewMilliQuantity(desiredResource.MilliValue(), resource.BinarySI)
-	newDesiredResource = applyBounds(newDesiredResource, sla.Spec.MinResources.Memory(), sla.Spec.MaxResources.Memory(), sla.Spec.MinResources != nil, sla.Spec.MaxResources != nil)
+	newDesiredResource, _ = applyBounds(newDesiredResource, sla.Spec.MinResources.Memory(), sla.Spec.MaxResources.Memory(), sla.Spec.MinResources != nil, sla.Spec.MaxResources != nil)
 
 	// For logging purpose
 	klog.Info("Computing memory resource for Pod: ", pod.GetName(), ", actual value: ", actualResource, ", desired value: ", desiredResource, ", new value: ", newDesiredResource)
@@ -77,6 +74,8 @@ func (logic *ControlTheoryLogic) computeMemoryResource(pod *v1.Pod, podScale *v1
 // computeMemoryResource computes cpu resources for a given pod.
 func (logic *ControlTheoryLogic) computeCPUResource(pod *v1.Pod, podScale *v1beta1.PodScale, sla *v1beta1.ServiceLevelAgreement, metricMap map[string]interface{}) *resource.Quantity {
 
+	klog.Info(logic.cores)
+	klog.Info(logic.xcprec)
 	// Retrieve the value of actual and desired cpu resources
 	desiredResource := podScale.Spec.DesiredResources.Cpu()
 	actualResource := podScale.Status.ActualResources.Cpu()
@@ -88,29 +87,40 @@ func (logic *ControlTheoryLogic) computeCPUResource(pod *v1.Pod, podScale *v1bet
 		return desiredResource
 	}
 	responseTime := result.(float64)
-	// TODO: decide if to use milliseconds or seconds as default unit
-	setPoint := float64(sla.Spec.Metric.ResponseTime.MilliValue()) * 1000
+	// The response time is in seconds
+	setPoint := float64(sla.Spec.Metric.ResponseTime.MilliValue()) / 1000
 	e := 1/setPoint - 1/responseTime
 	xc := float64(logic.xcprec + BC*e)
 	oldcores := logic.cores
-	logic.cores = math.Min(math.Max(minCPU, xc+DC*e), oldcores*maxScaleOut)
-	logic.xcprec = float64(logic.cores - BC*e)
+	cores := math.Min(math.Max(minCPU, xc+DC*e), oldcores*maxScaleOut)
 
-	newDesiredResource := resource.NewMilliQuantity(int64(logic.cores), resource.BinarySI)
-	newDesiredResource = applyBounds(newDesiredResource, sla.Spec.MinResources.Cpu(), sla.Spec.MaxResources.Cpu(), sla.Spec.MinResources != nil, sla.Spec.MaxResources != nil)
+	newDesiredResource := resource.NewMilliQuantity(int64(cores), resource.BinarySI)
+	newDesiredResource, bounded := applyBounds(newDesiredResource, sla.Spec.MinResources.Cpu(), sla.Spec.MaxResources.Cpu(), sla.Spec.MinResources != nil, sla.Spec.MaxResources != nil)
+
+	// Store the value in logic
+	logic.xcprec = logic.cores - BC*e
+	if bounded {
+		logic.cores = float64(newDesiredResource.MilliValue())
+	} else {
+		logic.cores = cores
+	}
+
+	klog.Info(cores)
+	klog.Info(logic.xcprec)
 
 	// For logging purpose
+	klog.Info("response time is: ", responseTime, ", set point is:", setPoint, " and error is: ", e)
 	klog.Info("Computing CPU resource for Pod: ", pod.GetName(), ", actual value: ", actualResource, ", desired value: ", desiredResource, ", new value: ", newDesiredResource)
 
 	return newDesiredResource
 }
 
-func applyBounds(value *resource.Quantity, min *resource.Quantity, max *resource.Quantity, checkLower bool, checkUpper bool) *resource.Quantity {
-	if checkUpper && value.Value() > max.Value() {
-		return max
-	} else if checkLower && value.Value() < min.Value() {
-		return min
+func applyBounds(value *resource.Quantity, min *resource.Quantity, max *resource.Quantity, checkLower bool, checkUpper bool) (*resource.Quantity, bool) {
+	if checkUpper && value.MilliValue() > max.MilliValue() {
+		return max, true
+	} else if checkLower && value.MilliValue() < min.MilliValue() {
+		return min, true
 	} else {
-		return value
+		return value, false
 	}
 }

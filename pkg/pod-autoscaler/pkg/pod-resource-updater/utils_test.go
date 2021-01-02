@@ -36,7 +36,6 @@ func TestSyncPod(t *testing.T) {
 			success:                true,
 		},
 		{
-			// TODO: we should also check for max and min value somewhere.
 			description:            "successfully decreased the resources of a pod",
 			podQOS:                 v1.PodQOSGuaranteed,
 			podNumberOfContainers:  1,

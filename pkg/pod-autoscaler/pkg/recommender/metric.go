@@ -47,7 +47,7 @@ func (c Client) getMetrics(pod *v1.Pod) (map[string]interface{}, error) {
 
 	// Compose host and path
 	host := c.Host
-	path := fmt.Sprintf("%s/metrics/window/minute/5", address)
+	path := fmt.Sprintf("%s/metrics/window/minute/1", address)
 
 	// Create the request
 	metricServerURL := url.URL{
