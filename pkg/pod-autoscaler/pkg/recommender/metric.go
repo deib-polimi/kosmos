@@ -2,7 +2,7 @@ package recommender
 
 import (
 	"encoding/json"
-	"fmt"
+	"strings"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -34,7 +34,7 @@ func NewMetricClient() *Client {
 	}
 	client := &Client{
 		httpClient: httpClient,
-		Host:       "pod-autoscaler-metrics-expose.default.svc.cluster.local:7000",
+		Host:       "{pod_address}:{pod_port}",
 	}
 	return client
 }
@@ -43,11 +43,13 @@ func NewMetricClient() *Client {
 func (c Client) getMetrics(pod *v1.Pod) (map[string]interface{}, error) {
 
 	// Retrieve the location of the pod's metrics server
-	address := pod.Status.PodIP
+	podAddress := pod.Status.PodIP
 
 	// Compose host and path
 	host := c.Host
-	path := fmt.Sprintf("%s/metrics/window/minute/1", address)
+	host = strings.Replace(host, "{pod_address}", podAddress, -1)
+	host = strings.Replace(host, "{pod_port}", "8000", -1)
+	path := "metrics/response_time"
 
 	// Create the request
 	metricServerURL := url.URL{
@@ -68,6 +70,7 @@ func (c Client) getMetrics(pod *v1.Pod) (map[string]interface{}, error) {
 	response, err := c.httpClient.Do(request)
 	if err != nil {
 		klog.Error(err)
+		return nil, err
 	}
 
 	// Parse the response
