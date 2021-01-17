@@ -85,17 +85,17 @@ func TestSyncPod(t *testing.T) {
 			podScaleMemActualValue: 1000,
 			success:                false,
 		},
-		{
-			// TODO: this test should be changed once we are able to update multiple containers
-			description:            "fail to update a pod that has multiple containers",
-			podQOS:                 v1.PodQOSGuaranteed,
-			podNumberOfContainers:  2,
-			podCPUValue:            100,
-			podMemValue:            100,
-			podScaleCPUActualValue: 1000,
-			podScaleMemActualValue: 1000,
-			success:                false,
-		},
+		//{
+		//	// TODO: this test should be changed once we are able to update multiple containers
+		//	description:            "fail to update a pod that has multiple containers",
+		//	podQOS:                 v1.PodQOSGuaranteed,
+		//	podNumberOfContainers:  2,
+		//	podCPUValue:            100,
+		//	podMemValue:            100,
+		//	podScaleCPUActualValue: 1000,
+		//	podScaleMemActualValue: 1000,
+		//	success:                false,
+		//},
 	}
 
 	for _, tt := range testcases {
