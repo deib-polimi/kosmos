@@ -186,6 +186,7 @@ func (c *Controller) recommendNode(node string) error {
 		if err != nil {
 			//utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key))
 			// TODO: evaluate if we should use a 'continue'
+			klog.Info(err)
 			return err
 		}
 		newPodScales = append(newPodScales, newPodScale)

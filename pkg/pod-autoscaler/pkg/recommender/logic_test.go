@@ -116,28 +116,28 @@ func TestControlTheoryLogic(t *testing.T) {
 func TestBounds(t *testing.T) {
 
 	testcases := []struct {
-		description         string
-		current    int64
-		upperBound int64
-		lowerBound int64
+		description string
+		current     int64
+		upperBound  int64
+		lowerBound  int64
 	}{
 		{
 			description: "applying lower bound",
-			current:    15,
-			upperBound: 1000,
-			lowerBound: 100,
+			current:     15,
+			upperBound:  1000,
+			lowerBound:  100,
 		},
 		{
 			description: "applying upper bound",
-			current:    1200,
-			upperBound: 1000,
-			lowerBound: 100,
+			current:     1200,
+			upperBound:  1000,
+			lowerBound:  100,
 		},
 		{
 			description: "not applying any bounds",
-			current:    500,
-			upperBound: 1000,
-			lowerBound: 100,
+			current:     500,
+			upperBound:  1000,
+			lowerBound:  100,
 		},
 	}
 

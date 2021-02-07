@@ -2,11 +2,11 @@ package recommender
 
 import (
 	"encoding/json"
-	"strings"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
