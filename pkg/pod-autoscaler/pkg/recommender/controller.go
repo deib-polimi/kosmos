@@ -127,8 +127,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runNodeRecommenderWorker, time.Second, stopCh)
 	}
-	go wait.Until(c.runRecommenderWorker, 5*time.Second, stopCh)
-
+	go wait.Until(c.runRecommenderWorker, 4*time.Second, stopCh)
 	klog.Info("Started recommender workers")
 
 	return nil
@@ -187,6 +186,7 @@ func (c *Controller) recommendNode(node string) error {
 		if err != nil {
 			//utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key))
 			// TODO: evaluate if we should use a 'continue'
+			klog.Info(err)
 			return err
 		}
 		newPodScales = append(newPodScales, newPodScale)

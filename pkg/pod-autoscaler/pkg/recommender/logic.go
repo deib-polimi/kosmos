@@ -32,8 +32,8 @@ const (
 	// Control theory constants
 	maxScaleOut = 3
 	minCPU = 5
-	BC     = 500
-	DC     = 950
+	BC     = 5
+	DC     = 10
 )
 
 // computePodScale computes a new pod scale for a given pod.
@@ -74,8 +74,6 @@ func (logic *ControlTheoryLogic) computeMemoryResource(pod *v1.Pod, podScale *v1
 // computeMemoryResource computes cpu resources for a given pod.
 func (logic *ControlTheoryLogic) computeCPUResource(pod *v1.Pod, podScale *v1beta1.PodScale, sla *v1beta1.ServiceLevelAgreement, metricMap map[string]interface{}) *resource.Quantity {
 
-	klog.Info(logic.cores)
-	klog.Info(logic.xcprec)
 	// Retrieve the value of actual and desired cpu resources
 	desiredResource := podScale.Spec.DesiredResources.Cpu()
 	actualResource := podScale.Status.ActualResources.Cpu()
@@ -86,7 +84,7 @@ func (logic *ControlTheoryLogic) computeCPUResource(pod *v1.Pod, podScale *v1bet
 		klog.Info(`"response_time" was not in metrics. Metrics are:`, metricMap)
 		return desiredResource
 	}
-	responseTime := result.(float64)
+	responseTime := result.(float64) / 1000
 	// The response time is in seconds
 	setPoint := float64(sla.Spec.Metric.ResponseTime.MilliValue()) / 1000
 	e := 1/setPoint - 1/responseTime
@@ -97,19 +95,20 @@ func (logic *ControlTheoryLogic) computeCPUResource(pod *v1.Pod, podScale *v1bet
 	newDesiredResource := resource.NewMilliQuantity(int64(cores), resource.BinarySI)
 	newDesiredResource, bounded := applyBounds(newDesiredResource, sla.Spec.MinResources.Cpu(), sla.Spec.MaxResources.Cpu(), sla.Spec.MinResources != nil, sla.Spec.MaxResources != nil)
 
+
+	klog.Info("xc is: ", xc, ", e is: ", e, ", xcprex is: ", logic.xcprec)
 	// Store the value in logic
-	logic.xcprec = logic.cores - BC*e
 	if bounded {
 		logic.cores = float64(newDesiredResource.MilliValue())
 	} else {
 		logic.cores = cores
 	}
-
-	klog.Info(cores)
-	klog.Info(logic.xcprec)
+	logic.xcprec = logic.cores - BC*e
 
 	// For logging purpose
-	klog.Info("response time is: ", responseTime, ", set point is:", setPoint, " and error is: ", e)
+	klog.Info("BC: ", BC, ", DC: ", DC)
+	klog.Info("response time is: ", responseTime, ", set point is: ", setPoint, " and error is: ", e)
+	klog.Info("xc is: ", xc, ", cores is: ", cores, ", xcprex is: ", logic.xcprec)
 	klog.Info("Computing CPU resource for Pod: ", pod.GetName(), ", actual value: ", actualResource, ", desired value: ", desiredResource, ", new value: ", newDesiredResource)
 
 	return newDesiredResource

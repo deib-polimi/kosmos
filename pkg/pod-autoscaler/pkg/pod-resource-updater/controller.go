@@ -163,6 +163,7 @@ func (c *Controller) runNodeScaleWorker() {
 // it runs a request in dry-run and it checks for any potential error
 func (c *Controller) AtomicResourceUpdate(pod *corev1.Pod, podScale *v1beta1.PodScale) (*corev1.Pod, *v1beta1.PodScale, error) {
 	var err error
+	//TODO: Do it in the patch way
 	_, _, err = c.updateResources(pod, podScale, true)
 
 	if err != nil {

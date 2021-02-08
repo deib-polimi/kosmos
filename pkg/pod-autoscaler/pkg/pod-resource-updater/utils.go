@@ -13,9 +13,9 @@ func syncPod(pod v1.Pod, podScale v1beta1.PodScale) (*v1.Pod, error) {
 	newPod := pod.DeepCopy()
 
 	// TODO: we should be handle pod with multiple containers
-	if len(newPod.Spec.Containers) != 1 {
-		return nil, fmt.Errorf("the pod must have only 1 container. containers: %v", newPod.Spec.Containers)
-	}
+	//if len(newPod.Spec.Containers) != 1 {
+	//	return nil, fmt.Errorf("the pod must have only 1 container. containers: %v", newPod.Spec.Containers)
+	//}
 
 	if newPod.Status.QOSClass != v1.PodQOSGuaranteed {
 		return nil, fmt.Errorf("the pod has %v but it should have 'guaranteed' QOS class", newPod.Status.QOSClass)
