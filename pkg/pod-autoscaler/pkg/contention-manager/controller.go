@@ -18,22 +18,22 @@ import (
 
 	clientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
 	samplescheme "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned/scheme"
-	"github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/types"
+	"github.com/lterrac/system-autoscaler/pkg/containerscale-controller/pkg/types"
 )
 
 // AgentName is the controller name used
 // both in logs and labels to identify it
 const AgentName = "contention-manager"
 
-// Controller is responsible of adjusting podscale partially computed by the recommender
+// Controller is responsible of adjusting containerscale partially computed by the recommender
 // taking into account the actual node capacity
 type Controller struct {
 	kubeClientset      kubernetes.Interface
-	podScalesClientset clientset.Interface
+	containerScalesClientset clientset.Interface
 
 	listers informers.Listers
 
-	podScalesSynced cache.InformerSynced
+	containerScalesSynced cache.InformerSynced
 	nodesSynced     cache.InformerSynced
 
 	recorder record.EventRecorder
@@ -42,10 +42,10 @@ type Controller struct {
 	out chan types.NodeScales
 }
 
-// NewController returns a new PodScale controller
+// NewController returns a new ContainerScale controller
 func NewController(
 	kubeClient kubernetes.Interface,
-	podScalesClient clientset.Interface,
+	containerScalesClient clientset.Interface,
 	informers informers.Informers,
 	in chan types.NodeScales,
 	out chan types.NodeScales) *Controller {
@@ -61,11 +61,11 @@ func NewController(
 
 	controller := &Controller{
 		kubeClientset:      kubeClient,
-		podScalesClientset: podScalesClient,
+		containerScalesClientset: containerScalesClient,
 
 		listers: informers.GetListers(),
 
-		podScalesSynced: informers.PodScale.Informer().HasSynced,
+		containerScalesSynced: informers.ContainerScale.Informer().HasSynced,
 		nodesSynced:     informers.Node.Informer().HasSynced,
 
 		recorder: recorder,
@@ -89,13 +89,13 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	// Wait for the caches to be synced before starting workers
 	klog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh,
-		c.podScalesSynced,
+		c.containerScalesSynced,
 		c.nodesSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
 	klog.Info("Starting contention manager  workers")
-	// Launch two workers to process podScale resources
+	// Launch two workers to process containerScale resources
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}

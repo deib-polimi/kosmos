@@ -1,5 +1,5 @@
 MAKEFLAGS += --no-print-directory
-COMPONENTS = pod-replicas-updater pod-autoscaler podscale-controller
+COMPONENTS = pod-replicas-updater pod-autoscaler containerscale-controller
 
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin

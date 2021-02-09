@@ -21,8 +21,8 @@ func TestSyncPod(t *testing.T) {
 		podNumberOfContainers  int64
 		podCPUValue            int64
 		podMemValue            int64
-		podScaleCPUActualValue int64
-		podScaleMemActualValue int64
+		containerScaleCPUActualValue int64
+		containerScaleMemActualValue int64
 		success                bool
 	}{
 		{
@@ -31,8 +31,8 @@ func TestSyncPod(t *testing.T) {
 			podNumberOfContainers:  1,
 			podCPUValue:            100,
 			podMemValue:            100,
-			podScaleCPUActualValue: 1000,
-			podScaleMemActualValue: 1000,
+			containerScaleCPUActualValue: 1000,
+			containerScaleMemActualValue: 1000,
 			success:                true,
 		},
 		{
@@ -41,8 +41,8 @@ func TestSyncPod(t *testing.T) {
 			podNumberOfContainers:  1,
 			podCPUValue:            100,
 			podMemValue:            100,
-			podScaleCPUActualValue: 1000,
-			podScaleMemActualValue: 1000,
+			containerScaleCPUActualValue: 1000,
+			containerScaleMemActualValue: 1000,
 			success:                true,
 		},
 		{
@@ -51,8 +51,8 @@ func TestSyncPod(t *testing.T) {
 			podNumberOfContainers:  1,
 			podCPUValue:            100,
 			podMemValue:            100,
-			podScaleCPUActualValue: -1,
-			podScaleMemActualValue: 1000,
+			containerScaleCPUActualValue: -1,
+			containerScaleMemActualValue: 1000,
 			success:                false,
 		},
 		{
@@ -61,8 +61,8 @@ func TestSyncPod(t *testing.T) {
 			podNumberOfContainers:  1,
 			podCPUValue:            100,
 			podMemValue:            100,
-			podScaleCPUActualValue: 1000,
-			podScaleMemActualValue: -1,
+			containerScaleCPUActualValue: 1000,
+			containerScaleMemActualValue: -1,
 			success:                false,
 		},
 		{
@@ -71,8 +71,8 @@ func TestSyncPod(t *testing.T) {
 			podNumberOfContainers:  1,
 			podCPUValue:            100,
 			podMemValue:            100,
-			podScaleCPUActualValue: 1000,
-			podScaleMemActualValue: 1000,
+			containerScaleCPUActualValue: 1000,
+			containerScaleMemActualValue: 1000,
 			success:                false,
 		},
 		{
@@ -81,8 +81,8 @@ func TestSyncPod(t *testing.T) {
 			podNumberOfContainers:  1,
 			podCPUValue:            100,
 			podMemValue:            100,
-			podScaleCPUActualValue: 1000,
-			podScaleMemActualValue: 1000,
+			containerScaleCPUActualValue: 1000,
+			containerScaleMemActualValue: 1000,
 			success:                false,
 		},
 		//{
@@ -92,8 +92,8 @@ func TestSyncPod(t *testing.T) {
 		//	podNumberOfContainers:  2,
 		//	podCPUValue:            100,
 		//	podMemValue:            100,
-		//	podScaleCPUActualValue: 1000,
-		//	podScaleMemActualValue: 1000,
+		//	containerScaleCPUActualValue: 1000,
+		//	containerScaleMemActualValue: 1000,
 		//	success:                false,
 		//},
 	}
@@ -137,39 +137,39 @@ func TestSyncPod(t *testing.T) {
 				},
 			}
 			// Instantiate the pod scale
-			podScale := v1beta1.PodScale{
+			containerScale := v1beta1.ContainerScale{
 				TypeMeta: metav1.TypeMeta{
-					Kind:       "podscales",
+					Kind:       "containerscales",
 					APIVersion: v1beta1.SchemeGroupVersion.String(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "podscale-name",
+					Name:      "containerscale-name",
 					Namespace: "default",
 				},
-				Spec: v1beta1.PodScaleSpec{
+				Spec: v1beta1.ContainerScaleSpec{
 					PodRef: v1beta1.PodRef{
 						Name:      "pod-name",
 						Namespace: "default",
 					},
 					DesiredResources: v1.ResourceList{
-						v1.ResourceCPU:    *resource.NewScaledQuantity(tt.podScaleCPUActualValue, resource.Milli),
-						v1.ResourceMemory: *resource.NewScaledQuantity(tt.podScaleMemActualValue, resource.Mega),
+						v1.ResourceCPU:    *resource.NewScaledQuantity(tt.containerScaleCPUActualValue, resource.Milli),
+						v1.ResourceMemory: *resource.NewScaledQuantity(tt.containerScaleMemActualValue, resource.Mega),
 					},
 				},
-				Status: v1beta1.PodScaleStatus{
+				Status: v1beta1.ContainerScaleStatus{
 					ActualResources: v1.ResourceList{
-						v1.ResourceCPU:    *resource.NewScaledQuantity(tt.podScaleCPUActualValue, resource.Milli),
-						v1.ResourceMemory: *resource.NewScaledQuantity(tt.podScaleMemActualValue, resource.Mega),
+						v1.ResourceCPU:    *resource.NewScaledQuantity(tt.containerScaleCPUActualValue, resource.Milli),
+						v1.ResourceMemory: *resource.NewScaledQuantity(tt.containerScaleMemActualValue, resource.Mega),
 					},
 				},
 			}
-			newPod, err := syncPod(pod, podScale)
+			newPod, err := syncPod(pod, containerScale)
 			if tt.success {
 				require.Nil(t, err, "Do not expect error")
-				require.Equal(t, newPod.Spec.Containers[0].Resources.Limits.Cpu().ScaledValue(resource.Milli), tt.podScaleCPUActualValue)
-				require.Equal(t, newPod.Spec.Containers[0].Resources.Requests.Cpu().ScaledValue(resource.Milli), tt.podScaleCPUActualValue)
-				require.Equal(t, newPod.Spec.Containers[0].Resources.Limits.Memory().ScaledValue(resource.Mega), tt.podScaleMemActualValue)
-				require.Equal(t, newPod.Spec.Containers[0].Resources.Requests.Memory().ScaledValue(resource.Mega), tt.podScaleMemActualValue)
+				require.Equal(t, newPod.Spec.Containers[0].Resources.Limits.Cpu().ScaledValue(resource.Milli), tt.containerScaleCPUActualValue)
+				require.Equal(t, newPod.Spec.Containers[0].Resources.Requests.Cpu().ScaledValue(resource.Milli), tt.containerScaleCPUActualValue)
+				require.Equal(t, newPod.Spec.Containers[0].Resources.Limits.Memory().ScaledValue(resource.Mega), tt.containerScaleMemActualValue)
+				require.Equal(t, newPod.Spec.Containers[0].Resources.Requests.Memory().ScaledValue(resource.Mega), tt.containerScaleMemActualValue)
 				require.Equal(t, newPod.Status.QOSClass, v1.PodQOSGuaranteed)
 			} else {
 				require.Error(t, err, "expected error")

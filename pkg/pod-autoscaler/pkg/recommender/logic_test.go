@@ -75,16 +75,16 @@ func TestControlTheoryLogic(t *testing.T) {
 				},
 			}
 
-			podScale := &v1beta1.PodScale{
+			containerScale := &v1beta1.ContainerScale{
 				TypeMeta:   metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{},
-				Spec: v1beta1.PodScaleSpec{
+				Spec: v1beta1.ContainerScaleSpec{
 					DesiredResources: map[corev1.ResourceName]resource.Quantity{
 						corev1.ResourceCPU:    *resource.NewScaledQuantity((tt.lowerBound+tt.upperBound)/2, resource.Milli),
 						corev1.ResourceMemory: *resource.NewScaledQuantity((tt.lowerBound+tt.upperBound)/2, resource.Milli),
 					},
 				},
-				Status: v1beta1.PodScaleStatus{
+				Status: v1beta1.ContainerScaleStatus{
 					ActualResources: map[corev1.ResourceName]resource.Quantity{
 						corev1.ResourceCPU:    *resource.NewScaledQuantity((tt.lowerBound+tt.upperBound)/2, resource.Milli),
 						corev1.ResourceMemory: *resource.NewScaledQuantity((tt.lowerBound+tt.upperBound)/2, resource.Milli),
@@ -102,10 +102,10 @@ func TestControlTheoryLogic(t *testing.T) {
 			}
 
 			for i := 0; i < 200; i++ {
-				podScale = logic.computePodScale(pod, podScale, sla, metricsMap)
-				require.GreaterOrEqual(t, podScale.Spec.DesiredResources.Cpu().MilliValue(), tt.lowerBound)
+				containerScale = logic.computeContainerScale(pod, containerScale, sla, metricsMap)
+				require.GreaterOrEqual(t, containerScale.Spec.DesiredResources.Cpu().MilliValue(), tt.lowerBound)
 				require.GreaterOrEqual(t, logic.cores, float64(tt.lowerBound))
-				require.LessOrEqual(t, podScale.Spec.DesiredResources.Cpu().MilliValue(), tt.upperBound)
+				require.LessOrEqual(t, containerScale.Spec.DesiredResources.Cpu().MilliValue(), tt.upperBound)
 				require.LessOrEqual(t, logic.cores, float64(tt.upperBound))
 			}
 

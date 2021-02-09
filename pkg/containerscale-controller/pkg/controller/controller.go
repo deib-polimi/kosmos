@@ -26,7 +26,7 @@ const (
 
 	// AgentName is the controller name used
 	// both in logs and labels to identify it
-	AgentName = "podscale-controller"
+	AgentName = "containerscale-controller"
 
 	// SubjectToLabel is used to identify the ServiceLevelAgreement
 	// matched by the Service
@@ -36,23 +36,23 @@ const (
 	// process a pod with a QOS other than Guaranteed
 	QOSNotSupported = "Unsupported QOS"
 
-	// SuccessSynced is used as part of the Event 'reason' when a podScale is synced
+	// SuccessSynced is used as part of the Event 'reason' when a containerScale is synced
 	SuccessSynced = "Synced"
 
-	// MessageResourceSynced is the message used for an Event fired when a podScale
+	// MessageResourceSynced is the message used for an Event fired when a containerScale
 	// is synced successfully
-	MessageResourceSynced = "podScale synced successfully"
+	MessageResourceSynced = "containerScale synced successfully"
 )
 
-// Controller is the controller implementation for podScale resources
+// Controller is the controller implementation for containerScale resources
 type Controller struct {
 	kubeClientset      kubernetes.Interface
-	podScalesClientset clientset.Interface
+	containerScalesClientset clientset.Interface
 
 	listers informers.Listers
 
 	slasSynced      cache.InformerSynced
-	podScalesSynced cache.InformerSynced
+	containerScalesSynced cache.InformerSynced
 	servicesSynced  cache.InformerSynced
 	podSynced       cache.InformerSynced
 
@@ -61,10 +61,10 @@ type Controller struct {
 	recorder record.EventRecorder
 }
 
-// NewController returns a new PodScale controller
+// NewController returns a new ContainerScale controller
 func NewController(
 	kubeClient kubernetes.Interface,
-	podScalesClient clientset.Interface,
+	containerScalesClient clientset.Interface,
 	informers informers.Informers) *Controller {
 
 	// Create event broadcaster
@@ -82,12 +82,12 @@ func NewController(
 
 	controller := &Controller{
 		kubeClientset:      kubeClient,
-		podScalesClientset: podScalesClient,
+		containerScalesClientset: containerScalesClient,
 
 		listers: informers.GetListers(),
 
 		slasSynced:      informers.ServiceLevelAgreement.Informer().HasSynced,
-		podScalesSynced: informers.PodScale.Informer().HasSynced,
+		containerScalesSynced: informers.ContainerScale.Informer().HasSynced,
 		servicesSynced:  informers.Service.Informer().HasSynced,
 		podSynced:       informers.Pod.Informer().HasSynced,
 
@@ -115,20 +115,20 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer c.slasworkqueue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches
-	klog.Info("Starting podScale controller")
+	klog.Info("Starting containerScale controller")
 
 	// Wait for the caches to be synced before starting workers
 	klog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh,
 		c.slasSynced,
 		c.servicesSynced,
-		c.podScalesSynced,
+		c.containerScalesSynced,
 		c.podSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
 	klog.Info("Starting workers")
-	// Launch two workers to process podScale resources
+	// Launch two workers to process containerScale resources
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}

@@ -37,8 +37,8 @@ func (f *genericInformer) Lister() cache.GenericLister {
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
 	// Group=systemautoscaler.polimi.it, Version=v1beta1
-	case v1beta1.SchemeGroupVersion.WithResource("podscales"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Systemautoscaler().V1beta1().PodScales().Informer()}, nil
+	case v1beta1.SchemeGroupVersion.WithResource("containerscales"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Systemautoscaler().V1beta1().ContainerScales().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("servicelevelagreements"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Systemautoscaler().V1beta1().ServiceLevelAgreements().Informer()}, nil
 

@@ -9,7 +9,7 @@ import (
 	sainformers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions"
 	cm "github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/contention-manager"
 	resupd "github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/pod-resource-updater"
-	"github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/types"
+	"github.com/lterrac/system-autoscaler/pkg/containerscale-controller/pkg/types"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 
@@ -58,7 +58,7 @@ func main() {
 		Pod:                   coreInformerFactory.Core().V1().Pods(),
 		Node:                  coreInformerFactory.Core().V1().Nodes(),
 		Service:               coreInformerFactory.Core().V1().Services(),
-		PodScale:              saInformerFactory.Systemautoscaler().V1beta1().PodScales(),
+		ContainerScale:              saInformerFactory.Systemautoscaler().V1beta1().ContainerScales(),
 		ServiceLevelAgreement: saInformerFactory.Systemautoscaler().V1beta1().ServiceLevelAgreements(),
 	}
 
@@ -124,17 +124,3 @@ func init() {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 }
-
-//
-//func serverMock() *httptest.Server {
-//	handler := http.NewServeMux()
-//	handler.HandleFunc("/", usersMock)
-//
-//	srv := httptest.NewServer(handler)
-//
-//	return srv
-//}
-//
-//func usersMock(w http.ResponseWriter, r *http.Request) {
-//	_, _ = w.Write([]byte(`{"response_time":2.0}`))
-//}

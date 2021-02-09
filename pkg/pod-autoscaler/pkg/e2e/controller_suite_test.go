@@ -12,7 +12,7 @@ import (
 	sainformers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions"
 	resupd "github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/pod-resource-updater"
 	"github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/recommender"
-	"github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/types"
+	"github.com/lterrac/system-autoscaler/pkg/containerscale-controller/pkg/types"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -78,7 +78,7 @@ var _ = BeforeSuite(func(done Done) {
 		Pod:                   coreInformerFactory.Core().V1().Pods(),
 		Node:                  coreInformerFactory.Core().V1().Nodes(),
 		Service:               coreInformerFactory.Core().V1().Services(),
-		PodScale:              crdInformerFactory.Systemautoscaler().V1beta1().PodScales(),
+		ContainerScale:              crdInformerFactory.Systemautoscaler().V1beta1().ContainerScales(),
 		ServiceLevelAgreement: crdInformerFactory.Systemautoscaler().V1beta1().ServiceLevelAgreements(),
 	}
 
@@ -141,7 +141,7 @@ func serverMock() *httptest.Server {
 	return srv
 }
 
-func usersMock(w http.ResponseWriter, r *http.Request) {
+func usersMock(w http.ResponseWriter, _ *http.Request) {
 	_, _ = w.Write([]byte(`{"response_time":5.0}`))
 }
 
@@ -153,8 +153,11 @@ func newSLA(name string, labels map[string]string) *sa.ServiceLevelAgreement {
 			Namespace: namespace,
 		},
 		Spec: sa.ServiceLevelAgreementSpec{
-			ServiceSelector: &metav1.LabelSelector{
-				MatchLabels: labels,
+			Service: &sa.Service{
+				Container: "",
+				Selector: &metav1.LabelSelector{
+					MatchLabels: labels,
+				},
 			},
 			Metric: sa.MetricRequirement{
 				ResponseTime: *resource.NewQuantity(3, resource.BinarySI),
@@ -220,16 +223,16 @@ func newPod(name string, podLabels map[string]string) *corev1.Pod {
 	}
 }
 
-func newPodScale(sla *sa.ServiceLevelAgreement, pod *corev1.Pod, selectorLabels map[string]string) *sa.PodScale {
+func newContainerScale(sla *sa.ServiceLevelAgreement, pod *corev1.Pod, selectorLabels map[string]string) *sa.ContainerScale {
 	podLabels := make(labels.Set)
 	for k, v := range selectorLabels {
 		podLabels[k] = v
 	}
 	podLabels["system.autoscaler/node"] = pod.Spec.NodeName
-	return &sa.PodScale{
+	return &sa.ContainerScale{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "sa.polimi.it/v1beta1",
-			Kind:       "PodScale",
+			Kind:       "ContainerScale",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pod-" + pod.GetName(),
@@ -244,7 +247,7 @@ func newPodScale(sla *sa.ServiceLevelAgreement, pod *corev1.Pod, selectorLabels 
 				},
 			},
 		},
-		Spec: sa.PodScaleSpec{
+		Spec: sa.ContainerScaleSpec{
 			SLARef: sa.SLARef{
 				Name:      sla.GetName(),
 				Namespace: sla.GetNamespace(),
@@ -255,7 +258,7 @@ func newPodScale(sla *sa.ServiceLevelAgreement, pod *corev1.Pod, selectorLabels 
 			},
 			DesiredResources: sla.Spec.DefaultResources,
 		},
-		Status: sa.PodScaleStatus{
+		Status: sa.ContainerScaleStatus{
 			ActualResources: sla.Spec.DefaultResources,
 		},
 	}

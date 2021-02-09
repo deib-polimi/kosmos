@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
-	"github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/utils"
+	"github.com/lterrac/system-autoscaler/pkg/containerscale-controller/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,7 +31,7 @@ func (c *Controller) syncServiceLevelAgreement(key string) error {
 		// The SLA resource may no longer exist, in which case we stop
 		// processing.
 		if errors.IsNotFound(err) {
-			// PodScale cleanup is achieved via OwnerReferences
+			// ContainerScale cleanup is achieved via OwnerReferences
 			utilruntime.HandleError(fmt.Errorf("ServiceLevelAgreement '%s' in work queue no longer exists", key))
 			return nil
 		}
@@ -39,7 +39,7 @@ func (c *Controller) syncServiceLevelAgreement(key string) error {
 	}
 
 	// Get all desired services to track matching the SLA selector inside the namespace
-	serviceSelector := labels.Set(sla.Spec.ServiceSelector.MatchLabels).AsSelector()
+	serviceSelector := labels.Set(sla.Spec.Service.Selector.MatchLabels).AsSelector()
 	desired, err := c.listers.Services(namespace).List(serviceSelector)
 
 	if err != nil {
@@ -69,10 +69,10 @@ func (c *Controller) syncServiceLevelAgreement(key string) error {
 		//	return nil
 		//}
 
-		// adjust Service's PodScale according to its Pods
+		// adjust Service's ContainerScale according to its Pods
 		err = c.syncService(namespace, service, sla)
 		if err != nil {
-			utilruntime.HandleError(fmt.Errorf("error while syncing PodScales for Service '%s'", service.GetName()))
+			utilruntime.HandleError(fmt.Errorf("error while syncing ContainerScales for Service '%s'", service.GetName()))
 			utilruntime.HandleError(err)
 			return nil
 		}
@@ -88,11 +88,11 @@ func (c *Controller) syncServiceLevelAgreement(key string) error {
 		}
 	}
 
-	// Once the service, pod and podscales adhere to the desired state derived from SLA
-	// delete old PodScale without a Service matched due to a change in ServiceSelector
+	// Once the service, pod and containerscales adhere to the desired state derived from SLA
+	// delete old ContainerScale without a Service matched due to a change in ServiceSelector
 	err = c.handleServiceSelectorChange(actual, desired, namespace)
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("error while cleaning PodScales due to a ServiceSelector change"))
+		utilruntime.HandleError(fmt.Errorf("error while cleaning ContainerScales due to a ServiceSelector change"))
 		return nil
 	}
 
@@ -106,19 +106,19 @@ func (c *Controller) handleServiceSelectorChange(actual []*corev1.Service, desir
 		if utils.ContainsService(desired, service) {
 			continue
 		}
-		// get all podscales currently associated to a Service
-		podscaleSelector := labels.Set(service.Spec.Selector).AsSelector()
-		podscales, err := c.listers.PodScaleLister.List(podscaleSelector)
+		// get all containerscales currently associated to a Service
+		containerscaleSelector := labels.Set(service.Spec.Selector).AsSelector()
+		containerscales, err := c.listers.ContainerScaleLister.List(containerscaleSelector)
 
 		if err != nil {
-			utilruntime.HandleError(fmt.Errorf("error while getting PodScales for Service '%s'", service.GetName()))
+			utilruntime.HandleError(fmt.Errorf("error while getting ContainerScales for Service '%s'", service.GetName()))
 			return nil
 		}
 
-		for _, p := range podscales {
-			err := c.podScalesClientset.SystemautoscalerV1beta1().PodScales(namespace).Delete(context.TODO(), p.Name, metav1.DeleteOptions{})
+		for _, p := range containerscales {
+			err := c.containerScalesClientset.SystemautoscalerV1beta1().ContainerScales(namespace).Delete(context.TODO(), p.Name, metav1.DeleteOptions{})
 			if err != nil {
-				utilruntime.HandleError(fmt.Errorf("error while deleting PodScale for Service '%s'", service.GetName()))
+				utilruntime.HandleError(fmt.Errorf("error while deleting ContainerScale for Service '%s'", service.GetName()))
 				return nil
 			}
 		}
@@ -127,9 +127,9 @@ func (c *Controller) handleServiceSelectorChange(actual []*corev1.Service, desir
 }
 
 // syncService keeps a Service up to date with the corresponding ServiceLevelAgreement
-// by creating and deleting the corresponding `PodScale` resources. It uses the `Selector`
-// to retrive the corresponding `Pod` and `PodScale`. The `Pod` resources are used as
-// a desired state so `PodScale` are changed accordingly.
+// by creating and deleting the corresponding `ContainerScale` resources. It uses the `Selector`
+// to retrive the corresponding `Pod` and `ContainerScale`. The `Pod` resources are used as
+// a desired state so `ContainerScale` are changed accordingly.
 func (c *Controller) syncService(namespace string, service *corev1.Service, sla *v1beta1.ServiceLevelAgreement) error {
 	label := labels.Set(service.Spec.Selector)
 	pods, err := c.listers.PodLister.List(label.AsSelector())
@@ -139,14 +139,14 @@ func (c *Controller) syncService(namespace string, service *corev1.Service, sla 
 		return nil
 	}
 
-	podscales, err := c.listers.PodScaleLister.List(label.AsSelector())
+	containerscales, err := c.listers.ContainerScaleLister.List(label.AsSelector())
 
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("error while getting PodScales for Service '%s'", service.GetName()))
+		utilruntime.HandleError(fmt.Errorf("error while getting ContainerScales for Service '%s'", service.GetName()))
 		return nil
 	}
 
-	stateDiff := utils.DiffPods(pods, podscales)
+	stateDiff := utils.DiffPods(pods, containerscales)
 
 	for _, pod := range stateDiff.AddList {
 		//TODO: change when a policy to handle other QOS class will be discussed
@@ -154,22 +154,22 @@ func (c *Controller) syncService(namespace string, service *corev1.Service, sla 
 			c.recorder.Eventf(pod, corev1.EventTypeWarning, QOSNotSupported, "Unsupported QOS for Pod %s/%s: ", pod.Namespace, pod.Name, pod.Status.QOSClass)
 			continue
 		}
-		podscale := NewPodScale(pod, sla, label)
+		containerscale := NewContainerScale(pod, sla, label)
 
-		_, err := c.podScalesClientset.SystemautoscalerV1beta1().PodScales(namespace).Create(context.TODO(), podscale, metav1.CreateOptions{})
+		_, err := c.containerScalesClientset.SystemautoscalerV1beta1().ContainerScales(namespace).Create(context.TODO(), containerscale, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
-			utilruntime.HandleError(fmt.Errorf("error while creating PodScale for Pod '%s'", podscale.GetName()))
+			utilruntime.HandleError(fmt.Errorf("error while creating ContainerScale for Pod '%s'", containerscale.GetName()))
 			utilruntime.HandleError(err)
 			return nil
 		}
 
 	}
 
-	for _, podscale := range stateDiff.DeleteList {
+	for _, containerscale := range stateDiff.DeleteList {
 
-		err := c.podScalesClientset.SystemautoscalerV1beta1().PodScales(namespace).Delete(context.TODO(), podscale.Name, metav1.DeleteOptions{})
+		err := c.containerScalesClientset.SystemautoscalerV1beta1().ContainerScales(namespace).Delete(context.TODO(), containerscale.Name, metav1.DeleteOptions{})
 		if err != nil {
-			utilruntime.HandleError(fmt.Errorf("error while deleting PodScale for Pod '%s'", podscale.Name))
+			utilruntime.HandleError(fmt.Errorf("error while deleting ContainerScale for Pod '%s'", containerscale.Name))
 			utilruntime.HandleError(err)
 			return nil
 		}
@@ -178,18 +178,18 @@ func (c *Controller) syncService(namespace string, service *corev1.Service, sla 
 	return nil
 }
 
-// NewPodScale creates a new PodScale resource using the corresponding Pod and ServiceLevelAgreement infos.
+// NewContainerScale creates a new ContainerScale resource using the corresponding Pod and ServiceLevelAgreement infos.
 // The SLA is the resource Owner in order to enable garbage collection on its deletion.
-func NewPodScale(pod *corev1.Pod, sla *v1beta1.ServiceLevelAgreement, selectorLabels labels.Set) *v1beta1.PodScale {
+func NewContainerScale(pod *corev1.Pod, sla *v1beta1.ServiceLevelAgreement, selectorLabels labels.Set) *v1beta1.ContainerScale {
 	podLabels := make(labels.Set)
 	for k, v := range selectorLabels {
 		podLabels[k] = v
 	}
 	podLabels["system.autoscaler/node"] = pod.Spec.NodeName
-	return &v1beta1.PodScale{
+	return &v1beta1.ContainerScale{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "systemautoscaler.polimi.it/v1beta1",
-			Kind:       "PodScale",
+			Kind:       "ContainerScale",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pod-" + pod.GetName(),
@@ -204,7 +204,7 @@ func NewPodScale(pod *corev1.Pod, sla *v1beta1.ServiceLevelAgreement, selectorLa
 				},
 			},
 		},
-		Spec: v1beta1.PodScaleSpec{
+		Spec: v1beta1.ContainerScaleSpec{
 			SLARef: v1beta1.SLARef{
 				Name:      sla.GetName(),
 				Namespace: sla.GetNamespace(),
@@ -213,9 +213,10 @@ func NewPodScale(pod *corev1.Pod, sla *v1beta1.ServiceLevelAgreement, selectorLa
 				Name:      pod.GetName(),
 				Namespace: pod.GetNamespace(),
 			},
+			Container: sla.Spec.Service.Container,
 			DesiredResources: sla.Spec.DefaultResources,
 		},
-		Status: v1beta1.PodScaleStatus{
+		Status: v1beta1.ContainerScaleStatus{
 			ActualResources: sla.Spec.DefaultResources,
 		},
 	}

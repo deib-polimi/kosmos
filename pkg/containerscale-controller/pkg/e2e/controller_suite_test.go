@@ -15,7 +15,7 @@ import (
 
 	systemautoscalerv1beta1 "github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
 	systemautoscaler "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
-	podscale "github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/controller"
+	containerscale "github.com/lterrac/system-autoscaler/pkg/containerscale-controller/pkg/controller"
 	. "github.com/onsi/ginkgo"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -65,13 +65,13 @@ var _ = BeforeSuite(func(done Done) {
 		Pod:                   coreInformerFactory.Core().V1().Pods(),
 		Node:                  coreInformerFactory.Core().V1().Nodes(),
 		Service:               coreInformerFactory.Core().V1().Services(),
-		PodScale:              crdInformerFactory.Systemautoscaler().V1beta1().PodScales(),
+		ContainerScale:              crdInformerFactory.Systemautoscaler().V1beta1().ContainerScales(),
 		ServiceLevelAgreement: crdInformerFactory.Systemautoscaler().V1beta1().ServiceLevelAgreements(),
 	}
 
 	By("bootstrapping controller")
 
-	controller := podscale.NewController(
+	controller := containerscale.NewController(
 		kubeClient,
 		saClient,
 		informers,

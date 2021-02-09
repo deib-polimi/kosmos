@@ -43,8 +43,8 @@ var _ = Describe("Recommender controller", func() {
 				return pod.Spec.NodeName != ""
 			}, timeout, interval).Should(BeTrue())
 
-			podScale := newPodScale(sla, pod, labels)
-			podScale, err = saClient.SystemautoscalerV1beta1().PodScales(namespace).Create(ctx, podScale, metav1.CreateOptions{})
+			containerScale := newContainerScale(sla, pod, labels)
+			containerScale, err = saClient.SystemautoscalerV1beta1().ContainerScales(namespace).Create(ctx, containerScale, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
 			Eventually(func() bool {
@@ -53,12 +53,12 @@ var _ = Describe("Recommender controller", func() {
 				Expect(err).ShouldNot(HaveOccurred())
 				nodeScale := <-recommenderOut
 				return nodeScale.Node == pod.Spec.NodeName &&
-					len(nodeScale.PodScales) == 1 &&
-					nodeScale.PodScales[0].Namespace == podScale.Namespace &&
-					nodeScale.PodScales[0].Name == podScale.Name
+					len(nodeScale.ContainerScales) == 1 &&
+					nodeScale.ContainerScales[0].Namespace == containerScale.Namespace &&
+					nodeScale.ContainerScales[0].Name == containerScale.Name
 			}, timeout, interval).Should(BeTrue())
 
-			err = saClient.SystemautoscalerV1beta1().PodScales(namespace).Delete(ctx, podScale.Name, metav1.DeleteOptions{})
+			err = saClient.SystemautoscalerV1beta1().ContainerScales(namespace).Delete(ctx, containerScale.Name, metav1.DeleteOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
 			err = saClient.SystemautoscalerV1beta1().ServiceLevelAgreements(namespace).Delete(ctx, sla.Name, metav1.DeleteOptions{})
@@ -103,8 +103,8 @@ var _ = Describe("Recommender controller", func() {
 				return pod1.Spec.NodeName != ""
 			}, timeout, interval).Should(BeTrue())
 
-			podScale1 := newPodScale(sla, pod1, labels)
-			podScale1, err = saClient.SystemautoscalerV1beta1().PodScales(namespace).Create(ctx, podScale1, metav1.CreateOptions{})
+			containerScale1 := newContainerScale(sla, pod1, labels)
+			containerScale1, err = saClient.SystemautoscalerV1beta1().ContainerScales(namespace).Create(ctx, containerScale1, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
 			Eventually(func() bool {
@@ -113,9 +113,9 @@ var _ = Describe("Recommender controller", func() {
 				Expect(err).ShouldNot(HaveOccurred())
 				nodeScale := <-recommenderOut
 				return nodeScale.Node == pod1.Spec.NodeName &&
-					len(nodeScale.PodScales) == 1 &&
-					nodeScale.PodScales[0].Namespace == podScale1.Namespace &&
-					nodeScale.PodScales[0].Name == podScale1.Name
+					len(nodeScale.ContainerScales) == 1 &&
+					nodeScale.ContainerScales[0].Namespace == containerScale1.Namespace &&
+					nodeScale.ContainerScales[0].Name == containerScale1.Name
 			}, timeout, interval).Should(BeTrue())
 
 			pod2 := newPod("replica2", podLabels)
@@ -128,11 +128,11 @@ var _ = Describe("Recommender controller", func() {
 				return pod2.Spec.NodeName != ""
 			}, timeout, interval).Should(BeTrue())
 
-			podScale2 := newPodScale(sla, pod2, labels)
-			podScale2, err = saClient.SystemautoscalerV1beta1().PodScales(namespace).Create(ctx, podScale2, metav1.CreateOptions{})
+			containerScale2 := newContainerScale(sla, pod2, labels)
+			containerScale2, err = saClient.SystemautoscalerV1beta1().ContainerScales(namespace).Create(ctx, containerScale2, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
-			err = saClient.SystemautoscalerV1beta1().PodScales(namespace).Delete(ctx, podScale1.Name, metav1.DeleteOptions{})
+			err = saClient.SystemautoscalerV1beta1().ContainerScales(namespace).Delete(ctx, containerScale1.Name, metav1.DeleteOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
 			err = kubeClient.CoreV1().Pods(namespace).Delete(ctx, pod1.Name, metav1.DeleteOptions{})
@@ -144,9 +144,9 @@ var _ = Describe("Recommender controller", func() {
 				Expect(err).ShouldNot(HaveOccurred())
 				nodeScale := <-recommenderOut
 				return nodeScale.Node == pod2.Spec.NodeName &&
-					len(nodeScale.PodScales) == 1 &&
-					nodeScale.PodScales[0].Namespace == podScale2.Namespace &&
-					nodeScale.PodScales[0].Name == podScale2.Name
+					len(nodeScale.ContainerScales) == 1 &&
+					nodeScale.ContainerScales[0].Namespace == containerScale2.Namespace &&
+					nodeScale.ContainerScales[0].Name == containerScale2.Name
 			}, timeout, interval).Should(BeTrue())
 
 			// For x control periods, pod 1 does not appear in the channel
@@ -158,16 +158,16 @@ var _ = Describe("Recommender controller", func() {
 				for i := 0; i < x; i++ {
 					nodeScale := <-recommenderOut
 					if nodeScale.Node == pod1.Spec.NodeName &&
-						len(nodeScale.PodScales) == 1 &&
-						nodeScale.PodScales[0].Namespace == podScale1.Namespace &&
-						nodeScale.PodScales[0].Name == podScale1.Name {
+						len(nodeScale.ContainerScales) == 1 &&
+						nodeScale.ContainerScales[0].Namespace == containerScale1.Namespace &&
+						nodeScale.ContainerScales[0].Name == containerScale1.Name {
 						return false
 					}
 				}
 				return true
 			}, timeout, interval).Should(BeTrue())
 
-			err = saClient.SystemautoscalerV1beta1().PodScales(namespace).Delete(ctx, podScale2.Name, metav1.DeleteOptions{})
+			err = saClient.SystemautoscalerV1beta1().ContainerScales(namespace).Delete(ctx, containerScale2.Name, metav1.DeleteOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
 			err = kubeClient.CoreV1().Pods(namespace).Delete(ctx, pod2.Name, metav1.DeleteOptions{})

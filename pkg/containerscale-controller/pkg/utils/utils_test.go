@@ -33,9 +33,9 @@ func TestDiffPods(t *testing.T) {
 		},
 	}
 
-	podscales := []*v1beta1.PodScale{
+	containerscales := []*v1beta1.ContainerScale{
 		{
-			Spec: v1beta1.PodScaleSpec{
+			Spec: v1beta1.ContainerScaleSpec{
 				PodRef: v1beta1.PodRef{
 					Name:      "foo",
 					Namespace: "default",
@@ -43,7 +43,7 @@ func TestDiffPods(t *testing.T) {
 			},
 		},
 		{
-			Spec: v1beta1.PodScaleSpec{
+			Spec: v1beta1.ContainerScaleSpec{
 				PodRef: v1beta1.PodRef{
 					Name:      "bar",
 					Namespace: "default",
@@ -51,7 +51,7 @@ func TestDiffPods(t *testing.T) {
 			},
 		},
 		{
-			Spec: v1beta1.PodScaleSpec{
+			Spec: v1beta1.ContainerScaleSpec{
 				PodRef: v1beta1.PodRef{
 					Name:      "foobar",
 					Namespace: "default",
@@ -59,7 +59,7 @@ func TestDiffPods(t *testing.T) {
 			},
 		},
 		{
-			Spec: v1beta1.PodScaleSpec{
+			Spec: v1beta1.ContainerScaleSpec{
 				PodRef: v1beta1.PodRef{
 					Name:      "foobarfoo",
 					Namespace: "default",
@@ -71,61 +71,61 @@ func TestDiffPods(t *testing.T) {
 	testcases := []struct {
 		description string
 		pods        []*corev1.Pod
-		podscales   []*v1beta1.PodScale
+		containerscales   []*v1beta1.ContainerScale
 		expected    StateDiff
 	}{
 		{
-			description: "add all pods if there are no podscales",
+			description: "add all pods if there are no containerscales",
 			pods:        pods,
-			podscales:   []*v1beta1.PodScale{},
+			containerscales:   []*v1beta1.ContainerScale{},
 			expected: StateDiff{
 				AddList: pods,
 			},
 		},
 		{
-			description: "add only pods without the corresponding podscales",
+			description: "add only pods without the corresponding containerscales",
 			pods:        pods,
-			podscales:   podscales[2:],
+			containerscales:   containerscales[2:],
 			expected: StateDiff{
 				AddList: pods[:2],
 			},
 		},
 		{
-			description: "delete podscales if there are no pods",
+			description: "delete containerscales if there are no pods",
 			pods:        []*corev1.Pod{},
-			podscales:   podscales,
+			containerscales:   containerscales,
 			expected: StateDiff{
-				DeleteList: podscales,
+				DeleteList: containerscales,
 			},
 		},
 		{
-			description: "delete podscales if the corresponding pod no longer exists",
+			description: "delete containerscales if the corresponding pod no longer exists",
 			pods:        pods[2:],
-			podscales:   podscales,
+			containerscales:   containerscales,
 			expected: StateDiff{
-				DeleteList: podscales[:2],
+				DeleteList: containerscales[:2],
 			},
 		},
 		{
-			description: "statediff should be empty if pod and podscales coincide",
+			description: "statediff should be empty if pod and containerscales coincide",
 			pods:        pods,
-			podscales:   podscales,
+			containerscales:   containerscales,
 			expected:    StateDiff{},
 		},
 		{
 			description: "miscellanea test",
 			pods:        pods[1:],
-			podscales:   podscales[:3],
+			containerscales:   containerscales[:3],
 			expected: StateDiff{
 				AddList:    pods[3:],
-				DeleteList: podscales[:1],
+				DeleteList: containerscales[:1],
 			},
 		},
 	}
 
 	for _, tt := range testcases {
 		t.Run(tt.description, func(t *testing.T) {
-			actual := DiffPods(tt.pods, tt.podscales)
+			actual := DiffPods(tt.pods, tt.containerscales)
 			require.Equal(t, tt.expected, actual, "StateDiff should coincide")
 		})
 	}

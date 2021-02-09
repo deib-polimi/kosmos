@@ -8,6 +8,8 @@ spec:
   defaultResources:
     cpu: 50m
     memory: 70Mi
-  serviceSelector:
-    matchLabels:
-      app: example-flask
+  service:
+    container: pippo
+    selector:
+      matchLabels:
+        app: example-flask
