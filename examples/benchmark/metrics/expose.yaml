@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pod-autoscaler-metrics-expose
+  labels:
+    app: pod-autoscaler-metrics-expose
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app:  pod-autoscaler-metrics-expose
+  template:
+    metadata:
+      labels:
+        app: pod-autoscaler-metrics-expose
+    spec:
+      containers:
+        - name: pod-autoscaler-metrics-expose
+          image: pentabanana/pod-autoscaler-metrics-expose
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: postgres-configuration
+          ports:
+            - containerPort: 7000
+              name: expose
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pod-autoscaler-metrics-expose
+  labels:
+    app: pod-autoscaler-metrics-expose
+spec:
+  ports:
+    - port: 7000
+      name: expose
+  selector:
+    app: pod-autoscaler-metrics-expose
