@@ -51,3 +51,13 @@ func ContainsService(list []*corev1.Service, element *corev1.Service) bool {
 	}
 	return false
 }
+
+// HasContainer looks for a given element inside a Container list
+func HasContainer(list []corev1.Container, element string) bool {
+	for _, e := range list {
+		if e.Name == element {
+			return true
+		}
+	}
+	return false
+}

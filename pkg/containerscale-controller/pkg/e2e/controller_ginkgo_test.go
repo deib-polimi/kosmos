@@ -308,6 +308,73 @@ var _ = Describe("ContainerScale controller", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 	})
+
+	Context("With a Pod matching the selector but not the container", func() {
+		ctx := context.Background()
+
+		It("Fires an event telling that is not able to process the Pod", func() {
+			oldServiceSelector := map[string]string{
+				"app": "bar",
+			}
+
+			sla := newSLA("foobarfooz-sla", "foobarfooz-app-2", oldServiceSelector)
+			matchedSvc, matchedPod := newApplication("foobarfooz-app-2", oldServiceSelector)
+			matchedSvc.Labels[SubjectToLabel] = sla.Name
+
+			matchedPod.Spec.Containers[0].Name = "other-name"
+
+			// Having different request and limit will automatically foreclose Guaranteed QOS class
+			matchedPod.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
+					corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
+					corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
+				},
+			}
+
+			_, err := kubeClient.CoreV1().Services(namespace).Create(ctx, matchedSvc, metav1.CreateOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+
+			_, err = kubeClient.CoreV1().Pods(namespace).Create(ctx, matchedPod, metav1.CreateOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+
+			sla, err = saClient.SystemautoscalerV1beta1().ServiceLevelAgreements(namespace).Create(ctx, sla, metav1.CreateOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+
+			eventBroadcaster := record.NewBroadcaster()
+			eventBroadcaster.StartStructuredLogging(0)
+
+			Eventually(func() bool {
+				events, err := kubeClient.EventsV1beta1().Events(matchedPod.Namespace).List(ctx, metav1.ListOptions{})
+
+				if err != nil {
+					return false
+				}
+
+				for _, event := range events.Items {
+					if event.Reason == controller.ContainerNotFound &&
+						event.Regarding.Kind == matchedPod.Kind &&
+						event.Regarding.Name == matchedPod.Name &&
+						event.Regarding.Namespace == matchedPod.Namespace {
+						return true
+					}
+				}
+
+				return false
+			}, timeout, interval).Should(BeTrue())
+
+			// resource cleanup
+			err = kubeClient.CoreV1().Services(namespace).Delete(ctx, matchedSvc.GetName(), metav1.DeleteOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+			err = saClient.SystemautoscalerV1beta1().ServiceLevelAgreements(namespace).Delete(ctx, sla.GetName(), metav1.DeleteOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+			err = kubeClient.CoreV1().Pods(namespace).Delete(ctx, matchedPod.GetName(), metav1.DeleteOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+		})
+	})
 })
 
 func newSLA(name string, container string, labels map[string]string) *systemautoscaler.ServiceLevelAgreement {

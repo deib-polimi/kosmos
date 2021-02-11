@@ -2,10 +2,11 @@ package recommender
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/lterrac/system-autoscaler/pkg/informers"
 	"github.com/lterrac/system-autoscaler/pkg/queue"
 	"k8s.io/apimachinery/pkg/labels"
-	"time"
 
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
 	"github.com/lterrac/system-autoscaler/pkg/containerscale-controller/pkg/types"
@@ -62,7 +63,6 @@ type Controller struct {
 
 // Status represents the state of the controller
 type Status struct {
-
 	// Key: namespace-name of the pod scale, Value: assigned logic
 	logicMap concurrent.Map
 }
@@ -133,6 +133,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	return nil
 }
 
+// Shutdown gracefully terminates the controller
 func (c *Controller) Shutdown() {
 	utilruntime.HandleCrash()
 	c.recommendNodeQueue.ShutDown()

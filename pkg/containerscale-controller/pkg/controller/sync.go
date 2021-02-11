@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
 	"github.com/lterrac/system-autoscaler/pkg/containerscale-controller/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -13,7 +14,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// syncHandler compares the actual state with the desired, and attempts to
+// syncServiceLevelAgreement compares the actual SLA with the desired, and attempts to
 // converge the two.
 func (c *Controller) syncServiceLevelAgreement(key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
@@ -60,7 +61,7 @@ func (c *Controller) syncServiceLevelAgreement(key string) error {
 
 	for _, service := range desired {
 
-		// TODO: Decide what happens if service matches a SLA but already have one and decide a tracking mechanism
+		// TODO: Decide what happens if service matches a SLA but already have one
 		// Do nothing if the service is already tracked by the controller
 		//_, ok := service.Labels[SubjectToLabel]
 		// 			 At the moment, the SLA considered is the first match.
@@ -154,6 +155,13 @@ func (c *Controller) syncService(namespace string, service *corev1.Service, sla 
 			c.recorder.Eventf(pod, corev1.EventTypeWarning, QOSNotSupported, "Unsupported QOS for Pod %s/%s: ", pod.Namespace, pod.Name, pod.Status.QOSClass)
 			continue
 		}
+
+		// do not create the podscale if the specified container does not exists within the Pod
+		if !utils.HasContainer(pod.Spec.Containers, sla.Spec.Service.Container) {
+			c.recorder.Eventf(pod, corev1.EventTypeWarning, ContainerNotFound, "Pod %s/%s does not have container %s", pod.Namespace, pod.Name, sla.Spec.Service.Container)
+			continue
+		}
+
 		containerscale := NewContainerScale(pod, sla, label)
 
 		_, err := c.containerScalesClientset.SystemautoscalerV1beta1().ContainerScales(namespace).Create(context.TODO(), containerscale, metav1.CreateOptions{})

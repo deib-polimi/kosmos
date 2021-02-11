@@ -36,6 +36,10 @@ const (
 	// process a pod with a QOS other than Guaranteed
 	QOSNotSupported = "Unsupported QOS"
 
+	// ContainerNotFound is used as part of the event 'reason' fired when the controller
+	// process a pod that does not have the container specified in the Service Level Agreement
+	ContainerNotFound = "Container not found"
+
 	// SuccessSynced is used as part of the Event 'reason' when a containerScale is synced
 	SuccessSynced = "Synced"
 
