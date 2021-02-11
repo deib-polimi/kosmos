@@ -20,6 +20,7 @@ var _ = Describe("Resource Updater controller", func() {
 
 			slaName := "foo-sla-ru1"
 			appName := "foo-app-ru1"
+			containerName := "container"
 
 			labels := map[string]string{
 				"app": "foo",
@@ -29,7 +30,7 @@ var _ = Describe("Resource Updater controller", func() {
 				"match": "podlabels",
 			}
 
-			sla := newSLA(slaName, labels)
+			sla := newSLA(slaName, containerName, labels)
 			sla, err := saClient.SystemautoscalerV1beta1().ServiceLevelAgreements(namespace).Create(ctx, sla, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
@@ -37,7 +38,7 @@ var _ = Describe("Resource Updater controller", func() {
 			svc, err = kubeClient.CoreV1().Services(namespace).Create(ctx, svc, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
-			pod := newPod(appName, podLabels)
+			pod := newPod(appName, containerName, podLabels)
 			pod, err = kubeClient.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
@@ -60,7 +61,7 @@ var _ = Describe("Resource Updater controller", func() {
 			containerScales = append(containerScales, updatedContainerScale)
 
 			nodeScale := types.NodeScales{
-				Node:      "",
+				Node:            pod.Spec.NodeName,
 				ContainerScales: containerScales,
 			}
 
@@ -70,7 +71,7 @@ var _ = Describe("Resource Updater controller", func() {
 				// Wait for pod to be scheduled
 				pod, err = kubeClient.CoreV1().Pods(namespace).Get(ctx, pod.Name, metav1.GetOptions{})
 				Expect(err).ShouldNot(HaveOccurred())
-				// TODO: Check for the first container
+
 				requestCpu := pod.Spec.Containers[0].Resources.Requests.Cpu().ScaledValue(resource.Milli)
 				requestMem := pod.Spec.Containers[0].Resources.Requests.Memory().ScaledValue(resource.Mega)
 				limitCpu := pod.Spec.Containers[0].Resources.Limits.Cpu().ScaledValue(resource.Milli)

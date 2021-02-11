@@ -46,15 +46,15 @@ const (
 
 // Controller is the controller implementation for containerScale resources
 type Controller struct {
-	kubeClientset      kubernetes.Interface
+	kubeClientset            kubernetes.Interface
 	containerScalesClientset clientset.Interface
 
 	listers informers.Listers
 
-	slasSynced      cache.InformerSynced
+	slasSynced            cache.InformerSynced
 	containerScalesSynced cache.InformerSynced
-	servicesSynced  cache.InformerSynced
-	podSynced       cache.InformerSynced
+	servicesSynced        cache.InformerSynced
+	podSynced             cache.InformerSynced
 
 	slasworkqueue queue.Queue
 
@@ -81,15 +81,15 @@ func NewController(
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: AgentName})
 
 	controller := &Controller{
-		kubeClientset:      kubeClient,
+		kubeClientset:            kubeClient,
 		containerScalesClientset: containerScalesClient,
 
 		listers: informers.GetListers(),
 
-		slasSynced:      informers.ServiceLevelAgreement.Informer().HasSynced,
+		slasSynced:            informers.ServiceLevelAgreement.Informer().HasSynced,
 		containerScalesSynced: informers.ContainerScale.Informer().HasSynced,
-		servicesSynced:  informers.Service.Informer().HasSynced,
-		podSynced:       informers.Pod.Informer().HasSynced,
+		servicesSynced:        informers.Service.Informer().HasSynced,
+		podSynced:             informers.Pod.Informer().HasSynced,
 
 		slasworkqueue: queue.NewQueue("ServiceLevelAgreements"),
 		recorder:      recorder,

@@ -182,9 +182,11 @@ func (c *Controller) syncService(namespace string, service *corev1.Service, sla 
 // The SLA is the resource Owner in order to enable garbage collection on its deletion.
 func NewContainerScale(pod *corev1.Pod, sla *v1beta1.ServiceLevelAgreement, selectorLabels labels.Set) *v1beta1.ContainerScale {
 	podLabels := make(labels.Set)
+
 	for k, v := range selectorLabels {
 		podLabels[k] = v
 	}
+
 	podLabels["system.autoscaler/node"] = pod.Spec.NodeName
 	return &v1beta1.ContainerScale{
 		TypeMeta: metav1.TypeMeta{
@@ -213,7 +215,7 @@ func NewContainerScale(pod *corev1.Pod, sla *v1beta1.ServiceLevelAgreement, sele
 				Name:      pod.GetName(),
 				Namespace: pod.GetNamespace(),
 			},
-			Container: sla.Spec.Service.Container,
+			Container:        sla.Spec.Service.Container,
 			DesiredResources: sla.Spec.DefaultResources,
 		},
 		Status: v1beta1.ContainerScaleStatus{

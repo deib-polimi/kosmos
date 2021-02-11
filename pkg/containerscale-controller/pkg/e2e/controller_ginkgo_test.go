@@ -36,7 +36,7 @@ var _ = Describe("ContainerScale controller", func() {
 				"app": "foo",
 			}
 
-			sla := newSLA(slaName, labels)
+			sla := newSLA(slaName, appName, labels)
 			svc, pod := newApplication(appName, labels)
 
 			_, err := kubeClient.CoreV1().Services(namespace).Create(ctx, svc, metav1.CreateOptions{})
@@ -76,7 +76,7 @@ var _ = Describe("ContainerScale controller", func() {
 				"app": "foo",
 			}
 
-			sla := newSLA("bar-sla", oldServiceSelector)
+			sla := newSLA("bar-sla", "bar-app", oldServiceSelector)
 			matchedSvc, matchedPod := newApplication("bar-app", oldServiceSelector)
 
 			newServiceSelector := map[string]string{
@@ -136,7 +136,7 @@ var _ = Describe("ContainerScale controller", func() {
 				"app": "foo",
 			}
 
-			sla := newSLA("foobar-sla", oldServiceSelector)
+			sla := newSLA("foobar-sla", "foobar-app", oldServiceSelector)
 			matchedSvc, matchedPod := newApplication("foobar-app", oldServiceSelector)
 			matchedSvc.Labels[SubjectToLabel] = sla.Name
 
@@ -151,7 +151,9 @@ var _ = Describe("ContainerScale controller", func() {
 
 			Eventually(func() bool {
 				actual, err := saClient.SystemautoscalerV1beta1().ContainerScales(namespace).Get(ctx, "pod-"+matchedPod.GetName(), metav1.GetOptions{})
+
 				return err == nil &&
+					actual.Spec.Container == matchedPod.Spec.Containers[0].Name &&
 					actual.Spec.PodRef.Name == matchedPod.GetName() &&
 					actual.Spec.PodRef.Namespace == namespace &&
 					actual.Spec.SLARef.Name == sla.GetName() &&
@@ -173,7 +175,7 @@ var _ = Describe("ContainerScale controller", func() {
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:  "foobarfoo",
+							Name:  "foobar-app",
 							Image: "gcr.io/distroless/static:nonroot",
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
@@ -195,7 +197,9 @@ var _ = Describe("ContainerScale controller", func() {
 
 			Eventually(func() bool {
 				actual, err := saClient.SystemautoscalerV1beta1().ContainerScales(namespace).Get(ctx, "pod-"+newPod.GetName(), metav1.GetOptions{})
+
 				return err == nil &&
+					actual.Spec.Container == newPod.Spec.Containers[0].Name &&
 					actual.Spec.PodRef.Name == newPod.GetName() &&
 					actual.Spec.PodRef.Namespace == namespace &&
 					actual.Spec.SLARef.Name == sla.GetName() &&
@@ -248,7 +252,7 @@ var _ = Describe("ContainerScale controller", func() {
 				"app": "foo",
 			}
 
-			sla := newSLA("foobarfooz-sla", oldServiceSelector)
+			sla := newSLA("foobarfooz-sla", "foobarfooz-app", oldServiceSelector)
 			matchedSvc, matchedPod := newApplication("foobarfooz-app", oldServiceSelector)
 			matchedSvc.Labels[SubjectToLabel] = sla.Name
 
@@ -306,7 +310,7 @@ var _ = Describe("ContainerScale controller", func() {
 	})
 })
 
-func newSLA(name string, labels map[string]string) *systemautoscaler.ServiceLevelAgreement {
+func newSLA(name string, container string, labels map[string]string) *systemautoscaler.ServiceLevelAgreement {
 	return &systemautoscaler.ServiceLevelAgreement{
 		TypeMeta: metav1.TypeMeta{APIVersion: systemautoscaler.SchemeGroupVersion.String()},
 		ObjectMeta: metav1.ObjectMeta{
@@ -315,10 +319,10 @@ func newSLA(name string, labels map[string]string) *systemautoscaler.ServiceLeve
 		},
 		Spec: systemautoscaler.ServiceLevelAgreementSpec{
 			Service: &systemautoscaler.Service{
-				Selector:  &metav1.LabelSelector{
+				Selector: &metav1.LabelSelector{
 					MatchLabels: labels,
 				},
-				Container: "",
+				Container: container,
 			},
 			Metric: systemautoscaler.MetricRequirement{
 				ResponseTime: *resource.NewQuantity(3, resource.BinarySI),

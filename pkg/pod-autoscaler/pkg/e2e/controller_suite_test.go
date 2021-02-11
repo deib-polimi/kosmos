@@ -9,10 +9,10 @@ import (
 	"github.com/lterrac/system-autoscaler/pkg/informers"
 	"k8s.io/apimachinery/pkg/labels"
 
+	"github.com/lterrac/system-autoscaler/pkg/containerscale-controller/pkg/types"
 	sainformers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions"
 	resupd "github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/pod-resource-updater"
 	"github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/recommender"
-	"github.com/lterrac/system-autoscaler/pkg/containerscale-controller/pkg/types"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,7 +47,7 @@ var recommenderController *recommender.Controller
 var updaterController *resupd.Controller
 
 const namespace = "e2e"
-const timeout = 60 * time.Second
+const timeout = 10 * time.Second
 const interval = 1 * time.Second
 
 var _ = BeforeSuite(func(done Done) {
@@ -78,7 +78,7 @@ var _ = BeforeSuite(func(done Done) {
 		Pod:                   coreInformerFactory.Core().V1().Pods(),
 		Node:                  coreInformerFactory.Core().V1().Nodes(),
 		Service:               coreInformerFactory.Core().V1().Services(),
-		ContainerScale:              crdInformerFactory.Systemautoscaler().V1beta1().ContainerScales(),
+		ContainerScale:        crdInformerFactory.Systemautoscaler().V1beta1().ContainerScales(),
 		ServiceLevelAgreement: crdInformerFactory.Systemautoscaler().V1beta1().ServiceLevelAgreements(),
 	}
 
@@ -145,7 +145,7 @@ func usersMock(w http.ResponseWriter, _ *http.Request) {
 	_, _ = w.Write([]byte(`{"response_time":5.0}`))
 }
 
-func newSLA(name string, labels map[string]string) *sa.ServiceLevelAgreement {
+func newSLA(name string, container string, labels map[string]string) *sa.ServiceLevelAgreement {
 	return &sa.ServiceLevelAgreement{
 		TypeMeta: metav1.TypeMeta{APIVersion: sa.SchemeGroupVersion.String()},
 		ObjectMeta: metav1.ObjectMeta{
@@ -154,7 +154,7 @@ func newSLA(name string, labels map[string]string) *sa.ServiceLevelAgreement {
 		},
 		Spec: sa.ServiceLevelAgreementSpec{
 			Service: &sa.Service{
-				Container: "",
+				Container: container,
 				Selector: &metav1.LabelSelector{
 					MatchLabels: labels,
 				},
@@ -194,7 +194,7 @@ func newService(name string, labels map[string]string, podLabels map[string]stri
 	}
 }
 
-func newPod(name string, podLabels map[string]string) *corev1.Pod {
+func newPod(name string, container string, podLabels map[string]string) *corev1.Pod {
 	return &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{APIVersion: corev1.SchemeGroupVersion.String(), Kind: "pods"},
 		ObjectMeta: metav1.ObjectMeta{
@@ -205,7 +205,7 @@ func newPod(name string, podLabels map[string]string) *corev1.Pod {
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
 				{
-					Name:  name,
+					Name:  container,
 					Image: "gcr.io/distroless/static:nonroot",
 					Resources: corev1.ResourceRequirements{
 						Limits: map[corev1.ResourceName]resource.Quantity{
@@ -256,6 +256,7 @@ func newContainerScale(sla *sa.ServiceLevelAgreement, pod *corev1.Pod, selectorL
 				Name:      pod.GetName(),
 				Namespace: pod.GetNamespace(),
 			},
+			Container:        pod.Spec.Containers[0].Name,
 			DesiredResources: sla.Spec.DefaultResources,
 		},
 		Status: sa.ContainerScaleStatus{

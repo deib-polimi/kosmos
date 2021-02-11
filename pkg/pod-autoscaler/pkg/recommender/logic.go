@@ -1,6 +1,7 @@
 package recommender
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
@@ -11,10 +12,10 @@ import (
 
 // Logic is the logic with which the recommender suggests new resources
 type Logic interface {
-	computeContainerScale(pod *v1.Pod, containerScale *v1beta1.ContainerScale, sla *v1beta1.ServiceLevelAgreement, metricMap map[string]interface{}) *v1beta1.ContainerScale
+	computeContainerScale(pod *v1.Pod, containerScale *v1beta1.ContainerScale, sla *v1beta1.ServiceLevelAgreement, metricMap map[string]interface{}) (*v1beta1.ContainerScale, error)
 }
 
-// ControlTheoryLogic is the logic that apply control theory in order to recommendPod new resources
+// ControlTheoryLogic is the logic that apply control theory in order to recommendContainer new resources
 type ControlTheoryLogic struct {
 	xcprec float64
 	cores  float64
@@ -38,11 +39,18 @@ const (
 
 // computeContainerScale computes a new pod scale for a given pod.
 // It also requires the old pod scale, the service level agreement and the pod metrics.
-func (logic *ControlTheoryLogic) computeContainerScale(pod *v1.Pod, containerScale *v1beta1.ContainerScale, sla *v1beta1.ServiceLevelAgreement, metricMap map[string]interface{}) *v1beta1.ContainerScale {
+func (logic *ControlTheoryLogic) computeContainerScale(pod *v1.Pod, containerScale *v1beta1.ContainerScale, sla *v1beta1.ServiceLevelAgreement, metricMap map[string]interface{}) (*v1beta1.ContainerScale, error) {
+
+	container, err := ContainerToScale(*pod, sla.Spec.Service.Container)
+
+	if err != nil {
+		klog.Info(err)
+		return nil, err
+	}
 
 	// Compute the cpu and memory value for the pod
-	cpuResource := logic.computeCPUResource(pod, sla, metricMap)
-	memoryResource := logic.computeMemoryResource(pod, containerScale, sla, metricMap)
+	cpuResource := logic.computeCPUResource(container, sla, metricMap)
+	memoryResource := logic.computeMemoryResource(container, containerScale, sla, metricMap)
 	desiredResource := make(v1.ResourceList)
 	desiredResource[v1.ResourceCPU] = *cpuResource
 	desiredResource[v1.ResourceMemory] = *memoryResource
@@ -51,37 +59,37 @@ func (logic *ControlTheoryLogic) computeContainerScale(pod *v1.Pod, containerSca
 	newContainerScale := containerScale.DeepCopy()
 	newContainerScale.Spec.DesiredResources = desiredResource
 
-	return newContainerScale
+	return newContainerScale, nil
 }
 
 // computeMemoryResource computes memory resources for a given pod.
-func (logic *ControlTheoryLogic) computeMemoryResource(pod *v1.Pod, containerScale *v1beta1.ContainerScale, sla *v1beta1.ServiceLevelAgreement, metricMap map[string]interface{}) *resource.Quantity {
+func (logic *ControlTheoryLogic) computeMemoryResource(container v1.Container, containerScale *v1beta1.ContainerScale, sla *v1beta1.ServiceLevelAgreement, metricMap map[string]interface{}) *resource.Quantity {
 
 	// Retrieve the value of actual and desired cpu resources
 	// TODO: maybe can be deleted
 	desiredResource := containerScale.Spec.DesiredResources.Memory()
-	actualResource := containerScale.Status.ActualResources.Memory()
+	//actualResource := containerScale.Status.ActualResources.Memory()
 
 	// Compute the new desired value
 	newDesiredResource := resource.NewMilliQuantity(desiredResource.MilliValue(), resource.BinarySI)
 	newDesiredResource, _ = applyBounds(newDesiredResource, sla.Spec.MinResources.Memory(), sla.Spec.MaxResources.Memory(), sla.Spec.MinResources != nil, sla.Spec.MaxResources != nil)
 
 	// For logging purpose
-	klog.Info("Computing memory resource for Pod: ", pod.GetName(), ", actual value: ", actualResource, ", desired value: ", desiredResource, ", new value: ", newDesiredResource)
+	//klog.Info("Computing memory resource for Pod: ", pod.GetName(), ", actual value: ", actualResource, ", desired value: ", desiredResource, ", new value: ", newDesiredResource)
 
 	return newDesiredResource
 }
 
-// computeMemoryResource computes cpu resources for a given pod.
-func (logic *ControlTheoryLogic) computeCPUResource(pod *v1.Pod, sla *v1beta1.ServiceLevelAgreement, metricMap map[string]interface{}) *resource.Quantity {
+// computeMemoryResource computes memory resources for a given pod.
+func (logic *ControlTheoryLogic) computeCPUResource(container v1.Container, sla *v1beta1.ServiceLevelAgreement, metricMap map[string]interface{}) *resource.Quantity {
 
 	// Compute the new desired value
 	result, ok := metricMap["response_time"]
 	if !ok {
 		klog.Info(`"response_time" was not in metrics. Metrics are:`, metricMap)
-		//TODO: extract resources from pod
-		return nil
+		return resource.NewMilliQuantity(container.Resources.Requests.Cpu().MilliValue(), resource.BinarySI)
 	}
+
 	responseTime := result.(float64) / 1000
 	// The response time is in seconds
 	setPoint := float64(sla.Spec.Metric.ResponseTime.MilliValue()) / 1000
@@ -109,6 +117,17 @@ func (logic *ControlTheoryLogic) computeCPUResource(pod *v1.Pod, sla *v1beta1.Se
 	//klog.Info("Computing CPU resource for Pod: ", pod.GetName(), ", actual value: ", actualResource, ", desired value: ", desiredResource, ", new value: ", newDesiredResource)
 
 	return newDesiredResource
+}
+
+// ContainerToScale returns the desired container from the given pod
+func ContainerToScale(pod v1.Pod, container string) (v1.Container, error) {
+	for _, c := range pod.Spec.Containers {
+		if c.Name == container {
+			return c, nil
+		}
+	}
+
+	return v1.Container{}, fmt.Errorf("the container %s does not exists within the pod %s", container, pod.Name)
 }
 
 func applyBounds(value *resource.Quantity, min *resource.Quantity, max *resource.Quantity, checkLower bool, checkUpper bool) (*resource.Quantity, bool) {

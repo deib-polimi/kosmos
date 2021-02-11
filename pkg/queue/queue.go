@@ -12,9 +12,7 @@ import (
 type syncFunc func(key string) error
 
 type Queue struct {
-
 	queue workqueue.RateLimitingInterface
-
 }
 
 func NewQueue(name string) Queue {

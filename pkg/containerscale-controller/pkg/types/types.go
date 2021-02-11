@@ -7,7 +7,7 @@ import (
 
 // NodeScales is used to group containerscales by node.
 type NodeScales struct {
-	Node      string
+	Node            string
 	ContainerScales []*v1beta1.ContainerScale
 }
 

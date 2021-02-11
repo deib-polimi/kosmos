@@ -8,10 +8,10 @@ import (
 )
 
 type Informers struct {
-	Pod coreinformers.PodInformer
-	Node coreinformers.NodeInformer
-	Service coreinformers.ServiceInformer
-	ContainerScale sainformers.ContainerScaleInformer
+	Pod                   coreinformers.PodInformer
+	Node                  coreinformers.NodeInformer
+	Service               coreinformers.ServiceInformer
+	ContainerScale        sainformers.ContainerScaleInformer
 	ServiceLevelAgreement sainformers.ServiceLevelAgreementInformer
 }
 

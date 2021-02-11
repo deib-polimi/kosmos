@@ -91,15 +91,15 @@ func NewController(
 
 	// Instantiate the Controller
 	controller := &Controller{
-		containerScalesClientset:  containerScalesClientset,
-		listers:             informers.GetListers(),
-		containerScalesSynced:     informers.ContainerScale.Informer().HasSynced,
-		kubernetesClientset: *kubernetesClientset,
-		recommendNodeQueue:  queue.NewQueue("RecommendQueue"),
-		status:              status,
-		MetricClient:        NewMetricClient(),
-		recorder:            recorder,
-		out:                 out,
+		containerScalesClientset: containerScalesClientset,
+		listers:                  informers.GetListers(),
+		containerScalesSynced:    informers.ContainerScale.Informer().HasSynced,
+		kubernetesClientset:      *kubernetesClientset,
+		recommendNodeQueue:       queue.NewQueue("RecommendQueue"),
+		status:                   status,
+		MetricClient:             NewMetricClient(),
+		recorder:                 recorder,
+		out:                      out,
 	}
 
 	klog.Info("Setting up event handlers")
@@ -123,11 +123,11 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	}
 
 	klog.Info("Starting recommender workers")
-	// Launch the workers to process containerScale resources and recommendPod new pod scales
+	// Launch the workers to process containerScale resources and recommendContainer new pod scales
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runNodeRecommenderWorker, time.Second, stopCh)
 	}
-	go wait.Until(c.runRecommenderWorker, 4*time.Second, stopCh)
+	go wait.Until(c.runRecommenderWorker, 5*time.Second, stopCh)
 	klog.Info("Started recommender workers")
 
 	return nil
@@ -181,8 +181,7 @@ func (c *Controller) recommendNode(node string) error {
 	}
 
 	for _, containerscale := range containerscales {
-
-		newContainerScale, err := c.recommendPod(containerscale)
+		newContainerScale, err := c.recommendContainer(containerscale)
 		if err != nil {
 			//utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key))
 			// TODO: evaluate if we should use a 'continue'
@@ -193,7 +192,7 @@ func (c *Controller) recommendNode(node string) error {
 	}
 
 	nodeScales := types.NodeScales{
-		Node:      node,
+		Node:            node,
 		ContainerScales: newContainerScales,
 	}
 
@@ -203,8 +202,8 @@ func (c *Controller) recommendNode(node string) error {
 	return nil
 }
 
-// recommendPod recommends the new resources to assign to a pod
-func (c *Controller) recommendPod(containerScale *v1beta1.ContainerScale) (*v1beta1.ContainerScale, error) {
+// recommendContainer recommends the new resources to assign to a pod
+func (c *Controller) recommendContainer(containerScale *v1beta1.ContainerScale) (*v1beta1.ContainerScale, error) {
 	key := fmt.Sprintf("%s/%s", containerScale.Namespace, containerScale.Name)
 
 	klog.Info("Recommending for ", key)
@@ -239,7 +238,7 @@ func (c *Controller) recommendPod(containerScale *v1beta1.ContainerScale) (*v1be
 	}
 
 	// Compute the new resources
-	newContainerScale := logic.computeContainerScale(pod, containerScale, sla, metrics)
+	newContainerScale, err := logic.computeContainerScale(pod, containerScale, sla, metrics)
 
 	return newContainerScale, nil
 

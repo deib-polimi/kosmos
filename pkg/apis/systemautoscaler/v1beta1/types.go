@@ -53,7 +53,7 @@ type ServiceLevelAgreementSpec struct {
 }
 
 // Service is used to identify the application to scale by its service Lavels and the container offering the Application service
-type Service struct{
+type Service struct {
 	// Specify the selector to match Services and Service Level Agreement
 	// +kubebuilder:validation:Required
 	Selector *metav1.LabelSelector `json:"selector"`
@@ -105,7 +105,7 @@ type ContainerScale struct {
 type ContainerScaleSpec struct {
 	SLARef           SLARef          `json:"serviceLevelAgreement"`
 	PodRef           PodRef          `json:"pod"`
-	Container string `json:"container"`
+	Container        string          `json:"container"`
 	DesiredResources v1.ResourceList `json:"desired,omitempty" protobuf:"bytes,3,rep,name=desired,casttype=ResourceList,castkey=ResourceName"`
 }
 

@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
+	"github.com/lterrac/system-autoscaler/pkg/containerscale-controller/pkg/types"
 	containerscalesclientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
 	samplescheme "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned/scheme"
-	"github.com/lterrac/system-autoscaler/pkg/containerscale-controller/pkg/types"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -43,7 +43,7 @@ type Controller struct {
 	listers informers.Listers
 
 	containerScalesSynced cache.InformerSynced
-	podSynced       cache.InformerSynced
+	podSynced             cache.InformerSynced
 
 	// recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
@@ -70,7 +70,7 @@ func NewController(kubernetesClientset *kubernetes.Clientset,
 	eventBroadcaster.StartStructuredLogging(0)
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
-	logger, err := logger.NewLogger("/var/containerscale.json")
+	fileLogger, err := logger.NewFileLogger("/var/containerscale.json")
 
 	//TODO: remove as soon as possible
 	if err != nil {
@@ -79,14 +79,14 @@ func NewController(kubernetesClientset *kubernetes.Clientset,
 
 	// Instantiate the Controller
 	controller := &Controller{
-		containerScalesClientset:  containerScalesClientset,
-		kubernetesClientset: kubernetesClientset,
-		recorder:            recorder,
-		listers:             informers.GetListers(),
-		containerScalesSynced:     informers.ContainerScale.Informer().HasSynced,
-		podSynced:           informers.Pod.Informer().HasSynced,
-		log:                 logger,
-		in:                  in,
+		containerScalesClientset: containerScalesClientset,
+		kubernetesClientset:      kubernetesClientset,
+		recorder:                 recorder,
+		listers:                  informers.GetListers(),
+		containerScalesSynced:    informers.ContainerScale.Informer().HasSynced,
+		podSynced:                informers.Pod.Informer().HasSynced,
+		log:                      fileLogger,
+		in:                       in,
 	}
 
 	return controller
@@ -134,7 +134,7 @@ func (c *Controller) runNodeScaleWorker() {
 				return
 			}
 
-			newPod, err := syncPod(*pod, *containerScale)
+			newPod, err := syncPod(pod, *containerScale)
 			if err != nil {
 				klog.Error("Error syncing the pod: ", err)
 				return
@@ -150,7 +150,8 @@ func (c *Controller) runNodeScaleWorker() {
 				return
 			}
 
-			c.log.Log(updatedContainerScale)
+			//TODO: handle error
+			_ = c.log.Log(updatedContainerScale)
 
 			klog.Info("Desired resources:", updatedContainerScale.Spec.DesiredResources)
 			klog.Info("Actual resources:", updatedContainerScale.Status.ActualResources)
@@ -163,7 +164,6 @@ func (c *Controller) runNodeScaleWorker() {
 // it runs a request in dry-run and it checks for any potential error
 func (c *Controller) AtomicResourceUpdate(pod *corev1.Pod, containerScale *v1beta1.ContainerScale) (*corev1.Pod, *v1beta1.ContainerScale, error) {
 	var err error
-	//TODO: Do it in the patch way
 	_, _, err = c.updateResources(pod, containerScale, true)
 
 	if err != nil {

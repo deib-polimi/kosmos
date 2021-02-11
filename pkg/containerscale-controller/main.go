@@ -14,9 +14,9 @@ import (
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
+	containerScaleController "github.com/lterrac/system-autoscaler/pkg/containerscale-controller/pkg/controller"
 	clientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
 	sainformers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions"
-	containerScaleController "github.com/lterrac/system-autoscaler/pkg/containerscale-controller/pkg/controller"
 	"github.com/lterrac/system-autoscaler/pkg/signals"
 )
 
@@ -63,7 +63,7 @@ func main() {
 		Pod:                   coreInformerFactory.Core().V1().Pods(),
 		Node:                  coreInformerFactory.Core().V1().Nodes(),
 		Service:               coreInformerFactory.Core().V1().Services(),
-		ContainerScale:              saInformerFactory.Systemautoscaler().V1beta1().ContainerScales(),
+		ContainerScale:        saInformerFactory.Systemautoscaler().V1beta1().ContainerScales(),
 		ServiceLevelAgreement: saInformerFactory.Systemautoscaler().V1beta1().ServiceLevelAgreements(),
 	}
 

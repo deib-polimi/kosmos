@@ -69,53 +69,53 @@ func TestDiffPods(t *testing.T) {
 	}
 
 	testcases := []struct {
-		description string
-		pods        []*corev1.Pod
-		containerscales   []*v1beta1.ContainerScale
-		expected    StateDiff
+		description     string
+		pods            []*corev1.Pod
+		containerscales []*v1beta1.ContainerScale
+		expected        StateDiff
 	}{
 		{
-			description: "add all pods if there are no containerscales",
-			pods:        pods,
-			containerscales:   []*v1beta1.ContainerScale{},
+			description:     "add all pods if there are no containerscales",
+			pods:            pods,
+			containerscales: []*v1beta1.ContainerScale{},
 			expected: StateDiff{
 				AddList: pods,
 			},
 		},
 		{
-			description: "add only pods without the corresponding containerscales",
-			pods:        pods,
-			containerscales:   containerscales[2:],
+			description:     "add only pods without the corresponding containerscales",
+			pods:            pods,
+			containerscales: containerscales[2:],
 			expected: StateDiff{
 				AddList: pods[:2],
 			},
 		},
 		{
-			description: "delete containerscales if there are no pods",
-			pods:        []*corev1.Pod{},
-			containerscales:   containerscales,
+			description:     "delete containerscales if there are no pods",
+			pods:            []*corev1.Pod{},
+			containerscales: containerscales,
 			expected: StateDiff{
 				DeleteList: containerscales,
 			},
 		},
 		{
-			description: "delete containerscales if the corresponding pod no longer exists",
-			pods:        pods[2:],
-			containerscales:   containerscales,
+			description:     "delete containerscales if the corresponding pod no longer exists",
+			pods:            pods[2:],
+			containerscales: containerscales,
 			expected: StateDiff{
 				DeleteList: containerscales[:2],
 			},
 		},
 		{
-			description: "statediff should be empty if pod and containerscales coincide",
-			pods:        pods,
-			containerscales:   containerscales,
-			expected:    StateDiff{},
+			description:     "statediff should be empty if pod and containerscales coincide",
+			pods:            pods,
+			containerscales: containerscales,
+			expected:        StateDiff{},
 		},
 		{
-			description: "miscellanea test",
-			pods:        pods[1:],
-			containerscales:   containerscales[:3],
+			description:     "miscellanea test",
+			pods:            pods[1:],
+			containerscales: containerscales[:3],
 			expected: StateDiff{
 				AddList:    pods[3:],
 				DeleteList: containerscales[:1],

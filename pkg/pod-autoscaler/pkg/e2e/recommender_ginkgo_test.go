@@ -15,6 +15,7 @@ var _ = Describe("Recommender controller", func() {
 
 			slaName := "foo-sla-rec1"
 			appName := "foo-app-rec1"
+			containerName := "container"
 
 			labels := map[string]string{
 				"app": "foo",
@@ -24,7 +25,7 @@ var _ = Describe("Recommender controller", func() {
 				"match": "podlabels",
 			}
 
-			sla := newSLA(slaName, labels)
+			sla := newSLA(slaName, containerName, labels)
 			sla, err := saClient.SystemautoscalerV1beta1().ServiceLevelAgreements(namespace).Create(ctx, sla, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
@@ -32,7 +33,7 @@ var _ = Describe("Recommender controller", func() {
 			svc, err = kubeClient.CoreV1().Services(namespace).Create(ctx, svc, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
-			pod := newPod(appName, podLabels)
+			pod := newPod(appName, containerName, podLabels)
 			pod, err = kubeClient.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
@@ -76,6 +77,7 @@ var _ = Describe("Recommender controller", func() {
 
 			slaName := "foo-sla-rec2"
 			appName := "foo-app-rec2"
+			containerName := "container"
 
 			labels := map[string]string{
 				"app": "foo",
@@ -85,7 +87,7 @@ var _ = Describe("Recommender controller", func() {
 				"match": "podlabels",
 			}
 
-			sla := newSLA(slaName, labels)
+			sla := newSLA(slaName, containerName, labels)
 			sla, err := saClient.SystemautoscalerV1beta1().ServiceLevelAgreements(namespace).Create(ctx, sla, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
@@ -93,7 +95,7 @@ var _ = Describe("Recommender controller", func() {
 			svc, err = kubeClient.CoreV1().Services(namespace).Create(ctx, svc, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
-			pod1 := newPod("replica1", podLabels)
+			pod1 := newPod("replica1", containerName, podLabels)
 			pod1, err = kubeClient.CoreV1().Pods(namespace).Create(ctx, pod1, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
@@ -118,7 +120,7 @@ var _ = Describe("Recommender controller", func() {
 					nodeScale.ContainerScales[0].Name == containerScale1.Name
 			}, timeout, interval).Should(BeTrue())
 
-			pod2 := newPod("replica2", podLabels)
+			pod2 := newPod("replica2", containerName, podLabels)
 			pod2, err = kubeClient.CoreV1().Pods(namespace).Create(ctx, pod2, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 

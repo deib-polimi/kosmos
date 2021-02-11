@@ -3,7 +3,6 @@ package contentionmanager
 import (
 	"context"
 	"fmt"
-	"k8s.io/klog/v2"
 
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
 	"github.com/lterrac/system-autoscaler/pkg/containerscale-controller/pkg/types"
@@ -30,9 +29,9 @@ func proportional(desired, totalDesired, totalAvailable int64) int64 {
 // ContentionManager embeds the contention resolution logic on a given Node.
 type ContentionManager struct {
 	solverFn
-	CPUCapacity    *resource.Quantity
-	MemoryCapacity *resource.Quantity
-	ContainerScales      []*v1beta1.ContainerScale
+	CPUCapacity     *resource.Quantity
+	MemoryCapacity  *resource.Quantity
+	ContainerScales []*v1beta1.ContainerScale
 }
 
 // NewContentionManager returns a new ContentionManager instance
@@ -81,10 +80,10 @@ func NewContentionManager(n *corev1.Node, ns types.NodeScales, p []corev1.Pod, s
 	}
 
 	return &ContentionManager{
-		solverFn:       solver,
-		CPUCapacity:    allocatableCPU,
-		MemoryCapacity: allocatableMemory,
-		ContainerScales:      ns.ContainerScales,
+		solverFn:        solver,
+		CPUCapacity:     allocatableCPU,
+		MemoryCapacity:  allocatableMemory,
+		ContainerScales: ns.ContainerScales,
 	}
 }
 
@@ -101,26 +100,26 @@ func (m *ContentionManager) Solve() []*v1beta1.ContainerScale {
 	var actualCPU *resource.Quantity
 	var actualMemory *resource.Quantity
 
-	for _, p := range m.ContainerScales {
-
+	for _, cs := range m.ContainerScales {
 		if desiredCPU.Cmp(*m.CPUCapacity) == 1 {
-			actualCPU = resource.NewMilliQuantity(m.solverFn(
-				p.Spec.DesiredResources.Cpu().MilliValue(),
-				desiredCPU.MilliValue(),
-				m.CPUCapacity.MilliValue(),
-			),
+			actualCPU = resource.NewMilliQuantity(
+				m.solverFn(
+					cs.Spec.DesiredResources.Cpu().MilliValue(),
+					desiredCPU.MilliValue(),
+					m.CPUCapacity.MilliValue(),
+				),
 				resource.BinarySI,
 			)
 		} else {
 			actualCPU = resource.NewMilliQuantity(
-				p.Spec.DesiredResources.Cpu().MilliValue(), resource.BinarySI,
+				cs.Spec.DesiredResources.Cpu().MilliValue(), resource.BinarySI,
 			)
 		}
 
 		if desiredMemory.Cmp(*m.MemoryCapacity) == 1 {
 			actualMemory = resource.NewMilliQuantity(
 				m.solverFn(
-					p.Spec.DesiredResources.Memory().MilliValue(),
+					cs.Spec.DesiredResources.Memory().MilliValue(),
 					desiredMemory.MilliValue(),
 					m.MemoryCapacity.MilliValue(),
 				),
@@ -128,12 +127,12 @@ func (m *ContentionManager) Solve() []*v1beta1.ContainerScale {
 			)
 		} else {
 			actualMemory = resource.NewMilliQuantity(
-				p.Spec.DesiredResources.Memory().MilliValue(),
+				cs.Spec.DesiredResources.Memory().MilliValue(),
 				resource.BinarySI,
 			)
 		}
 
-		p.Status.ActualResources = corev1.ResourceList{
+		cs.Status.ActualResources = corev1.ResourceList{
 			corev1.ResourceCPU:    *actualCPU,
 			corev1.ResourceMemory: *actualMemory,
 		}
@@ -155,6 +154,7 @@ func (c *Controller) processNextNode(containerscalesInfos <-chan types.NodeScale
 			return true
 		}
 
+		//TODO: maybe there is a label attached to the Pod. If so, it would be better to use it
 		pods, err := c.kubeClientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
 			FieldSelector: fields.SelectorFromSet(map[string]string{
 				"spec.nodeName": node.Name,
@@ -164,10 +164,6 @@ func (c *Controller) processNextNode(containerscalesInfos <-chan types.NodeScale
 		if err != nil {
 			utilruntime.HandleError(fmt.Errorf("error while getting node pods: %#v", err))
 			return true
-		}
-
-		for _, pod := range pods.Items {
-			klog.Info("Node: ", node.Name, ",pod: ", pod.Name)
 		}
 
 		cm := NewContentionManager(node, containerscalesInfo, pods.Items, proportional)

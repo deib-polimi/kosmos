@@ -52,6 +52,9 @@ func TestControlTheoryLogic(t *testing.T) {
 						corev1.ResourceCPU:    *resource.NewScaledQuantity(tt.upperBound, resource.Milli),
 						corev1.ResourceMemory: *resource.NewScaledQuantity(tt.upperBound, resource.Milli),
 					},
+					Service: &v1beta1.Service{
+						Container: "container",
+					},
 				},
 			}
 
@@ -60,6 +63,7 @@ func TestControlTheoryLogic(t *testing.T) {
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
+							Name: "container",
 							Resources: corev1.ResourceRequirements{
 								Limits: map[corev1.ResourceName]resource.Quantity{
 									corev1.ResourceCPU:    *resource.NewScaledQuantity((tt.lowerBound+tt.upperBound)/2, resource.Milli),
@@ -102,7 +106,8 @@ func TestControlTheoryLogic(t *testing.T) {
 			}
 
 			for i := 0; i < 200; i++ {
-				containerScale = logic.computeContainerScale(pod, containerScale, sla, metricsMap)
+				containerScale, err := logic.computeContainerScale(pod, containerScale, sla, metricsMap)
+				require.Nil(t, err)
 				require.GreaterOrEqual(t, containerScale.Spec.DesiredResources.Cpu().MilliValue(), tt.lowerBound)
 				require.GreaterOrEqual(t, logic.cores, float64(tt.lowerBound))
 				require.LessOrEqual(t, containerScale.Spec.DesiredResources.Cpu().MilliValue(), tt.upperBound)

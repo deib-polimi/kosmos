@@ -16,9 +16,9 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 
+	"github.com/lterrac/system-autoscaler/pkg/containerscale-controller/pkg/types"
 	clientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
 	samplescheme "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned/scheme"
-	"github.com/lterrac/system-autoscaler/pkg/containerscale-controller/pkg/types"
 )
 
 // AgentName is the controller name used
@@ -28,13 +28,13 @@ const AgentName = "contention-manager"
 // Controller is responsible of adjusting containerscale partially computed by the recommender
 // taking into account the actual node capacity
 type Controller struct {
-	kubeClientset      kubernetes.Interface
+	kubeClientset            kubernetes.Interface
 	containerScalesClientset clientset.Interface
 
 	listers informers.Listers
 
 	containerScalesSynced cache.InformerSynced
-	nodesSynced     cache.InformerSynced
+	nodesSynced           cache.InformerSynced
 
 	recorder record.EventRecorder
 
@@ -60,13 +60,13 @@ func NewController(
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: AgentName})
 
 	controller := &Controller{
-		kubeClientset:      kubeClient,
+		kubeClientset:            kubeClient,
 		containerScalesClientset: containerScalesClient,
 
 		listers: informers.GetListers(),
 
 		containerScalesSynced: informers.ContainerScale.Informer().HasSynced,
-		nodesSynced:     informers.Node.Informer().HasSynced,
+		nodesSynced:           informers.Node.Informer().HasSynced,
 
 		recorder: recorder,
 

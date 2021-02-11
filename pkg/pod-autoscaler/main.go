@@ -6,10 +6,10 @@ import (
 
 	informers2 "github.com/lterrac/system-autoscaler/pkg/informers"
 
+	"github.com/lterrac/system-autoscaler/pkg/containerscale-controller/pkg/types"
 	sainformers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions"
 	cm "github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/contention-manager"
 	resupd "github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/pod-resource-updater"
-	"github.com/lterrac/system-autoscaler/pkg/containerscale-controller/pkg/types"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 
@@ -58,7 +58,7 @@ func main() {
 		Pod:                   coreInformerFactory.Core().V1().Pods(),
 		Node:                  coreInformerFactory.Core().V1().Nodes(),
 		Service:               coreInformerFactory.Core().V1().Services(),
-		ContainerScale:              saInformerFactory.Systemautoscaler().V1beta1().ContainerScales(),
+		ContainerScale:        saInformerFactory.Systemautoscaler().V1beta1().ContainerScales(),
 		ServiceLevelAgreement: saInformerFactory.Systemautoscaler().V1beta1().ServiceLevelAgreements(),
 	}
 
