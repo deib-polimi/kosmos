@@ -20,7 +20,7 @@ rules:
     resources: ["servicelevelagreements"]
     verbs: ["get", "watch", "list"]
   - apiGroups: ["systemautoscaler.polimi.it"]
-    resources: ["podscales"]
+    resources: ["containerscales"]
     verbs: ["*"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -58,5 +58,14 @@ spec:
       serviceAccountName: pod-autoscaler
       containers:
         - name: pod-autoscaler
-          image: pentabanana/pod-autoscaler:latest
+          image: lterrac/pod-autoscaler:0.4.0
           imagePullPolicy: Always
+          resources:
+            limits:
+              cpu: 500m
+              memory: 200Mi
+            requests:
+              cpu: 500m
+              memory: 200Mi
+
+

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/asecurityteam/rolling"
 	"log"
 	"math"
 	"net/http"
@@ -10,6 +9,8 @@ import (
 	"net/url"
 	"os"
 	"time"
+
+	"github.com/asecurityteam/rolling"
 )
 
 //
@@ -39,7 +40,7 @@ func main() {
 		Addr:    ":8000",
 		Handler: mux,
 	}
-	target, _ = url.Parse("http://"+address+":"+port)
+	target, _ = url.Parse("http://" + address + ":" + port)
 	log.Println("Forwarding all requests to:", target)
 
 	ws, _ := time.ParseDuration(windowSize)

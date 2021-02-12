@@ -156,7 +156,7 @@ func (c *Controller) syncService(namespace string, service *corev1.Service, sla 
 			continue
 		}
 
-		// do not create the podscale if the specified container does not exists within the Pod
+		// do not create the containerscale if the specified container does not exists within the Pod
 		if !utils.HasContainer(pod.Spec.Containers, sla.Spec.Service.Container) {
 			c.recorder.Eventf(pod, corev1.EventTypeWarning, ContainerNotFound, "Pod %s/%s does not have container %s", pod.Namespace, pod.Name, sla.Spec.Service.Container)
 			continue
@@ -196,6 +196,7 @@ func NewContainerScale(pod *corev1.Pod, sla *v1beta1.ServiceLevelAgreement, sele
 	}
 
 	podLabels["system.autoscaler/node"] = pod.Spec.NodeName
+
 	return &v1beta1.ContainerScale{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "systemautoscaler.polimi.it/v1beta1",

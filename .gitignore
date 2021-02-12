@@ -22,3 +22,4 @@ vendor/
 pkg/*/pod-autoscaler
 pkg/*/pod-replicas-updater
 pkg/*/containerscale-controller
+pkg/*/http-metrics
