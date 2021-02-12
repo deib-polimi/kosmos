@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prime-numbers
+spec:
+  selector:
+    matchLabels:
+      app: prime-numbers
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: prime-numbers
+    spec:
+      containers:
+        - name: prime-numbers
+          image: pentabanana/prime-numbers
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              memory: 128Mi
+              cpu: 250m
+            limits:
+              memory: 128Mi
+              cpu: 250m
+        - name: http-metrics
+          image: pentabanana/http-metrics:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+          env:
+            - name: ADDRESS
+              value: "localhost"
+            - name: PORT
+              value: "8080"
+            - name: WINDOW_SIZE
+              value: "30s"
+            - name: WINDOW_GRANULARITY
+              value: "1ms"
+          resources:
+            requests:
+              memory: 128Mi
+              cpu: 250m
+            limits:
+              memory: 128Mi
+              cpu: 250m

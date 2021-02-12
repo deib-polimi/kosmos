@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: prime-numbers
+spec:
+  rules:
+    - host: "prime-numbers.benchmark.com"
+      http:
+        paths:
+          - pathType: Prefix
+            path: "/"
+            backend:
+              service:
+                name: prime-numbers
+                port:
+                  number: 8080
