@@ -1,14 +1,14 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: pod-autoscaler
+  name: podscale-controller
   namespace: kube-system
 automountServiceAccountToken: false
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: system-autoscaler:pod-autoscaler
+  name: system-autoscaler:podscale-controller
 rules:
   - apiGroups: [""]
     resources: ["pods", "services", "nodes"]
@@ -20,50 +20,43 @@ rules:
     resources: ["servicelevelagreements"]
     verbs: ["get", "watch", "list"]
   - apiGroups: ["systemautoscaler.polimi.it"]
-    resources: ["containerscales"]
+    resources: ["podscales"]
     verbs: ["*"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: system-autoscaler:pod-autoscaler
+  name: system-autoscaler:podscale-controller
 subjects:
   - kind: ServiceAccount
-    name: pod-autoscaler
+    name: podscale-controller
     namespace: kube-system
     apiGroup: ""
 roleRef:
   kind: ClusterRole
-  name: system-autoscaler:pod-autoscaler
+  name: system-autoscaler:podscale-controller
   apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: pod-autoscaler
+  name: podscale-controller
   namespace: kube-system
 spec:
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: pod-autoscaler
+      app: podscale-controller
   replicas: 1
   template:
     metadata:
       labels:
-        app: pod-autoscaler
+        app: podscale-controller
     spec:
       automountServiceAccountToken: true
-      serviceAccountName: pod-autoscaler
+      serviceAccountName: podscale-controller
       containers:
-        - name: pod-autoscaler
-          image: lterrac/pod-autoscaler:0.4.0
+        - name: podscale-controller
+          image: pentabanana/podscale-controller:latest
           imagePullPolicy: Always
-          resources:
-            limits:
-              cpu: 500m
-              memory: 200Mi
-            requests:
-              cpu: 500m
-              memory: 200Mi
