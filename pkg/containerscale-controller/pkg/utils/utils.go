@@ -9,16 +9,16 @@ import (
 // the declared state.
 type StateDiff struct {
 	AddList    []*corev1.Pod
-	DeleteList []*v1beta1.PodScale
+	DeleteList []*v1beta1.ContainerScale
 }
 
 // DiffPods returns `Pods` that does not already have an associated
-// `PodScale` resource and the old `PodScale` resources to delete.
-func DiffPods(pods []*corev1.Pod, podScales []*v1beta1.PodScale) (result StateDiff) {
+// `ContainerScale` resource and the old `ContainerScale` resources to delete.
+func DiffPods(pods []*corev1.Pod, scales []*v1beta1.ContainerScale) (result StateDiff) {
 	blueprint := make(map[string]bool)
 
-	for _, podscale := range podScales {
-		blueprint[podscale.Spec.PodRef.Name] = true
+	for _, containerscale := range scales {
+		blueprint[containerscale.Spec.PodRef.Name] = true
 	}
 
 	for _, pod := range pods {
@@ -33,9 +33,9 @@ func DiffPods(pods []*corev1.Pod, podScales []*v1beta1.PodScale) (result StateDi
 		blueprint[pod.Name] = true
 	}
 
-	for _, podscale := range podScales {
-		if !blueprint[podscale.Spec.PodRef.Name] {
-			result.DeleteList = append(result.DeleteList, podscale)
+	for _, containerscale := range scales {
+		if !blueprint[containerscale.Spec.PodRef.Name] {
+			result.DeleteList = append(result.DeleteList, containerscale)
 		}
 	}
 
@@ -46,6 +46,16 @@ func DiffPods(pods []*corev1.Pod, podScales []*v1beta1.PodScale) (result StateDi
 func ContainsService(list []*corev1.Service, element *corev1.Service) bool {
 	for _, e := range list {
 		if e == element {
+			return true
+		}
+	}
+	return false
+}
+
+// HasContainer looks for a given element inside a Container list
+func HasContainer(list []corev1.Container, element string) bool {
+	for _, e := range list {
+		if e.Name == element {
 			return true
 		}
 	}

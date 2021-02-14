@@ -6,18 +6,18 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.3.0
   creationTimestamp: null
-  name: podscales.systemautoscaler.polimi.it
+  name: containerscales.systemautoscaler.polimi.it
 spec:
   group: systemautoscaler.polimi.it
   names:
-    kind: PodScale
-    listKind: PodScaleList
-    plural: podscales
-    singular: podscale
+    kind: ContainerScale
+    listKind: ContainerScaleList
+    plural: containerscales
+    singular: containerscale
   scope: Namespaced
   validation:
     openAPIV3Schema:
-      description: PodScale defines the mapping between a `ServiceLevelAgreement`
+      description: ContainerScale defines the mapping between a `ServiceLevelAgreement`
         and a `Pod` matching the selector. It also keeps track of the resource values
         computed by `Recommender` and adjusted by `Contention Manager`.
       properties:
@@ -34,8 +34,10 @@ spec:
         metadata:
           type: object
         spec:
-          description: PodScaleSpec is the spec for a PodScale resource
+          description: ContainerScaleSpec is the spec for a ContainerScale resource
           properties:
+            container:
+              type: string
             desired:
               additionalProperties:
                 anyOf:
@@ -68,12 +70,14 @@ spec:
               - namespace
               type: object
           required:
+          - container
           - pod
           - serviceLevelAgreement
           type: object
         status:
-          description: PodScaleStatus contains the resources patched by the `Contention
-            Manager` according to the available node resources and other pods' SLA
+          description: ContainerScaleStatus contains the resources patched by the
+            `Contention Manager` according to the available node resources and other
+            pods' SLA
           properties:
             actual:
               additionalProperties:

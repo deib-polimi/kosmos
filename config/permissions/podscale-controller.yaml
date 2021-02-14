@@ -1,14 +1,14 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: podscale-controller
+  name: containerscale-controller
   namespace: kube-system
 automountServiceAccountToken: false
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: system-autoscaler:podscale-manager
+  name: system-autoscaler:containerscale-manager
 rules:
 - apiGroups: [""]
   resources: ["pods", "services", "nodes"]
@@ -20,19 +20,19 @@ rules:
   resources: ["servicelevelagreements"]
   verbs: ["get", "watch", "list"]
 - apiGroups: ["systemautoscaler.polimi.it"]
-  resources: ["podscales"]
+  resources: ["containerscales"]
   verbs: ["*"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: system-autoscaler:podscale-manager
+  name: system-autoscaler:containerscale-manager
 subjects:
 - kind: ServiceAccount
-  name: podscale-controller
+  name: containerscale-controller
   namespace: kube-system
   apiGroup: ""
 roleRef:
   kind: ClusterRole
-  name: system-autoscaler:podscale-manager
+  name: system-autoscaler:containerscale-manager
   apiGroup: rbac.authorization.k8s.io

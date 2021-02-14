@@ -20,8 +20,8 @@ type Logger struct {
 	path string
 }
 
-// NewLogger opens the log file and creates a new Logger instance
-func NewLogger(path string) (*Logger, error) {
+// NewFileLogger opens the log file and creates a new Logger instance
+func NewFileLogger(path string) (*Logger, error) {
 	abs, err := filepath.Abs(path)
 
 	if err != nil {

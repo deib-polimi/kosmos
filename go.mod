@@ -3,6 +3,7 @@ module github.com/lterrac/system-autoscaler
 go 1.15
 
 require (
+	github.com/asecurityteam/rolling v2.0.4+incompatible
 	github.com/go-logr/logr v0.3.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
 	github.com/onsi/ginkgo v1.14.2

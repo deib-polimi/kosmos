@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
-	"github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/types"
+	"github.com/lterrac/system-autoscaler/pkg/containerscale-controller/pkg/types"
 
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -194,9 +194,9 @@ func TestNewContentionManager(t *testing.T) {
 			description: "should not consider pods with QOS classes not equal to guaranteed",
 			nodeScale: types.NodeScales{
 				Node: nodeName,
-				PodScales: []*v1beta1.PodScale{
+				ContainerScales: []*v1beta1.ContainerScale{
 					{
-						Spec: v1beta1.PodScaleSpec{
+						Spec: v1beta1.ContainerScaleSpec{
 							PodRef: v1beta1.PodRef{
 								Name:      firstName,
 								Namespace: firstNamespace,
@@ -204,7 +204,7 @@ func TestNewContentionManager(t *testing.T) {
 						},
 					},
 					{
-						Spec: v1beta1.PodScaleSpec{
+						Spec: v1beta1.ContainerScaleSpec{
 							PodRef: v1beta1.PodRef{
 								Name:      secondName,
 								Namespace: secondNamespace,
@@ -291,8 +291,8 @@ func TestSolve(t *testing.T) {
 	testcases := []struct {
 		description string
 		ContentionManager
-		expected []*v1beta1.PodScale
-		asserts  func(*testing.T, []*v1beta1.PodScale, []*v1beta1.PodScale)
+		expected []*v1beta1.ContainerScale
+		asserts  func(*testing.T, []*v1beta1.ContainerScale, []*v1beta1.ContainerScale)
 	}{
 		{
 			description: "should get the desired resources",
@@ -300,13 +300,13 @@ func TestSolve(t *testing.T) {
 				solverFn:       proportional,
 				CPUCapacity:    resource.NewScaledQuantity(100, resource.Milli),
 				MemoryCapacity: resource.NewScaledQuantity(100, resource.Mega),
-				PodScales: []*v1beta1.PodScale{
+				ContainerScales: []*v1beta1.ContainerScale{
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "",
 							Namespace: "",
 						},
-						Spec: v1beta1.PodScaleSpec{
+						Spec: v1beta1.ContainerScaleSpec{
 							DesiredResources: corev1.ResourceList{
 								corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
 								corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
@@ -315,19 +315,19 @@ func TestSolve(t *testing.T) {
 					},
 				},
 			},
-			expected: []*v1beta1.PodScale{
+			expected: []*v1beta1.ContainerScale{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "",
 						Namespace: "",
 					},
-					Spec: v1beta1.PodScaleSpec{
+					Spec: v1beta1.ContainerScaleSpec{
 						DesiredResources: corev1.ResourceList{
 							corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
 							corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
 						},
 					},
-					Status: v1beta1.PodScaleStatus{
+					Status: v1beta1.ContainerScaleStatus{
 						ActualResources: corev1.ResourceList{
 							corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
 							corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
@@ -335,7 +335,7 @@ func TestSolve(t *testing.T) {
 					},
 				},
 			},
-			asserts: func(t *testing.T, expected []*v1beta1.PodScale, actual []*v1beta1.PodScale) {
+			asserts: func(t *testing.T, expected []*v1beta1.ContainerScale, actual []*v1beta1.ContainerScale) {
 				for i := range expected {
 					require.Equal(t, 0, expected[i].Status.ActualResources.Cpu().Cmp(*actual[i].Status.ActualResources.Cpu()))
 					require.Equal(t, 0, expected[i].Status.ActualResources.Memory().Cmp(*actual[i].Status.ActualResources.Memory()))
@@ -348,13 +348,13 @@ func TestSolve(t *testing.T) {
 				solverFn:       proportional,
 				CPUCapacity:    resource.NewScaledQuantity(100, resource.Milli),
 				MemoryCapacity: resource.NewScaledQuantity(100, resource.Mega),
-				PodScales: []*v1beta1.PodScale{
+				ContainerScales: []*v1beta1.ContainerScale{
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "",
 							Namespace: "",
 						},
-						Spec: v1beta1.PodScaleSpec{
+						Spec: v1beta1.ContainerScaleSpec{
 							DesiredResources: corev1.ResourceList{
 								corev1.ResourceCPU:    *resource.NewScaledQuantity(100, resource.Milli),
 								corev1.ResourceMemory: *resource.NewScaledQuantity(100, resource.Mega),
@@ -366,7 +366,7 @@ func TestSolve(t *testing.T) {
 							Name:      "",
 							Namespace: "",
 						},
-						Spec: v1beta1.PodScaleSpec{
+						Spec: v1beta1.ContainerScaleSpec{
 							DesiredResources: corev1.ResourceList{
 								corev1.ResourceCPU:    *resource.NewScaledQuantity(100, resource.Milli),
 								corev1.ResourceMemory: *resource.NewScaledQuantity(100, resource.Mega),
@@ -375,19 +375,19 @@ func TestSolve(t *testing.T) {
 					},
 				},
 			},
-			expected: []*v1beta1.PodScale{
+			expected: []*v1beta1.ContainerScale{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "",
 						Namespace: "",
 					},
-					Spec: v1beta1.PodScaleSpec{
+					Spec: v1beta1.ContainerScaleSpec{
 						DesiredResources: corev1.ResourceList{
 							corev1.ResourceCPU:    *resource.NewScaledQuantity(100, resource.Milli),
 							corev1.ResourceMemory: *resource.NewScaledQuantity(100, resource.Mega),
 						},
 					},
-					Status: v1beta1.PodScaleStatus{
+					Status: v1beta1.ContainerScaleStatus{
 						ActualResources: corev1.ResourceList{
 							corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
 							corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
@@ -399,13 +399,13 @@ func TestSolve(t *testing.T) {
 						Name:      "",
 						Namespace: "",
 					},
-					Spec: v1beta1.PodScaleSpec{
+					Spec: v1beta1.ContainerScaleSpec{
 						DesiredResources: corev1.ResourceList{
 							corev1.ResourceCPU:    *resource.NewScaledQuantity(100, resource.Milli),
 							corev1.ResourceMemory: *resource.NewScaledQuantity(100, resource.Mega),
 						},
 					},
-					Status: v1beta1.PodScaleStatus{
+					Status: v1beta1.ContainerScaleStatus{
 						ActualResources: corev1.ResourceList{
 							corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
 							corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
@@ -413,7 +413,7 @@ func TestSolve(t *testing.T) {
 					},
 				},
 			},
-			asserts: func(t *testing.T, expected []*v1beta1.PodScale, actual []*v1beta1.PodScale) {
+			asserts: func(t *testing.T, expected []*v1beta1.ContainerScale, actual []*v1beta1.ContainerScale) {
 				for i := range expected {
 					require.Equal(t, 0, expected[i].Status.ActualResources.Cpu().Cmp(*actual[i].Status.ActualResources.Cpu()))
 					require.Equal(t, 0, expected[i].Status.ActualResources.Memory().Cmp(*actual[i].Status.ActualResources.Memory()))
@@ -423,12 +423,12 @@ func TestSolve(t *testing.T) {
 	}
 	for _, tt := range testcases {
 		t.Run(tt.description, func(t *testing.T) {
-			podscales := tt.ContentionManager.Solve()
+			containerscales := tt.ContentionManager.Solve()
 
 			totalCPU := resource.Quantity{}
 			totalMemory := resource.Quantity{}
 
-			for _, p := range podscales {
+			for _, p := range containerscales {
 				totalCPU.Add(*p.Status.ActualResources.Cpu())
 				totalMemory.Add(*p.Status.ActualResources.Memory())
 			}
@@ -436,7 +436,7 @@ func TestSolve(t *testing.T) {
 			require.GreaterOrEqual(t, tt.ContentionManager.CPUCapacity.MilliValue(), totalCPU.MilliValue())
 			require.GreaterOrEqual(t, tt.ContentionManager.MemoryCapacity.MilliValue(), totalMemory.MilliValue())
 
-			tt.asserts(t, tt.expected, podscales)
+			tt.asserts(t, tt.expected, containerscales)
 		})
 	}
 }

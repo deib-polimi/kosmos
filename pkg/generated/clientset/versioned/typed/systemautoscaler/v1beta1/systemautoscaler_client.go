@@ -10,7 +10,7 @@ import (
 
 type SystemautoscalerV1beta1Interface interface {
 	RESTClient() rest.Interface
-	PodScalesGetter
+	ContainerScalesGetter
 	ServiceLevelAgreementsGetter
 }
 
@@ -19,8 +19,8 @@ type SystemautoscalerV1beta1Client struct {
 	restClient rest.Interface
 }
 
-func (c *SystemautoscalerV1beta1Client) PodScales(namespace string) PodScaleInterface {
-	return newPodScales(c, namespace)
+func (c *SystemautoscalerV1beta1Client) ContainerScales(namespace string) ContainerScaleInterface {
+	return newContainerScales(c, namespace)
 }
 
 func (c *SystemautoscalerV1beta1Client) ServiceLevelAgreements(namespace string) ServiceLevelAgreementInterface {

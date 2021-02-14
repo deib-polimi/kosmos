@@ -14,6 +14,8 @@ spec:
   maxResources:
     memory: 256Mi
     cpu: 20000m
-  serviceSelector:
-    matchLabels:
-      app: prime-numbers
+  service:
+    container: prime-numbers
+    selector:
+      matchLabels:
+        app: prime-numbers

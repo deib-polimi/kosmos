@@ -21,4 +21,5 @@ vendor/
 # binaries
 pkg/*/pod-autoscaler
 pkg/*/pod-replicas-updater
-pkg/*/podscale-controller
+pkg/*/containerscale-controller
+pkg/*/http-metrics

@@ -88,7 +88,7 @@ func TestLog(t *testing.T) {
 
 			require.Nil(t, err)
 
-			l, err := NewLogger(tt.path)
+			l, err := NewFileLogger(tt.path)
 
 			require.Nil(t, err)
 
