@@ -48,6 +48,11 @@ spec:
               description: Specify the default resources assigned to pods in case
                 `requests` field is empty in `PodSpec`.
               type: object
+            maxReplicas:
+              default: 100
+              description: The upper bound of replicas for the application.
+              format: int32
+              type: integer
             maxResources:
               additionalProperties:
                 anyOf:
@@ -67,6 +72,11 @@ spec:
                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                   x-kubernetes-int-or-string: true
               type: object
+            minReplicas:
+              default: 1
+              description: The lower bound of replicas for the application.
+              format: int32
+              type: integer
             minResources:
               additionalProperties:
                 anyOf:
