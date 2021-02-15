@@ -54,7 +54,6 @@ var _ = Describe("Replica updater controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			podList, err := getPodsForSvc(svc, namespace, *kubeClient)
-			podList.Size()
 			Expect(err).ShouldNot(HaveOccurred())
 
 			var containerScales []*sa.ContainerScale
