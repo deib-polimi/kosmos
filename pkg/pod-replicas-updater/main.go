@@ -48,7 +48,7 @@ func main() {
 		Pod:                   coreInformerFactory.Core().V1().Pods(),
 		Node:                  coreInformerFactory.Core().V1().Nodes(),
 		Service:               coreInformerFactory.Core().V1().Services(),
-		PodScale:              saInformerFactory.Systemautoscaler().V1beta1().PodScales(),
+		ContainerScale:        saInformerFactory.Systemautoscaler().V1beta1().ContainerScales(),
 		ServiceLevelAgreement: saInformerFactory.Systemautoscaler().V1beta1().ServiceLevelAgreements(),
 		//Deployment:            coreInformerFactory.Apps().V1().Deployments(),
 	}

@@ -11,7 +11,7 @@ import (
 // Logic is the logic with which the replica updater suggests new replica values for an application
 type Logic interface {
 	//computeReplica computes the number of replicas for an application
-	computeReplica(sla *v1beta1.ServiceLevelAgreement, pods []*corev1.Pod, podscales []*v1beta1.PodScale, metrics []map[string]interface{}, curReplica int32) int32
+	computeReplica(sla *v1beta1.ServiceLevelAgreement, pods []*corev1.Pod, podscales []*v1beta1.ContainerScale, metrics []map[string]interface{}, curReplica int32) int32
 }
 
 type HPALogicState string
@@ -45,13 +45,14 @@ const (
 	scaleUpPeriodMillis   = 15000
 	scaleDownPeriodMillis = 15000
 	stabilizePeriodMillis = 30000
-	maxReplicas           = 100.0
-	minReplicas           = 1.0
 	tolerance             = 1.10
 )
 
 //computeReplica computes the number of replicas for a service, given the serviceLevelAgreement
-func (logic *HPALogic) computeReplica(sla *v1beta1.ServiceLevelAgreement, pods []*corev1.Pod, podscales []*v1beta1.PodScale, metrics []map[string]interface{}, curReplica int32) int32 {
+func (logic *HPALogic) computeReplica(sla *v1beta1.ServiceLevelAgreement, pods []*corev1.Pod, podscales []*v1beta1.ContainerScale, metrics []map[string]interface{}, curReplica int32) int32 {
+
+	minReplicas := sla.Spec.MinReplicas
+	maxReplicas := sla.Spec.MaxReplicas
 
 	// If the application has recently changed the amount of replicas, it will wait for it to stabilize
 	if time.Since(logic.stabilizeTime).Milliseconds() < stabilizePeriodMillis {
@@ -73,7 +74,7 @@ func (logic *HPALogic) computeReplica(sla *v1beta1.ServiceLevelAgreement, pods [
 	actualTarget = actualTarget / nPods
 
 	// Apply constraints
-	nReplicas := int32(math.Min(maxReplicas, math.Max(minReplicas, math.Round(actualTarget/desiredTarget*nPods))))
+	nReplicas := int32(math.Min(float64(maxReplicas), math.Max(float64(minReplicas), math.Round(actualTarget/desiredTarget*nPods))))
 
 	// Check tolerance
 	// If the new amount of replicas is between the upper bound and the lower bound

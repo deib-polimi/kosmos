@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
-	podscalesclientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
+	saclientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
 	samplescheme "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned/scheme"
 	"github.com/lterrac/system-autoscaler/pkg/informers"
 	"github.com/lterrac/system-autoscaler/pkg/queue"
@@ -30,16 +30,16 @@ const (
 // For each pod under the same ServiceLevelAgreement, it periodically suggest new replica values.
 type Controller struct {
 
-	// podScalesClientset is a clientset for our own API group
-	podScalesClientset podscalesclientset.Interface
+	// saClientSet is a clientset for our own API group
+	saClientSet saclientset.Interface
 
 	// kubernetesCLientset is the client-go of kubernetes
 	kubernetesClientset kubernetes.Interface
 
 	listers informers.Listers
 
-	podScalesSynced cache.InformerSynced
-	podSynced       cache.InformerSynced
+	containerScaleSynced cache.InformerSynced
+	podSynced            cache.InformerSynced
 
 	// recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
@@ -57,7 +57,7 @@ type Controller struct {
 
 // NewController returns a new sample controller
 func NewController(kubernetesClientset *kubernetes.Clientset,
-	podScalesClientset podscalesclientset.Interface,
+	saClientSet saclientset.Interface,
 	informers informers.Informers) *Controller {
 
 	// Create event broadcaster
@@ -71,14 +71,14 @@ func NewController(kubernetesClientset *kubernetes.Clientset,
 
 	// Instantiate the Controller
 	controller := &Controller{
-		podScalesClientset:  podScalesClientset,
-		kubernetesClientset: kubernetesClientset,
-		recorder:            recorder,
-		listers:             informers.GetListers(),
-		podScalesSynced:     informers.PodScale.Informer().HasSynced,
-		podSynced:           informers.Pod.Informer().HasSynced,
-		MetricClient:        NewMetricClient(),
-		workqueue:           queue.NewQueue("SLAQueue"),
+		saClientSet:          saClientSet,
+		kubernetesClientset:  kubernetesClientset,
+		recorder:             recorder,
+		listers:              informers.GetListers(),
+		containerScaleSynced: informers.ContainerScale.Informer().HasSynced,
+		podSynced:            informers.Pod.Informer().HasSynced,
+		MetricClient:         NewMetricClient(),
+		workqueue:            queue.NewQueue("SLAQueue"),
 	}
 
 	return controller
@@ -91,18 +91,17 @@ func NewController(kubernetesClientset *kubernetes.Clientset,
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 
 	// Start the informer factories to begin populating the informer caches
-	klog.Info("Starting pod resource updater controller")
+	klog.Info("Starting pod replica updater controller")
 
 	// Wait for the caches to be synced before starting workers
 	klog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh,
-		c.podScalesSynced,
+		c.containerScaleSynced,
 		c.podSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
-	klog.Info("Starting pod resource updater workers")
-	// Launch the workers to process podScale resources and recommend new pod scales
+	klog.Info("Starting pod replica updater workers")
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, 5*time.Second, stopCh)
 		go wait.Until(c.runSLAWorker, time.Second, stopCh)
@@ -148,19 +147,19 @@ func (c *Controller) handleSLA(key string) error {
 		return err
 	}
 
-	podScales, err := c.listers.PodScaleLister.List(labels.Everything())
+	containerScales, err := c.listers.ContainerScaleLister.List(labels.Everything())
 	if err != nil {
-		klog.Error("Failed to retrieve the podscales, error: ", err)
+		klog.Error("Failed to retrieve the container scales, error: ", err)
 		return err
 	}
 
 	// Filter all pod scales and pods matched by the sla
-	var matchedPodScales []*v1beta1.PodScale
+	var matchedContainerScales []*v1beta1.ContainerScale
 	var matchedPods []*corev1.Pod
-	for _, podScale := range podScales {
-		if podScale.Spec.SLARef.Namespace == sla.Namespace && podScale.Spec.SLARef.Name == sla.Name {
-			matchedPodScales = append(matchedPodScales, podScale)
-			pod, err := c.listers.Pods(podScale.Spec.PodRef.Namespace).Get(podScale.Spec.PodRef.Name)
+	for _, containerScale := range containerScales {
+		if containerScale.Spec.SLARef.Namespace == sla.Namespace && containerScale.Spec.SLARef.Name == sla.Name {
+			matchedContainerScales = append(matchedContainerScales, containerScale)
+			pod, err := c.listers.Pods(containerScale.Spec.PodRef.Namespace).Get(containerScale.Spec.PodRef.Name)
 			if err != nil {
 				klog.Error("Failed to retrieve the pod, error: ", err)
 				return err
@@ -230,7 +229,7 @@ func (c *Controller) handleSLA(key string) error {
 	}
 
 	// Compute the new amount of replicas
-	nReplicas := logic.computeReplica(sla, matchedPods, matchedPodScales, podMetrics, *deployment.Spec.Replicas)
+	nReplicas := logic.computeReplica(sla, matchedPods, matchedContainerScales, podMetrics, *deployment.Spec.Replicas)
 	klog.Info("SLA key: ", key, " new amount of replicas: ", nReplicas)
 
 	// Set the new amount of replicas
