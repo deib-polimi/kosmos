@@ -153,6 +153,10 @@ func (c *Controller) handleSLA(key string) error {
 		return err
 	}
 
+	if len(containerScales) == 0 {
+		klog.Error("No container scales found.")
+		return fmt.Errorf("no container scales found")
+	}
 	// Filter all pod scales and pods matched by the sla
 	var matchedContainerScales []*v1beta1.ContainerScale
 	var matchedPods []*corev1.Pod
@@ -167,6 +171,10 @@ func (c *Controller) handleSLA(key string) error {
 				matchedPods = append(matchedPods, pod)
 			}
 		}
+	}
+	if len(matchedPods) == 0 {
+		klog.Error("No pod has been matched.")
+		return fmt.Errorf("no pod has been matched")
 	}
 
 	// Retrieve the metrics for the pods

@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"context"
 	replicaupdater "github.com/lterrac/system-autoscaler/pkg/pod-replicas-updater/pkg"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	sainformers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,7 +44,7 @@ var saClient *systemautoscaler.Clientset
 var replicaUpdater *replicaupdater.Controller
 
 const namespace = "e2e"
-const timeout = 10 * time.Second
+const timeout = 180 * time.Second
 const interval = 1 * time.Second
 
 var _ = BeforeSuite(func(done Done) {
@@ -119,10 +121,17 @@ func serverMock() *httptest.Server {
 }
 
 func usersMock(w http.ResponseWriter, _ *http.Request) {
-	_, _ = w.Write([]byte(`{"response_time":5.0}`))
+	_, _ = w.Write([]byte(`{"response_time":50.0}`))
 }
 
-func newSLA(name string, container string, labels map[string]string) *sa.ServiceLevelAgreement {
+func getPodsForSvc(svc *corev1.Service, namespace string, client kubernetes.Clientset) (*corev1.PodList, error) {
+	set := labels.Set(svc.Spec.Selector)
+	listOptions := metav1.ListOptions{LabelSelector: set.AsSelector().String()}
+	pods, err := client.CoreV1().Pods(namespace).List(context.TODO(), listOptions)
+	return pods, err
+}
+
+func newSLA(name string, container string, labels map[string]string, responseTime int64) *sa.ServiceLevelAgreement {
 	return &sa.ServiceLevelAgreement{
 		TypeMeta: metav1.TypeMeta{APIVersion: sa.SchemeGroupVersion.String()},
 		ObjectMeta: metav1.ObjectMeta{
@@ -137,7 +146,7 @@ func newSLA(name string, container string, labels map[string]string) *sa.Service
 				},
 			},
 			Metric: sa.MetricRequirement{
-				ResponseTime: *resource.NewQuantity(3, resource.BinarySI),
+				ResponseTime: *resource.NewMilliQuantity(responseTime, resource.BinarySI),
 			},
 			DefaultResources: map[corev1.ResourceName]resource.Quantity{
 				corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
@@ -192,6 +201,46 @@ func newPod(name string, container string, podLabels map[string]string) *corev1.
 						Requests: map[corev1.ResourceName]resource.Quantity{
 							corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
 							corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func newDeployment(name string, container string, labels map[string]string, selector metav1.LabelSelector, nReplicas int32) *appsv1.Deployment {
+	return &appsv1.Deployment{
+		TypeMeta: metav1.TypeMeta{APIVersion: corev1.SchemeGroupVersion.String(), Kind: "pods"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels:    labels,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &nReplicas,
+			Selector: &selector,
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: namespace,
+					Labels:    labels,
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  container,
+							Image: "gcr.io/distroless/static:nonroot",
+							Resources: corev1.ResourceRequirements{
+								Limits: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
+									corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
+								},
+								Requests: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
+									corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
+								},
+							},
 						},
 					},
 				},
