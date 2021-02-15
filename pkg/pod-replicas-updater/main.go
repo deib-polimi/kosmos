@@ -44,13 +44,13 @@ func main() {
 	saInformerFactory := sainformers.NewSharedInformerFactory(client, time.Second*30)
 	coreInformerFactory := informers.NewSharedInformerFactory(kubernetesClient, time.Second*30)
 
+	// TODO: check name of this variable
 	informers := informers2.Informers{
 		Pod:                   coreInformerFactory.Core().V1().Pods(),
 		Node:                  coreInformerFactory.Core().V1().Nodes(),
 		Service:               coreInformerFactory.Core().V1().Services(),
 		ContainerScale:        saInformerFactory.Systemautoscaler().V1beta1().ContainerScales(),
 		ServiceLevelAgreement: saInformerFactory.Systemautoscaler().V1beta1().ServiceLevelAgreements(),
-		//Deployment:            coreInformerFactory.Apps().V1().Deployments(),
 	}
 
 	// TODO: adjust arguments to recommender
