@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// Logic is the logic with which the replica updater suggests new replica values for an application
+// Logic is the logic the controller uses to suggest new replica values for an application
 type Logic interface {
 	//computeReplica computes the number of replicas for an application
 	computeReplica(sla *v1beta1.ServiceLevelAgreement, pods []*corev1.Pod, podscales []*v1beta1.ContainerScale, metrics []map[string]interface{}, curReplica int32) int32

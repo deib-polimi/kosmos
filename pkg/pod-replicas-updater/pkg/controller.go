@@ -102,8 +102,8 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	}
 
 	klog.Info("Starting pod replica updater workers")
+	go wait.Until(c.runWorker, 5*time.Second, stopCh)
 	for i := 0; i < threadiness; i++ {
-		go wait.Until(c.runWorker, 5*time.Second, stopCh)
 		go wait.Until(c.runSLAWorker, time.Second, stopCh)
 	}
 
@@ -137,24 +137,20 @@ func (c *Controller) handleSLA(key string) error {
 
 	slaNamespace, slaName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		klog.Error("Failed to split key, error: ", err)
-		return err
+		return fmt.Errorf("failed to split key, error: %v", err)
 	}
 
 	sla, err := c.listers.ServiceLevelAgreements(slaNamespace).Get(slaName)
 	if err != nil {
-		klog.Error("Failed to retrieve the sla, error: ", err)
-		return err
+		return fmt.Errorf("failed to retrieve the sla, error: %v", err)
 	}
 
 	containerScales, err := c.listers.ContainerScaleLister.List(labels.Everything())
 	if err != nil {
-		klog.Error("Failed to retrieve the container scales, error: ", err)
-		return err
+		return fmt.Errorf("failed to retrieve the container scales, error: %v", err)
 	}
 
 	if len(containerScales) == 0 {
-		klog.Error("No container scales found.")
 		return fmt.Errorf("no container scales found")
 	}
 	// Filter all pod scales and pods matched by the sla
@@ -165,15 +161,13 @@ func (c *Controller) handleSLA(key string) error {
 			matchedContainerScales = append(matchedContainerScales, containerScale)
 			pod, err := c.listers.Pods(containerScale.Spec.PodRef.Namespace).Get(containerScale.Spec.PodRef.Name)
 			if err != nil {
-				klog.Error("Failed to retrieve the pod, error: ", err)
-				return err
+				return fmt.Errorf("failed to retrieve the pod, error: %v", err)
 			} else {
 				matchedPods = append(matchedPods, pod)
 			}
 		}
 	}
 	if len(matchedPods) == 0 {
-		klog.Error("No pod has been matched.")
 		return fmt.Errorf("no pod has been matched")
 	}
 
@@ -182,8 +176,7 @@ func (c *Controller) handleSLA(key string) error {
 	for _, pod := range matchedPods {
 		metrics, err := c.MetricClient.getMetrics(pod)
 		if err != nil {
-			klog.Errorf("Failed to retrieve the metrics for pod with name %s and namespace %s, error: %s. Probably the pod is not ready yet, retrying", pod.Name, pod.Namespace, err)
-			return err
+			return fmt.Errorf("failed to retrieve the metrics for pod with name %s and namespace %s, error: %s. Probably the pod is not ready yet, retrying", pod.Name, pod.Namespace, err)
 		} else {
 			podMetrics = append(podMetrics, metrics)
 		}
@@ -198,42 +191,35 @@ func (c *Controller) handleSLA(key string) error {
 			namespace = pod.Namespace
 			replicaSetName, err := getReplicaSetNameFromPod(pod)
 			if err != nil {
-				klog.Errorf("Failed to retrieve the name of the replicaset for pod with name %s and namespace %s, error: %s.", pod.Name, pod.Namespace, err)
-				return err
+				return fmt.Errorf("failed to retrieve the name of the replicaset for pod with name %s and namespace %s, error: %s", pod.Name, pod.Namespace, err)
 			}
 			replicaSet, err := c.kubernetesClientset.AppsV1().ReplicaSets(namespace).Get(context.TODO(), replicaSetName, v1.GetOptions{})
 			if err != nil {
-				klog.Errorf("Failed to retrieve the replicaset with name %s and namespace %s, error: %s.", replicaSetName, namespace, err)
-				return err
+				return fmt.Errorf("failed to retrieve the replicaset with name %s and namespace %s, error: %s", replicaSetName, namespace, err)
 			}
 			deploymentName, err = getDeploymentNameFromReplicaSet(replicaSet)
 			if err != nil {
-				klog.Errorf("Failed to retrieve the name of the deployment for replicaset with name %s and namespace %s, error: %s.", replicaSet.Name, replicaSet.Namespace, err)
-				return err
+				return fmt.Errorf("failed to retrieve the name of the deployment for replicaset with name %s and namespace %s, error: %s", replicaSet.Name, replicaSet.Namespace, err)
 			}
 		} else if namespace != pod.Namespace {
-			klog.Error("The pods are not in the same namespace")
-			return err
+			return fmt.Errorf("the pods are not in the same namespace")
 		}
 	}
 
 	// Retrieve the deployment
 	deployment, err := c.kubernetesClientset.AppsV1().Deployments(namespace).Get(context.TODO(), deploymentName, v1.GetOptions{})
 	if err != nil {
-		klog.Errorf("Failed to retrieve the deployment with name %s and namespace %s, error: %s.", deploymentName, namespace, err)
-		return err
+		return fmt.Errorf("failed to retrieve the deployment with name %s and namespace %s, error: %s", deploymentName, namespace, err)
 	}
 
 	// Retrieve the associated logic
 	logicInterface, ok := c.logicMap.LoadOrStore(key, newHPALogic())
 	if !ok {
-		klog.Errorf("the key %s has no previous logic associated with it, initializing it", key)
-		return err
+		return fmt.Errorf("the key %s has no previous logic associated with it, initializing it", key)
 	}
 	logic, ok := logicInterface.(Logic)
 	if !ok {
-		klog.Errorf("error: %s, failed to cast logic for deployment with name %s and namespace %s", err, deploymentName, namespace)
-		return err
+		return fmt.Errorf("error: %s, failed to cast logic for deployment with name %s and namespace %s", err, deploymentName, namespace)
 	}
 
 	// Compute the new amount of replicas
@@ -244,8 +230,7 @@ func (c *Controller) handleSLA(key string) error {
 	deployment.Spec.Replicas = &nReplicas
 	_, err = c.kubernetesClientset.AppsV1().Deployments(namespace).Update(context.TODO(), deployment, v1.UpdateOptions{})
 	if err != nil {
-		klog.Errorf("Failed to update the deployment with name %s and namespace %s, error: %s.", deploymentName, namespace, err)
-		return err
+		return fmt.Errorf("failed to update the deployment with name %s and namespace %s, error: %s", deploymentName, namespace, err)
 	}
 
 	return nil

@@ -1,5 +1,4 @@
-#FROM gcr.io/distroless/static:nonroot
-FROM alpine:latest
+FROM gcr.io/distroless/static:nonroot
 
 LABEL name="Pod Replicas Updater"
 
