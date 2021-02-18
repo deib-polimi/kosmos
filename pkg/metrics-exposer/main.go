@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	informers2 "github.com/lterrac/system-autoscaler/pkg/informers"
+	sainformers "github.com/lterrac/system-autoscaler/pkg/informers"
 	"github.com/lterrac/system-autoscaler/pkg/signals"
 
 	coreinformers "k8s.io/client-go/informers"
@@ -32,10 +32,10 @@ var (
 // ResponseTimeMetricsAdapter contains a basic adapter used to serve custom metrics
 type ResponseTimeMetricsAdapter struct {
 	basecmd.AdapterBase
-	informers informers2.Informers
+	informers sainformers.Informers
 }
 
-func (a *ResponseTimeMetricsAdapter) makeProviderOrDie(informers informers2.Informers) provider.CustomMetricsProvider {
+func (a *ResponseTimeMetricsAdapter) makeProviderOrDie(informers sainformers.Informers) provider.CustomMetricsProvider {
 	client, err := a.DynamicClient()
 	if err != nil {
 		klog.Fatalf("unable to construct dynamic client: %v", err)
@@ -75,7 +75,7 @@ func main() {
 
 	coreInformerFactory := coreinformers.NewSharedInformerFactory(kubernetesClient, time.Second*30)
 
-	informers := informers2.Informers{
+	informers := sainformers.Informers{
 		Pod: coreInformerFactory.Core().V1().Pods(),
 	}
 

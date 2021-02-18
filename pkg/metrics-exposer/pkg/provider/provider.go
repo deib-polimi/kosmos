@@ -2,7 +2,6 @@ package provider
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	apierr "k8s.io/apimachinery/pkg/api/errors"
@@ -38,8 +37,8 @@ type responseTimeMetricsProvider struct {
 	mapper       apimeta.RESTMapper
 	metricClient *recommender.Client
 	informers    informers.Informers
-	valuesLock   sync.RWMutex
-	values       map[CustomMetricResource]metricValue
+	// valuesLock   sync.RWMutex
+	values map[CustomMetricResource]metricValue
 }
 
 // NewResponseTimeMetricsProvider returns an instance of responseTimeMetricsProvider
@@ -134,8 +133,8 @@ func (p *responseTimeMetricsProvider) metricsFor(namespace string, selector labe
 }
 
 func (p *responseTimeMetricsProvider) GetMetricByName(name types.NamespacedName, info provider.CustomMetricInfo, metricSelector labels.Selector) (*custom_metrics.MetricValue, error) {
-	p.valuesLock.RLock()
-	defer p.valuesLock.RUnlock()
+	// p.valuesLock.RLock()
+	// defer p.valuesLock.RUnlock()
 
 	value, err := p.valueFor(info, name, metricSelector)
 	if err != nil {
@@ -145,15 +144,15 @@ func (p *responseTimeMetricsProvider) GetMetricByName(name types.NamespacedName,
 }
 
 func (p *responseTimeMetricsProvider) GetMetricBySelector(namespace string, selector labels.Selector, info provider.CustomMetricInfo, metricSelector labels.Selector) (*custom_metrics.MetricValueList, error) {
-	p.valuesLock.RLock()
-	defer p.valuesLock.RUnlock()
+	// p.valuesLock.RLock()
+	// defer p.valuesLock.RUnlock()
 
 	return p.metricsFor(namespace, selector, info, metricSelector)
 }
 
 func (p *responseTimeMetricsProvider) ListAllMetrics() []provider.CustomMetricInfo {
-	p.valuesLock.RLock()
-	defer p.valuesLock.RUnlock()
+	// p.valuesLock.RLock()
+	// defer p.valuesLock.RUnlock()
 
 	// Get unique CustomMetricInfos from wrapper CustomMetricResources
 	infos := make(map[provider.CustomMetricInfo]struct{})
