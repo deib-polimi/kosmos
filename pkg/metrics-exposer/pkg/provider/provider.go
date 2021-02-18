@@ -73,10 +73,7 @@ func (p *responseTimeMetricsProvider) valueFor(info provider.CustomMetricInfo, n
 		return resource.Quantity{}, provider.NewMetricNotFoundForError(info.GroupResource, info.Metric, name.Name)
 	}
 
-	//rtf := value["response_time"].(float64) * 1000.0
-	//rt := int64(rtf)
-
-	return *resource.NewQuantity(int64(value["response_time"].(float64)*1000.0), resource.DecimalSI), nil
+	return *resource.NewMilliQuantity(int64(value["response_time"].(float64)), resource.BinarySI), nil
 }
 
 // metricFor is a helper function which formats a value, metric, and object info into a MetricValue which can be returned by the metrics API
