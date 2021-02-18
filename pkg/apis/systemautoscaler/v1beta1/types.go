@@ -47,6 +47,14 @@ type ServiceLevelAgreementSpec struct {
 	// The upper bound of resources to assign to containers.
 	// +kubebuilder:validation:Optional
 	MaxResources v1.ResourceList `json:"maxResources,omitempty" protobuf:"bytes,3,rep,name=maxResources,casttype=ResourceList,castkey=ResourceName"`
+	// The lower bound of replicas for the application.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:=1
+	MinReplicas int32 `json:"minReplicas,omitempty" protobuf:"bytes,3,rep,name=minResources,casttype=ResourceList,castkey=ResourceName"`
+	// The upper bound of replicas for the application.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:=100
+	MaxReplicas int32 `json:"maxReplicas,omitempty" protobuf:"bytes,3,rep,name=maxResources,casttype=ResourceList,castkey=ResourceName"`
 	// Identify the Service on which the agreement is defined
 	// +kubebuilder:validation:Required
 	Service *Service `json:"service"`

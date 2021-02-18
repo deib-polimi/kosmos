@@ -54,6 +54,7 @@ func main() {
 	saInformerFactory := sainformers.NewSharedInformerFactory(client, time.Second*30)
 	coreInformerFactory := informers.NewSharedInformerFactory(kubernetesClient, time.Second*30)
 
+	// TODO: Check name of this variable
 	informers := informers2.Informers{
 		Pod:                   coreInformerFactory.Core().V1().Pods(),
 		Node:                  coreInformerFactory.Core().V1().Nodes(),
