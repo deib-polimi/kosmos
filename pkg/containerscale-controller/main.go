@@ -2,8 +2,9 @@ package main
 
 import (
 	"flag"
-	informers "github.com/lterrac/system-autoscaler/pkg/informers"
 	"time"
+
+	informers "github.com/lterrac/system-autoscaler/pkg/informers"
 
 	coreinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"

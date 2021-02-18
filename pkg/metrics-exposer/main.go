@@ -8,8 +8,9 @@ import (
 	informers2 "github.com/lterrac/system-autoscaler/pkg/informers"
 	"github.com/lterrac/system-autoscaler/pkg/signals"
 
-	"k8s.io/client-go/informers"
+	coreinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/component-base/logs"
 	"k8s.io/klog/v2"
@@ -34,7 +35,7 @@ type ResponseTimeMetricsAdapter struct {
 	informers informers2.Informers
 }
 
-func (a *ResponseTimeMetricsAdapter) makeProviderOrDie(informers informers2.Informers, kubeClient kubernetes.Interface) provider.CustomMetricsProvider {
+func (a *ResponseTimeMetricsAdapter) makeProviderOrDie(informers informers2.Informers) provider.CustomMetricsProvider {
 	client, err := a.DynamicClient()
 	if err != nil {
 		klog.Fatalf("unable to construct dynamic client: %v", err)
@@ -45,7 +46,7 @@ func (a *ResponseTimeMetricsAdapter) makeProviderOrDie(informers informers2.Info
 		klog.Fatalf("unable to construct discovery REST mapper: %v", err)
 	}
 
-	return rtprovider.NewResponseTimeMetricsProvider(client, mapper, informers, kubeClient)
+	return rtprovider.NewResponseTimeMetricsProvider(client, mapper, informers)
 }
 
 func main() {
@@ -72,28 +73,24 @@ func main() {
 		klog.Fatalf("Error building example clientset: %s", err.Error())
 	}
 
-	coreInformerFactory := informers.NewSharedInformerFactory(kubernetesClient, time.Second*30)
-	coreInformerFactory.Start(stopCh)
+	coreInformerFactory := coreinformers.NewSharedInformerFactory(kubernetesClient, time.Second*30)
 
 	informers := informers2.Informers{
 		Pod: coreInformerFactory.Core().V1().Pods(),
 	}
 
-	// if ok := cache.WaitForCacheSync(stopCh, coreInformerFactory.Core().V1().Pods().Informer().HasSynced); !ok {
-	// 	klog.Error(fmt.Errorf("failed to wait for caches to sync"))
-	// 	return
-	// }
-	// klog.Info("aaa")
+	coreInformerFactory.Start(stopCh)
 
-	testProvider := cmd.makeProviderOrDie(informers, kubernetesClient)
-	cmd.WithCustomMetrics(testProvider)
-	klog.Info("aaa")
+	go informers.Pod.Informer().Run(stopCh)
+
+	if ok := cache.WaitForCacheSync(stopCh, informers.Pod.Informer().HasSynced); !ok {
+		klog.Fatalf("failed to wait for caches to sync")
+	}
+
+	responseTimeMetricsProvider := cmd.makeProviderOrDie(informers)
+	cmd.WithCustomMetrics(responseTimeMetricsProvider)
 
 	if err := cmd.Run(stopCh); err != nil {
 		klog.Fatalf("unable to run custom metrics adapter: %v", err)
 	}
-	klog.Info("aaa")
-
-	<-stopCh
-	klog.Info("Shutting down workers")
 }
