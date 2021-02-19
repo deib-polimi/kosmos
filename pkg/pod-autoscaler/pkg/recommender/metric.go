@@ -39,8 +39,8 @@ func NewMetricClient() *Client {
 	return client
 }
 
-// getMetrics returns a list of the the metrics of a pod.
-func (c Client) getMetrics(pod *v1.Pod) (map[string]interface{}, error) {
+// GetMetrics returns a list of the the metrics of a pod.
+func (c Client) GetMetrics(pod *v1.Pod) (map[string]interface{}, error) {
 
 	// Retrieve the location of the pod's metrics server
 	podAddress := pod.Status.PodIP

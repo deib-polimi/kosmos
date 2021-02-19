@@ -1,12 +1,13 @@
 package recommender
 
 import (
-	"github.com/stretchr/testify/require"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/klog/v2"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/klog/v2"
 )
 
 func serverMock() *httptest.Server {
@@ -26,7 +27,7 @@ func TestGetMetrics(t *testing.T) {
 	client := NewMetricClient()
 	server := serverMock()
 	client.Host = server.URL[7:]
-	metrics, err := client.getMetrics(&v1.Pod{})
+	metrics, err := client.GetMetrics(&v1.Pod{})
 	if err != nil {
 		klog.Error(err)
 	}
