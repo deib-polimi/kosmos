@@ -51,8 +51,8 @@ type Controller struct {
 	// status represents the state of the controller
 	status *Status
 
-	// MetricClient is a client that polls the metrics from the pod.
-	MetricClient MetricGetter
+	// MetricGetter is a client that polls the metrics from the pod.
+	MetricGetter MetricGetter
 
 	// recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
@@ -99,7 +99,7 @@ func NewController(
 		kubernetesClientset:      kubernetesClientset,
 		recommendNodeQueue:       queue.NewQueue("RecommendQueue"),
 		status:                   status,
-		MetricClient:             metricsClient,
+		MetricGetter:             metricsClient,
 		recorder:                 recorder,
 		out:                      out,
 	}
@@ -235,7 +235,7 @@ func (c *Controller) recommendContainer(containerScale *v1beta1.ContainerScale) 
 	}
 
 	// Retrieve the metrics
-	metrics, err := c.MetricClient.GetMetrics(pod)
+	metrics, err := c.MetricGetter.GetMetrics(pod)
 	if err != nil {
 		return nil, fmt.Errorf("error: %s, failed to get metrics from pod with name %s and namespace %s from lister", err, pod.GetName(), pod.GetNamespace())
 	}
@@ -245,5 +245,3 @@ func (c *Controller) recommendContainer(containerScale *v1beta1.ContainerScale) 
 
 	return newContainerScale, nil
 }
-
-

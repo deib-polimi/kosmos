@@ -115,11 +115,6 @@ func main() {
 	}
 	defer recommenderController.Shutdown()
 
-	//c := recommender.NewMetricClient()
-	//server := serverMock()
-	//c.Host = server.URL[7:]
-	//recommenderController.MetricClient = c
-
 	if err = contentionManagerController.Run(2, stopCh); err != nil {
 		klog.Fatalf("Error running update controller: %s", err.Error())
 	}
