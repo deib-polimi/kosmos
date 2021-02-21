@@ -51,7 +51,7 @@ spec:
       serviceAccountName: custom-metrics-apiserver
       containers:
       - name: custom-metrics-apiserver
-        image: pentabanana/custom-metrics
+        image: lterrac/metrics-exposer:0.1.0
         imagePullPolicy: Always
         resources:
           requests:

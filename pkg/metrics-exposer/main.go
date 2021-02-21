@@ -32,6 +32,7 @@ var (
 // ResponseTimeMetricsAdapter contains a basic adapter used to serve custom metrics
 type ResponseTimeMetricsAdapter struct {
 	basecmd.AdapterBase
+	// TODO: find a better name for package
 	informers informers2.Informers
 }
 
@@ -93,6 +94,8 @@ func main() {
 	coreInformerFactory.Start(stopCh)
 	saInformerFactory.Start(stopCh)
 
+
+	// TODO: handle this in a better way
 	go informers.Pod.Informer().Run(stopCh)
 	go informers.Node.Informer().Run(stopCh)
 	go informers.Service.Informer().Run(stopCh)

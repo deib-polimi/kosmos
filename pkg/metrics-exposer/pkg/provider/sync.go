@@ -158,5 +158,4 @@ func (p *responseTimeMetricsProvider) setMetrics(metricInfo CustomMetricResource
 	p.cacheLock.RLock()
 	defer p.cacheLock.RUnlock()
 	p.cache[metricInfo] = value
-	klog.Info(p.cache)
 }
