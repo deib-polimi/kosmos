@@ -2,6 +2,7 @@ package provider
 
 import (
 	"fmt"
+	"github.com/lterrac/system-autoscaler/pkg/metrics-exposer/pkg/metrics"
 	"time"
 
 	apierr "k8s.io/apimachinery/pkg/api/errors"
@@ -16,7 +17,6 @@ import (
 	"github.com/kubernetes-sigs/custom-metrics-apiserver/pkg/provider"
 	"github.com/kubernetes-sigs/custom-metrics-apiserver/pkg/provider/helpers"
 	"github.com/lterrac/system-autoscaler/pkg/informers"
-	"github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/recommender"
 )
 
 // CustomMetricResource wraps provider.CustomMetricInfo in a struct which stores the Name and Namespace of the resource
@@ -35,7 +35,7 @@ type metricValue struct {
 type responseTimeMetricsProvider struct {
 	client       dynamic.Interface
 	mapper       apimeta.RESTMapper
-	metricClient *recommender.Client
+	metricClient *metrics.Client
 	informers    informers.Informers
 	// valuesLock   sync.RWMutex
 	values map[CustomMetricResource]metricValue
@@ -46,7 +46,7 @@ func NewResponseTimeMetricsProvider(client dynamic.Interface, mapper apimeta.RES
 	p := &responseTimeMetricsProvider{
 		client:       client,
 		mapper:       mapper,
-		metricClient: recommender.NewMetricClient(),
+		metricClient: metrics.NewClient(),
 		informers:    informers,
 		values:       make(map[CustomMetricResource]metricValue),
 	}

@@ -1,4 +1,4 @@
-package recommender
+package metrics
 
 import (
 	"encoding/json"
@@ -18,8 +18,8 @@ type Client struct {
 	httpClient http.Client
 }
 
-// NewMetricClient returns a new MetricClient representing a metric client.
-func NewMetricClient() *Client {
+// NewClient returns a new MetricClient representing a metric client.
+func NewClient() *Client {
 	httpClient := http.Client{
 		Transport: &http.Transport{
 			DialContext: (&net.Dialer{

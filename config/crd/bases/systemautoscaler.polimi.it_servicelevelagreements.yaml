@@ -14,7 +14,6 @@ spec:
     listKind: ServiceLevelAgreementList
     plural: servicelevelagreements
     singular: servicelevelagreement
-  preserveUnknownFields: false
   scope: Namespaced
   versions:
   - name: v1beta1

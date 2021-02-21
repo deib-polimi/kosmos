@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	metricsclient "k8s.io/metrics/pkg/client/custom_metrics"
+
 	"github.com/lterrac/system-autoscaler/pkg/informers"
 	"k8s.io/apimachinery/pkg/labels"
 
@@ -41,6 +43,7 @@ var cfg *rest.Config
 var testEnv *envtest.Environment
 var kubeClient *kubernetes.Clientset
 var saClient *systemautoscaler.Clientset
+var metricClient metricsclient.MetricsInterface
 var recommenderOut chan types.NodeScales
 var contentionManagerOut chan types.NodeScales
 var recommenderController *recommender.Controller
@@ -69,6 +72,8 @@ var _ = BeforeSuite(func(done Done) {
 	kubeClient = kubernetes.NewForConfigOrDie(cfg)
 	saClient = clientset.NewForConfigOrDie(cfg)
 
+	metricClient := &recommender.FakeGetter{}
+
 	By("bootstrapping informers")
 	crdInformerFactory := sainformers.NewSharedInformerFactory(saClient, time.Second*30)
 	coreInformerFactory := coreinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
@@ -93,13 +98,10 @@ var _ = BeforeSuite(func(done Done) {
 	recommenderController = recommender.NewController(
 		kubeClient,
 		saClient,
+		metricClient,
 		informers,
 		recommenderOut,
 	)
-	client := recommender.NewMetricClient()
-	server := serverMock()
-	client.Host = server.URL[7:]
-	recommenderController.MetricClient = client
 
 	By("instantiating pod resource updater")
 	updaterController = resupd.NewController(
@@ -147,7 +149,7 @@ func usersMock(w http.ResponseWriter, _ *http.Request) {
 
 func newSLA(name string, container string, labels map[string]string) *sa.ServiceLevelAgreement {
 	return &sa.ServiceLevelAgreement{
-		TypeMeta: metav1.TypeMeta{APIVersion: sa.SchemeGroupVersion.String()},
+		TypeMeta: metav1.TypeMeta{APIVersion: sa.SchemeGroupVersion.String(), Kind: "servicelevelagreements"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,

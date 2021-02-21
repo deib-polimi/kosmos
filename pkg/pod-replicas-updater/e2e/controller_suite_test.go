@@ -2,11 +2,12 @@ package e2e_test
 
 import (
 	"context"
-	replicaupdater "github.com/lterrac/system-autoscaler/pkg/pod-replicas-updater/pkg"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	replicaupdater "github.com/lterrac/system-autoscaler/pkg/pod-replicas-updater/pkg"
 
 	"github.com/lterrac/system-autoscaler/pkg/informers"
 	"k8s.io/apimachinery/pkg/labels"

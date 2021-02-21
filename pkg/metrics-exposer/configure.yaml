@@ -94,6 +94,7 @@ kind: ServiceAccount
 apiVersion: v1
 metadata:
   name: custom-metrics-apiserver
+  namespace: custom-metrics
 ---
 apiVersion: v1
 kind: Service

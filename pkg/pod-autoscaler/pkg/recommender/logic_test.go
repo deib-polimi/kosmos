@@ -1,13 +1,13 @@
 package recommender
 
 import (
-	"github.com/stretchr/testify/require"
-	"testing"
-
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metricsv1beta2 "k8s.io/metrics/pkg/apis/custom_metrics/v1beta2"
+	"testing"
 )
 
 func TestControlTheoryLogic(t *testing.T) {
@@ -96,8 +96,29 @@ func TestControlTheoryLogic(t *testing.T) {
 				},
 			}
 
-			metricsMap := map[string]interface{}{
-				"response_time": tt.currentResponseTime,
+			metricsMap := metricsv1beta2.MetricValue{
+				TypeMeta:        metav1.TypeMeta{
+					Kind:       "",
+					APIVersion: "",
+				},
+				DescribedObject: corev1.ObjectReference{
+					Kind:            "",
+					Namespace:       "",
+					Name:            "",
+					UID:             "",
+					APIVersion:      "",
+					ResourceVersion: "",
+					FieldPath:       "",
+				},
+				Metric:          metricsv1beta2.MetricIdentifier{
+					Name:     "",
+					Selector: nil,
+				},
+				Timestamp:       metav1.Time{
+
+				},
+				WindowSeconds:   nil,
+				Value:          *resource.NewQuantity(int64(tt.currentResponseTime), resource.BinarySI),
 			}
 
 			logic := ControlTheoryLogic{
@@ -106,7 +127,7 @@ func TestControlTheoryLogic(t *testing.T) {
 			}
 
 			for i := 0; i < 200; i++ {
-				containerScale, err := logic.computeContainerScale(pod, containerScale, sla, metricsMap)
+				containerScale, err := logic.computeContainerScale(pod, containerScale, sla, &metricsMap)
 				require.Nil(t, err)
 				require.GreaterOrEqual(t, containerScale.Spec.DesiredResources.Cpu().MilliValue(), tt.lowerBound)
 				require.GreaterOrEqual(t, logic.cores, float64(tt.lowerBound))

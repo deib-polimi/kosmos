@@ -1,9 +1,10 @@
 package e2e_test
 
 import (
-	"github.com/lterrac/system-autoscaler/pkg/informers"
 	"testing"
 	"time"
+
+	"github.com/lterrac/system-autoscaler/pkg/informers"
 
 	sainformers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions"
 	"github.com/lterrac/system-autoscaler/pkg/signals"

@@ -27,6 +27,7 @@ import (
 )
 
 const controllerAgentName = "recommender"
+const responseTime = "response_time"
 
 // Controller is the controller that recommends resources to the pods.
 // For each Pod Scale assigned to the recommender, it will have a pod saved in a list.
@@ -42,7 +43,7 @@ type Controller struct {
 	containerScalesSynced cache.InformerSynced
 
 	// kubernetesCLientset is the client-go of kubernetes
-	kubernetesClientset kubernetes.Clientset
+	kubernetesClientset kubernetes.Interface
 
 	// recommendNodeQueue contains all the nodes that needs a recommendation
 	recommendNodeQueue queue.Queue
@@ -51,7 +52,7 @@ type Controller struct {
 	status *Status
 
 	// MetricClient is a client that polls the metrics from the pod.
-	MetricClient *Client
+	MetricClient MetricGetter
 
 	// recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
@@ -69,8 +70,9 @@ type Status struct {
 
 // NewController returns a new recommender
 func NewController(
-	kubernetesClientset *kubernetes.Clientset,
+	kubernetesClientset kubernetes.Interface,
 	containerScalesClientset containerscalesclientset.Interface,
+	metricsClient MetricGetter,
 	informers informers.Informers,
 	out chan types.NodeScales,
 ) *Controller {
@@ -94,10 +96,10 @@ func NewController(
 		containerScalesClientset: containerScalesClientset,
 		listers:                  informers.GetListers(),
 		containerScalesSynced:    informers.ContainerScale.Informer().HasSynced,
-		kubernetesClientset:      *kubernetesClientset,
+		kubernetesClientset:      kubernetesClientset,
 		recommendNodeQueue:       queue.NewQueue("RecommendQueue"),
 		status:                   status,
-		MetricClient:             NewMetricClient(),
+		MetricClient:             metricsClient,
 		recorder:                 recorder,
 		out:                      out,
 	}
@@ -242,5 +244,6 @@ func (c *Controller) recommendContainer(containerScale *v1beta1.ContainerScale) 
 	newContainerScale, err := logic.computeContainerScale(pod, containerScale, sla, metrics)
 
 	return newContainerScale, nil
-
 }
+
+
