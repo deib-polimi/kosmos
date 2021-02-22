@@ -1,13 +1,14 @@
 package recommender
 
 import (
+	"testing"
+
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metricsv1beta2 "k8s.io/metrics/pkg/apis/custom_metrics/v1beta2"
-	"testing"
 )
 
 func TestControlTheoryLogic(t *testing.T) {
@@ -97,28 +98,7 @@ func TestControlTheoryLogic(t *testing.T) {
 			}
 
 			metricsMap := metricsv1beta2.MetricValue{
-				TypeMeta:        metav1.TypeMeta{
-					Kind:       "",
-					APIVersion: "",
-				},
-				DescribedObject: corev1.ObjectReference{
-					Kind:            "",
-					Namespace:       "",
-					Name:            "",
-					UID:             "",
-					APIVersion:      "",
-					ResourceVersion: "",
-					FieldPath:       "",
-				},
-				Metric:          metricsv1beta2.MetricIdentifier{
-					Name:     "",
-					Selector: nil,
-				},
-				Timestamp:       metav1.Time{
-
-				},
-				WindowSeconds:   nil,
-				Value:          *resource.NewQuantity(int64(tt.currentResponseTime), resource.BinarySI),
+				Value: *resource.NewQuantity(int64(tt.currentResponseTime), resource.BinarySI),
 			}
 
 			logic := ControlTheoryLogic{
