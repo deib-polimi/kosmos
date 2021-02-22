@@ -162,7 +162,7 @@ func (c *Controller) syncService(namespace string, service *corev1.Service, sla 
 			continue
 		}
 
-		containerscale := NewContainerScale(pod, sla, label)
+		containerscale := NewContainerScale(pod, sla, service, label)
 
 		_, err := c.containerScalesClientset.SystemautoscalerV1beta1().ContainerScales(namespace).Create(context.TODO(), containerscale, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
@@ -188,7 +188,7 @@ func (c *Controller) syncService(namespace string, service *corev1.Service, sla 
 
 // NewContainerScale creates a new ContainerScale resource using the corresponding Pod and ServiceLevelAgreement infos.
 // The SLA is the resource Owner in order to enable garbage collection on its deletion.
-func NewContainerScale(pod *corev1.Pod, sla *v1beta1.ServiceLevelAgreement, selectorLabels labels.Set) *v1beta1.ContainerScale {
+func NewContainerScale(pod *corev1.Pod, sla *v1beta1.ServiceLevelAgreement, service *corev1.Service, selectorLabels labels.Set) *v1beta1.ContainerScale {
 	podLabels := make(labels.Set)
 
 	for k, v := range selectorLabels {
@@ -223,6 +223,10 @@ func NewContainerScale(pod *corev1.Pod, sla *v1beta1.ServiceLevelAgreement, sele
 			PodRef: v1beta1.PodRef{
 				Name:      pod.GetName(),
 				Namespace: pod.GetNamespace(),
+			},
+			ServiceRef: v1beta1.ServiceRef{
+				Name:      service.GetName(),
+				Namespace: service.GetNamespace(),
 			},
 			Container:        sla.Spec.Service.Container,
 			DesiredResources: sla.Spec.DefaultResources,

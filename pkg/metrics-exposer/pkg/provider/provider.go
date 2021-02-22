@@ -1,7 +1,9 @@
 package provider
 
 import (
-	"fmt"
+	"errors"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"sync"
 	"time"
 
 	apierr "k8s.io/apimachinery/pkg/api/errors"
@@ -37,42 +39,44 @@ type responseTimeMetricsProvider struct {
 	mapper       apimeta.RESTMapper
 	metricClient *recommender.Client
 	informers    informers.Informers
-	// valuesLock   sync.RWMutex
-	values map[CustomMetricResource]metricValue
+	cacheLock    sync.RWMutex
+	cache        map[CustomMetricResource]metricValue
 }
 
 // NewResponseTimeMetricsProvider returns an instance of responseTimeMetricsProvider
-func NewResponseTimeMetricsProvider(client dynamic.Interface, mapper apimeta.RESTMapper, informers informers.Informers) provider.CustomMetricsProvider {
+func NewResponseTimeMetricsProvider(client dynamic.Interface, mapper apimeta.RESTMapper, informers informers.Informers, stopCh <-chan struct{}) provider.CustomMetricsProvider {
 	p := &responseTimeMetricsProvider{
 		client:       client,
 		mapper:       mapper,
 		metricClient: recommender.NewMetricClient(),
 		informers:    informers,
-		values:       make(map[CustomMetricResource]metricValue),
+		cache:        make(map[CustomMetricResource]metricValue),
 	}
+
+	go wait.Until(p.updateMetrics, time.Second, stopCh)
+
 	return p
 }
 
 // valueFor is a helper function to get just the value of a specific metric
-func (p *responseTimeMetricsProvider) valueFor(info provider.CustomMetricInfo, name types.NamespacedName, metricSelector labels.Selector) (resource.Quantity, error) {
+func (p *responseTimeMetricsProvider) valueFor(info provider.CustomMetricInfo, namespacedName types.NamespacedName, metricSelector labels.Selector) (resource.Quantity, error) {
+
 	info, _, err := info.Normalized(p.mapper)
 	if err != nil {
 		return resource.Quantity{}, err
 	}
 
-	pod, err := p.informers.Pod.Lister().Pods(name.Namespace).Get(name.Name)
-
-	if err != nil {
-		return resource.Quantity{}, fmt.Errorf("Pod %s not found", name)
+	metricInfo := CustomMetricResource{
+		CustomMetricInfo: info,
+		NamespacedName:   namespacedName,
 	}
 
-	value, err := p.metricClient.GetMetrics(pod)
-
-	if err != nil {
-		return resource.Quantity{}, provider.NewMetricNotFoundForError(info.GroupResource, info.Metric, name.Name)
+	value, ok := p.cache[metricInfo]
+	if !ok {
+		return resource.Quantity{}, errors.New("metric not in cache, failed to retrieve metrics")
 	}
 
-	return *resource.NewMilliQuantity(int64(value["response_time"].(float64)), resource.BinarySI), nil
+	return value.value, nil
 }
 
 // metricFor is a helper function which formats a value, metric, and object info into a MetricValue which can be returned by the metrics API
@@ -133,8 +137,9 @@ func (p *responseTimeMetricsProvider) metricsFor(namespace string, selector labe
 }
 
 func (p *responseTimeMetricsProvider) GetMetricByName(name types.NamespacedName, info provider.CustomMetricInfo, metricSelector labels.Selector) (*custom_metrics.MetricValue, error) {
-	// p.valuesLock.RLock()
-	// defer p.valuesLock.RUnlock()
+
+	p.cacheLock.RLock()
+	defer p.cacheLock.RUnlock()
 
 	value, err := p.valueFor(info, name, metricSelector)
 	if err != nil {
@@ -144,19 +149,21 @@ func (p *responseTimeMetricsProvider) GetMetricByName(name types.NamespacedName,
 }
 
 func (p *responseTimeMetricsProvider) GetMetricBySelector(namespace string, selector labels.Selector, info provider.CustomMetricInfo, metricSelector labels.Selector) (*custom_metrics.MetricValueList, error) {
-	// p.valuesLock.RLock()
-	// defer p.valuesLock.RUnlock()
+
+	p.cacheLock.RLock()
+	defer p.cacheLock.RUnlock()
 
 	return p.metricsFor(namespace, selector, info, metricSelector)
 }
 
 func (p *responseTimeMetricsProvider) ListAllMetrics() []provider.CustomMetricInfo {
-	// p.valuesLock.RLock()
-	// defer p.valuesLock.RUnlock()
+
+	p.cacheLock.RLock()
+	defer p.cacheLock.RUnlock()
 
 	// Get unique CustomMetricInfos from wrapper CustomMetricResources
 	infos := make(map[provider.CustomMetricInfo]struct{})
-	for r := range p.values {
+	for r := range p.cache {
 		infos[r.CustomMetricInfo] = struct{}{}
 	}
 

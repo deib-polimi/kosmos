@@ -2,18 +2,18 @@ package main
 
 import (
 	"flag"
-	"os"
-	"time"
-
-	sainformers "github.com/lterrac/system-autoscaler/pkg/informers"
+	clientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
+	sainformers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions"
+	informers2 "github.com/lterrac/system-autoscaler/pkg/informers"
 	"github.com/lterrac/system-autoscaler/pkg/signals"
-
 	coreinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/component-base/logs"
 	"k8s.io/klog/v2"
+	"os"
+	"time"
 
 	"github.com/kubernetes-sigs/custom-metrics-apiserver/pkg/apiserver"
 	basecmd "github.com/kubernetes-sigs/custom-metrics-apiserver/pkg/cmd"
@@ -32,10 +32,11 @@ var (
 // ResponseTimeMetricsAdapter contains a basic adapter used to serve custom metrics
 type ResponseTimeMetricsAdapter struct {
 	basecmd.AdapterBase
-	informers sainformers.Informers
+	// TODO: find a better name for package
+	informers informers2.Informers
 }
 
-func (a *ResponseTimeMetricsAdapter) makeProviderOrDie(informers sainformers.Informers) provider.CustomMetricsProvider {
+func (a *ResponseTimeMetricsAdapter) makeProviderOrDie(informers informers2.Informers, stopCh <-chan struct{}) provider.CustomMetricsProvider {
 	client, err := a.DynamicClient()
 	if err != nil {
 		klog.Fatalf("unable to construct dynamic client: %v", err)
@@ -46,7 +47,7 @@ func (a *ResponseTimeMetricsAdapter) makeProviderOrDie(informers sainformers.Inf
 		klog.Fatalf("unable to construct discovery REST mapper: %v", err)
 	}
 
-	return rtprovider.NewResponseTimeMetricsProvider(client, mapper, informers)
+	return rtprovider.NewResponseTimeMetricsProvider(client, mapper, informers, stopCh)
 }
 
 func main() {
@@ -68,26 +69,44 @@ func main() {
 		klog.Fatalf("Error building kubeconfig: %s", err.Error())
 	}
 
+	saClient, err := clientset.NewForConfig(cfg)
+	if err != nil {
+		klog.Fatalf("Error building example clientset: %s", err.Error())
+	}
+
 	kubernetesClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		klog.Fatalf("Error building example clientset: %s", err.Error())
 	}
 
+	saInformerFactory := sainformers.NewSharedInformerFactory(saClient, time.Second*30)
 	coreInformerFactory := coreinformers.NewSharedInformerFactory(kubernetesClient, time.Second*30)
 
-	informers := sainformers.Informers{
-		Pod: coreInformerFactory.Core().V1().Pods(),
+	// TODO: Check name of this variable
+	informers := informers2.Informers{
+		Pod:                   coreInformerFactory.Core().V1().Pods(),
+		Node:                  coreInformerFactory.Core().V1().Nodes(),
+		Service:               coreInformerFactory.Core().V1().Services(),
+		ContainerScale:        saInformerFactory.Systemautoscaler().V1beta1().ContainerScales(),
+		ServiceLevelAgreement: saInformerFactory.Systemautoscaler().V1beta1().ServiceLevelAgreements(),
 	}
 
 	coreInformerFactory.Start(stopCh)
+	saInformerFactory.Start(stopCh)
 
+
+	// TODO: handle this in a better way
 	go informers.Pod.Informer().Run(stopCh)
+	go informers.Node.Informer().Run(stopCh)
+	go informers.Service.Informer().Run(stopCh)
+	go informers.ContainerScale.Informer().Run(stopCh)
+	go informers.ServiceLevelAgreement.Informer().Run(stopCh)
 
-	if ok := cache.WaitForCacheSync(stopCh, informers.Pod.Informer().HasSynced); !ok {
+	if ok := cache.WaitForCacheSync(stopCh, informers.Pod.Informer().HasSynced, informers.ContainerScale.Informer().HasSynced, informers.Service.Informer().HasSynced, informers.ServiceLevelAgreement.Informer().HasSynced); !ok {
 		klog.Fatalf("failed to wait for caches to sync")
 	}
 
-	responseTimeMetricsProvider := cmd.makeProviderOrDie(informers)
+	responseTimeMetricsProvider := cmd.makeProviderOrDie(informers, stopCh)
 	cmd.WithCustomMetrics(responseTimeMetricsProvider)
 
 	if err := cmd.Run(stopCh); err != nil {

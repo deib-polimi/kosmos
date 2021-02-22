@@ -113,6 +113,7 @@ type ContainerScale struct {
 type ContainerScaleSpec struct {
 	SLARef           SLARef          `json:"serviceLevelAgreement"`
 	PodRef           PodRef          `json:"pod"`
+	ServiceRef       ServiceRef      `json:"service"`
 	Container        string          `json:"container"`
 	DesiredResources v1.ResourceList `json:"desired,omitempty" protobuf:"bytes,3,rep,name=desired,casttype=ResourceList,castkey=ResourceName"`
 }
@@ -123,8 +124,14 @@ type PodRef struct {
 	Namespace string `json:"namespace"`
 }
 
-// SLARef is a reference to a pod
+// SLARef is a reference to a service level agreement
 type SLARef struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+}
+
+// ServiceRef is a reference to a service
+type ServiceRef struct {
 	Name      string `json:"name"`
 	Namespace string `json:"namespace"`
 }
