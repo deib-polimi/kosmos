@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math"
 
+	metricsv1beta2 "k8s.io/metrics/pkg/apis/custom_metrics/v1beta2"
+
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -12,7 +14,7 @@ import (
 
 // Logic is the logic with which the recommender suggests new resources
 type Logic interface {
-	computeContainerScale(pod *v1.Pod, containerScale *v1beta1.ContainerScale, sla *v1beta1.ServiceLevelAgreement, metricMap map[string]interface{}) (*v1beta1.ContainerScale, error)
+	computeContainerScale(pod *v1.Pod, containerScale *v1beta1.ContainerScale, sla *v1beta1.ServiceLevelAgreement, metric *metricsv1beta2.MetricValue) (*v1beta1.ContainerScale, error)
 }
 
 // ControlTheoryLogic is the logic that apply control theory in order to recommendContainer new resources
@@ -39,7 +41,7 @@ const (
 
 // computeContainerScale computes a new pod scale for a given pod.
 // It also requires the old pod scale, the service level agreement and the pod metrics.
-func (logic *ControlTheoryLogic) computeContainerScale(pod *v1.Pod, containerScale *v1beta1.ContainerScale, sla *v1beta1.ServiceLevelAgreement, metricMap map[string]interface{}) (*v1beta1.ContainerScale, error) {
+func (logic *ControlTheoryLogic) computeContainerScale(pod *v1.Pod, containerScale *v1beta1.ContainerScale, sla *v1beta1.ServiceLevelAgreement, metric *metricsv1beta2.MetricValue) (*v1beta1.ContainerScale, error) {
 
 	container, err := ContainerToScale(*pod, sla.Spec.Service.Container)
 
@@ -49,8 +51,8 @@ func (logic *ControlTheoryLogic) computeContainerScale(pod *v1.Pod, containerSca
 	}
 
 	// Compute the cpu and memory value for the pod
-	cpuResource := logic.computeCPUResource(container, sla, metricMap)
-	memoryResource := logic.computeMemoryResource(container, containerScale, sla, metricMap)
+	cpuResource := logic.computeCPUResource(container, sla, metric)
+	memoryResource := logic.computeMemoryResource(container, containerScale, sla, metric)
 	desiredResource := make(v1.ResourceList)
 	desiredResource[v1.ResourceCPU] = *cpuResource
 	desiredResource[v1.ResourceMemory] = *memoryResource
@@ -63,7 +65,7 @@ func (logic *ControlTheoryLogic) computeContainerScale(pod *v1.Pod, containerSca
 }
 
 // computeMemoryResource computes memory resources for a given pod.
-func (logic *ControlTheoryLogic) computeMemoryResource(container v1.Container, containerScale *v1beta1.ContainerScale, sla *v1beta1.ServiceLevelAgreement, metricMap map[string]interface{}) *resource.Quantity {
+func (logic *ControlTheoryLogic) computeMemoryResource(container v1.Container, containerScale *v1beta1.ContainerScale, sla *v1beta1.ServiceLevelAgreement, metric *metricsv1beta2.MetricValue) *resource.Quantity {
 
 	// Retrieve the value of actual and desired cpu resources
 	// TODO: maybe can be deleted
@@ -81,16 +83,16 @@ func (logic *ControlTheoryLogic) computeMemoryResource(container v1.Container, c
 }
 
 // computeMemoryResource computes memory resources for a given pod.
-func (logic *ControlTheoryLogic) computeCPUResource(container v1.Container, sla *v1beta1.ServiceLevelAgreement, metricMap map[string]interface{}) *resource.Quantity {
+func (logic *ControlTheoryLogic) computeCPUResource(container v1.Container, sla *v1beta1.ServiceLevelAgreement, metric *metricsv1beta2.MetricValue) *resource.Quantity {
 
 	// Compute the new desired value
-	result, ok := metricMap["response_time"]
+	result, ok := metric.Value.AsInt64()
 	if !ok {
-		klog.Info(`"response_time" was not in metrics. Metrics are:`, metricMap)
+		klog.Info(`response_time cannot be casted to Int64. response_time is:`, metric)
 		return resource.NewMilliQuantity(container.Resources.Requests.Cpu().MilliValue(), resource.BinarySI)
 	}
 
-	responseTime := result.(float64) / 1000
+	responseTime := float64(result) / 1000
 	// The response time is in seconds
 	setPoint := float64(sla.Spec.Metric.ResponseTime.MilliValue()) / 1000
 	e := 1/setPoint - 1/responseTime

@@ -1,24 +1,25 @@
 package provider
 
 import (
-	"errors"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"sync"
-	"time"
+  "errors"
+  "sync"
+  "time"
 
-	apierr "k8s.io/apimachinery/pkg/api/errors"
-	apimeta "k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/metrics/pkg/apis/custom_metrics"
+  "github.com/lterrac/system-autoscaler/pkg/metrics-exposer/pkg/metrics"
+  "k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/kubernetes-sigs/custom-metrics-apiserver/pkg/provider"
-	"github.com/kubernetes-sigs/custom-metrics-apiserver/pkg/provider/helpers"
-	"github.com/lterrac/system-autoscaler/pkg/informers"
-	"github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/recommender"
+  apierr "k8s.io/apimachinery/pkg/api/errors"
+  apimeta "k8s.io/apimachinery/pkg/api/meta"
+  "k8s.io/apimachinery/pkg/api/resource"
+  metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+  "k8s.io/apimachinery/pkg/labels"
+  "k8s.io/apimachinery/pkg/types"
+  "k8s.io/client-go/dynamic"
+  "k8s.io/metrics/pkg/apis/custom_metrics"
+
+  "github.com/kubernetes-sigs/custom-metrics-apiserver/pkg/provider"
+  "github.com/kubernetes-sigs/custom-metrics-apiserver/pkg/provider/helpers"
+  "github.com/lterrac/system-autoscaler/pkg/informers"
 )
 
 // CustomMetricResource wraps provider.CustomMetricInfo in a struct which stores the Name and Namespace of the resource
@@ -37,7 +38,7 @@ type metricValue struct {
 type responseTimeMetricsProvider struct {
 	client       dynamic.Interface
 	mapper       apimeta.RESTMapper
-	metricClient *recommender.Client
+	metricClient *metrics.Client
 	informers    informers.Informers
 	cacheLock    sync.RWMutex
 	cache        map[CustomMetricResource]metricValue
@@ -48,7 +49,7 @@ func NewResponseTimeMetricsProvider(client dynamic.Interface, mapper apimeta.RES
 	p := &responseTimeMetricsProvider{
 		client:       client,
 		mapper:       mapper,
-		metricClient: recommender.NewMetricClient(),
+		metricClient: metrics.NewClient(),
 		informers:    informers,
 		cache:        make(map[CustomMetricResource]metricValue),
 	}

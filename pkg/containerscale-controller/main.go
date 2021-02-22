@@ -2,9 +2,11 @@ package main
 
 import (
 	"flag"
+	informers2 "github.com/lterrac/system-autoscaler/pkg/informers"
 	"time"
 
-	informers "github.com/lterrac/system-autoscaler/pkg/informers"
+	sainformers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions"
+
 
 	coreinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -17,7 +19,6 @@ import (
 
 	containerScaleController "github.com/lterrac/system-autoscaler/pkg/containerscale-controller/pkg/controller"
 	clientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
-	sainformers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions"
 	"github.com/lterrac/system-autoscaler/pkg/signals"
 )
 
@@ -60,7 +61,7 @@ func main() {
 	coreInformerFactory := coreinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
 	saInformerFactory := sainformers.NewSharedInformerFactory(systemAutoscalerClient, time.Second*30)
 
-	informers := informers.Informers{
+	informers := informers2.Informers{
 		Pod:                   coreInformerFactory.Core().V1().Pods(),
 		Node:                  coreInformerFactory.Core().V1().Nodes(),
 		Service:               coreInformerFactory.Core().V1().Services(),

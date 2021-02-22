@@ -27,6 +27,7 @@ import (
 )
 
 const controllerAgentName = "recommender"
+const responseTime = "response_time"
 
 // Controller is the controller that recommends resources to the pods.
 // For each Pod Scale assigned to the recommender, it will have a pod saved in a list.
@@ -42,7 +43,7 @@ type Controller struct {
 	containerScalesSynced cache.InformerSynced
 
 	// kubernetesCLientset is the client-go of kubernetes
-	kubernetesClientset kubernetes.Clientset
+	kubernetesClientset kubernetes.Interface
 
 	// recommendNodeQueue contains all the nodes that needs a recommendation
 	recommendNodeQueue queue.Queue
@@ -50,8 +51,8 @@ type Controller struct {
 	// status represents the state of the controller
 	status *Status
 
-	// MetricClient is a client that polls the metrics from the pod.
-	MetricClient *Client
+	// MetricGetter is a client that polls the metrics from the pod.
+	MetricGetter MetricGetter
 
 	// recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
@@ -69,8 +70,9 @@ type Status struct {
 
 // NewController returns a new recommender
 func NewController(
-	kubernetesClientset *kubernetes.Clientset,
+	kubernetesClientset kubernetes.Interface,
 	containerScalesClientset containerscalesclientset.Interface,
+	metricsClient MetricGetter,
 	informers informers.Informers,
 	out chan types.NodeScales,
 ) *Controller {
@@ -94,10 +96,10 @@ func NewController(
 		containerScalesClientset: containerScalesClientset,
 		listers:                  informers.GetListers(),
 		containerScalesSynced:    informers.ContainerScale.Informer().HasSynced,
-		kubernetesClientset:      *kubernetesClientset,
+		kubernetesClientset:      kubernetesClientset,
 		recommendNodeQueue:       queue.NewQueue("RecommendQueue"),
 		status:                   status,
-		MetricClient:             NewMetricClient(),
+		MetricGetter:             metricsClient,
 		recorder:                 recorder,
 		out:                      out,
 	}
@@ -233,7 +235,7 @@ func (c *Controller) recommendContainer(containerScale *v1beta1.ContainerScale) 
 	}
 
 	// Retrieve the metrics
-	metrics, err := c.MetricClient.GetMetrics(pod)
+	metrics, err := c.MetricGetter.GetMetrics(pod)
 	if err != nil {
 		return nil, fmt.Errorf("error: %s, failed to get metrics from pod with name %s and namespace %s from lister", err, pod.GetName(), pod.GetNamespace())
 	}
@@ -242,5 +244,4 @@ func (c *Controller) recommendContainer(containerScale *v1beta1.ContainerScale) 
 	newContainerScale, err := logic.computeContainerScale(pod, containerScale, sla, metrics)
 
 	return newContainerScale, nil
-
 }

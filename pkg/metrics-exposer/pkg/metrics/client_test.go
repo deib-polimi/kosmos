@@ -1,4 +1,4 @@
-package recommender
+package metrics
 
 import (
 	"net/http"
@@ -24,7 +24,7 @@ func usersMock(w http.ResponseWriter, r *http.Request) {
 }
 
 func TestGetMetrics(t *testing.T) {
-	client := NewMetricClient()
+	client := NewClient()
 	server := serverMock()
 	client.Host = server.URL[7:]
 	metrics, err := client.GetMetrics(&v1.Pod{})
