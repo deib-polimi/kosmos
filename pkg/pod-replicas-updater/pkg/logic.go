@@ -142,15 +142,7 @@ func (logic *CustomLogicA) computeReplica(sla *v1beta1.ServiceLevelAgreement, po
 		return curReplica
 	}
 
-	nReplicas := curReplica
-
-	// Compute the desired amount of replica
-	for _, scale := range containerscales {
-		if scale.Spec.DesiredResources.Cpu().MilliValue() > scale.Status.ActualResources.Cpu().MilliValue() {
-			nReplicas += 1
-			break
-		}
-	}
+	nReplicas := computeCustomReplicas(containerscales, true, curReplica)
 
 	nReplicas = int32(math.Min(float64(maxReplicas), math.Max(float64(minReplicas), float64(nReplicas))))
 
@@ -220,14 +212,7 @@ func (logic *CustomLogicB) computeReplica(sla *v1beta1.ServiceLevelAgreement, po
 		return curReplica
 	}
 
-	nReplicas := curReplica
-
-	// Compute the desired amount of replica
-	for _, scale := range containerscales {
-		if scale.Spec.DesiredResources.Cpu().MilliValue() > scale.Status.ActualResources.Cpu().MilliValue() {
-			nReplicas += 1
-		}
-	}
+	nReplicas := computeCustomReplicas(containerscales, false, curReplica)
 
 	nReplicas = int32(math.Min(float64(maxReplicas), math.Max(float64(minReplicas), float64(nReplicas))))
 
@@ -273,4 +258,17 @@ func (logic *CustomLogicB) computeReplica(sla *v1beta1.ServiceLevelAgreement, po
 
 	return curReplica
 
+}
+
+// computeCustomReplicas returns the amount of replicas that should be added to the application
+func computeCustomReplicas(containerscales []*v1beta1.ContainerScale, earlyStop bool, nReplicas int32) int32 {
+	for _, scale := range containerscales {
+		if scale.Spec.DesiredResources.Cpu().MilliValue() > scale.Status.ActualResources.Cpu().MilliValue() {
+			nReplicas += 1
+			if earlyStop {
+				break
+			}
+		}
+	}
+	return nReplicas
 }
