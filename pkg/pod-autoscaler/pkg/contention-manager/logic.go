@@ -93,8 +93,8 @@ func (m *ContentionManager) Solve() []*v1beta1.ContainerScale {
 	desiredMemory := &resource.Quantity{}
 
 	for _, containerscale := range m.ContainerScales {
-		desiredCPU.Add(*containerscale.Spec.DesiredResources.Cpu())
-		desiredMemory.Add(*containerscale.Spec.DesiredResources.Memory())
+		desiredCPU.Add(*containerscale.Status.CappedResources.Cpu())
+		desiredMemory.Add(*containerscale.Status.CappedResources.Memory())
 	}
 
 	var actualCPU *resource.Quantity
@@ -104,7 +104,7 @@ func (m *ContentionManager) Solve() []*v1beta1.ContainerScale {
 		if desiredCPU.Cmp(*m.CPUCapacity) == 1 {
 			actualCPU = resource.NewMilliQuantity(
 				m.solverFn(
-					cs.Spec.DesiredResources.Cpu().MilliValue(),
+					cs.Status.CappedResources.Cpu().MilliValue(),
 					desiredCPU.MilliValue(),
 					m.CPUCapacity.MilliValue(),
 				),
@@ -112,14 +112,14 @@ func (m *ContentionManager) Solve() []*v1beta1.ContainerScale {
 			)
 		} else {
 			actualCPU = resource.NewMilliQuantity(
-				cs.Spec.DesiredResources.Cpu().MilliValue(), resource.BinarySI,
+				cs.Status.CappedResources.Cpu().MilliValue(), resource.BinarySI,
 			)
 		}
 
 		if desiredMemory.Cmp(*m.MemoryCapacity) == 1 {
 			actualMemory = resource.NewMilliQuantity(
 				m.solverFn(
-					cs.Spec.DesiredResources.Memory().MilliValue(),
+					cs.Status.CappedResources.Memory().MilliValue(),
 					desiredMemory.MilliValue(),
 					m.MemoryCapacity.MilliValue(),
 				),
@@ -127,7 +127,7 @@ func (m *ContentionManager) Solve() []*v1beta1.ContainerScale {
 			)
 		} else {
 			actualMemory = resource.NewMilliQuantity(
-				cs.Spec.DesiredResources.Memory().MilliValue(),
+				cs.Status.CappedResources.Memory().MilliValue(),
 				resource.BinarySI,
 			)
 		}

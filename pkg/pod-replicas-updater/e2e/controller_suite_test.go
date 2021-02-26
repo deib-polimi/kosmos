@@ -288,6 +288,7 @@ func newContainerScale(sla *sa.ServiceLevelAgreement, pod *corev1.Pod, selectorL
 		},
 		Status: sa.ContainerScaleStatus{
 			ActualResources: sla.Spec.DefaultResources,
+			CappedResources: sla.Spec.DefaultResources,
 		},
 	}
 }

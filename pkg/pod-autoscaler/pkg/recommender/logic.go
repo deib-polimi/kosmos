@@ -51,15 +51,23 @@ func (logic *ControlTheoryLogic) computeContainerScale(pod *v1.Pod, containerSca
 	}
 
 	// Compute the cpu and memory value for the pod
-	cpuResource := logic.computeCPUResource(container, sla, metric)
-	memoryResource := logic.computeMemoryResource(container, containerScale, sla, metric)
-	desiredResource := make(v1.ResourceList)
-	desiredResource[v1.ResourceCPU] = *cpuResource
-	desiredResource[v1.ResourceMemory] = *memoryResource
+	desiredCPU := logic.computeCPUResource(container, sla, metric)
+	desiredMemory := logic.computeMemoryResource(container, containerScale, sla, metric)
+
+	desiredResources := make(v1.ResourceList)
+	desiredResources[v1.ResourceCPU] = *desiredCPU
+	desiredResources[v1.ResourceMemory] = *desiredMemory
+
+	cappedResources := make(v1.ResourceList)
+	cappedCPU, _ := applyBounds(desiredCPU, sla.Spec.MinResources.Memory(), sla.Spec.MaxResources.Memory(), sla.Spec.MinResources != nil, sla.Spec.MaxResources != nil)
+	cappedMemory, _ := applyBounds(desiredMemory, sla.Spec.MinResources.Memory(), sla.Spec.MaxResources.Memory(), sla.Spec.MinResources != nil, sla.Spec.MaxResources != nil)
+	cappedResources[v1.ResourceCPU] = *cappedCPU
+	cappedResources[v1.ResourceMemory] = *cappedMemory
 
 	// Copy the current ContainerScale and edit the desired value
 	newContainerScale := containerScale.DeepCopy()
-	newContainerScale.Spec.DesiredResources = desiredResource
+	newContainerScale.Spec.DesiredResources = desiredResources
+	newContainerScale.Status.CappedResources = cappedResources
 
 	return newContainerScale, nil
 }
@@ -74,7 +82,6 @@ func (logic *ControlTheoryLogic) computeMemoryResource(container v1.Container, c
 
 	// Compute the new desired value
 	newDesiredResource := resource.NewMilliQuantity(desiredResource.MilliValue(), resource.BinarySI)
-	newDesiredResource, _ = applyBounds(newDesiredResource, sla.Spec.MinResources.Memory(), sla.Spec.MaxResources.Memory(), sla.Spec.MinResources != nil, sla.Spec.MaxResources != nil)
 
 	// For logging purpose
 	//klog.Info("Computing memory resource for Pod: ", pod.GetName(), ", actual value: ", actualResource, ", desired value: ", desiredResource, ", new value: ", newDesiredResource)
@@ -101,15 +108,10 @@ func (logic *ControlTheoryLogic) computeCPUResource(container v1.Container, sla 
 	cores := math.Min(math.Max(minCPU, xc+DC*e), oldcores*maxScaleOut)
 
 	newDesiredResource := resource.NewMilliQuantity(int64(cores), resource.BinarySI)
-	newDesiredResource, bounded := applyBounds(newDesiredResource, sla.Spec.MinResources.Cpu(), sla.Spec.MaxResources.Cpu(), sla.Spec.MinResources != nil, sla.Spec.MaxResources != nil)
 
 	klog.Info("xc is: ", xc, ", e is: ", e, ", xcprex is: ", logic.xcprec)
 	// Store the value in logic
-	if bounded {
-		logic.cores = float64(newDesiredResource.MilliValue())
-	} else {
-		logic.cores = cores
-	}
+	logic.cores = cores
 	logic.xcprec = logic.cores - BC*e
 
 	// For logging purpose
