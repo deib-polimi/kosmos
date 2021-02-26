@@ -312,6 +312,16 @@ func TestSolve(t *testing.T) {
 								corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
 							},
 						},
+						Status: v1beta1.ContainerScaleStatus{
+							ActualResources: corev1.ResourceList{
+								corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
+								corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
+							},
+							CappedResources: corev1.ResourceList{
+								corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
+								corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
+							},
+						},
 					},
 				},
 			},
@@ -329,6 +339,10 @@ func TestSolve(t *testing.T) {
 					},
 					Status: v1beta1.ContainerScaleStatus{
 						ActualResources: corev1.ResourceList{
+							corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
+							corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
+						},
+						CappedResources: corev1.ResourceList{
 							corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
 							corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
 						},
@@ -360,6 +374,16 @@ func TestSolve(t *testing.T) {
 								corev1.ResourceMemory: *resource.NewScaledQuantity(100, resource.Mega),
 							},
 						},
+						Status: v1beta1.ContainerScaleStatus{
+							ActualResources: corev1.ResourceList{
+								corev1.ResourceCPU:    *resource.NewScaledQuantity(100, resource.Milli),
+								corev1.ResourceMemory: *resource.NewScaledQuantity(100, resource.Mega),
+							},
+							CappedResources: corev1.ResourceList{
+								corev1.ResourceCPU:    *resource.NewScaledQuantity(100, resource.Milli),
+								corev1.ResourceMemory: *resource.NewScaledQuantity(100, resource.Mega),
+							},
+						},
 					},
 					{
 						ObjectMeta: metav1.ObjectMeta{
@@ -368,6 +392,16 @@ func TestSolve(t *testing.T) {
 						},
 						Spec: v1beta1.ContainerScaleSpec{
 							DesiredResources: corev1.ResourceList{
+								corev1.ResourceCPU:    *resource.NewScaledQuantity(100, resource.Milli),
+								corev1.ResourceMemory: *resource.NewScaledQuantity(100, resource.Mega),
+							},
+						},
+						Status: v1beta1.ContainerScaleStatus{
+							ActualResources: corev1.ResourceList{
+								corev1.ResourceCPU:    *resource.NewScaledQuantity(100, resource.Milli),
+								corev1.ResourceMemory: *resource.NewScaledQuantity(100, resource.Mega),
+							},
+							CappedResources: corev1.ResourceList{
 								corev1.ResourceCPU:    *resource.NewScaledQuantity(100, resource.Milli),
 								corev1.ResourceMemory: *resource.NewScaledQuantity(100, resource.Mega),
 							},
@@ -392,6 +426,10 @@ func TestSolve(t *testing.T) {
 							corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
 							corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
 						},
+						CappedResources: corev1.ResourceList{
+							corev1.ResourceCPU:    *resource.NewScaledQuantity(100, resource.Milli),
+							corev1.ResourceMemory: *resource.NewScaledQuantity(100, resource.Mega),
+						},
 					},
 				},
 				{
@@ -409,6 +447,10 @@ func TestSolve(t *testing.T) {
 						ActualResources: corev1.ResourceList{
 							corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
 							corev1.ResourceMemory: *resource.NewScaledQuantity(50, resource.Mega),
+						},
+						CappedResources: corev1.ResourceList{
+							corev1.ResourceCPU:    *resource.NewScaledQuantity(100, resource.Milli),
+							corev1.ResourceMemory: *resource.NewScaledQuantity(100, resource.Mega),
 						},
 					},
 				},
