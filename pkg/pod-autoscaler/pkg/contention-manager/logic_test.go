@@ -295,7 +295,7 @@ func TestSolve(t *testing.T) {
 		asserts  func(*testing.T, []*v1beta1.ContainerScale, []*v1beta1.ContainerScale)
 	}{
 		{
-			description: "should get the desired resources",
+			description: "should get the desired capped resources",
 			ContentionManager: ContentionManager{
 				solverFn:       proportional,
 				CPUCapacity:    resource.NewScaledQuantity(100, resource.Milli),
@@ -357,7 +357,7 @@ func TestSolve(t *testing.T) {
 			},
 		},
 		{
-			description: "should get the half of desired resources",
+			description: "should get the half of desired capped resources",
 			ContentionManager: ContentionManager{
 				solverFn:       proportional,
 				CPUCapacity:    resource.NewScaledQuantity(100, resource.Milli),
