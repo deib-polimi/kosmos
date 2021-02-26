@@ -140,5 +140,6 @@ type ServiceRef struct {
 // `Contention Manager` according to the available node resources
 // and other pods' SLA
 type ContainerScaleStatus struct {
+	CappedResources v1.ResourceList `json:"capped,omitempty" protobuf:"bytes,3,rep,name=actual,casttype=ResourceList,castkey=ResourceName"`
 	ActualResources v1.ResourceList `json:"actual,omitempty" protobuf:"bytes,3,rep,name=actual,casttype=ResourceList,castkey=ResourceName"`
 }
