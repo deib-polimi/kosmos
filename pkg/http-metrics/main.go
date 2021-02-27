@@ -27,6 +27,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.Handle("/metrics/response_time", http.HandlerFunc(ResponseTime))
+	mux.Handle("/metrics/request_count", http.HandlerFunc(RequestCount))
 	mux.Handle("/metrics/throughput", http.HandlerFunc(Throughput))
 	mux.Handle("/", http.HandlerFunc(ForwardRequest))
 
@@ -72,6 +73,14 @@ func ResponseTime(res http.ResponseWriter, req *http.Request) {
 		responseTime = 0
 	}
 	fmt.Fprintf(res, `{"response_time": %f}`, responseTime)
+}
+
+func RequestCount(res http.ResponseWriter, req *http.Request) {
+	requestCount := window.Reduce(rolling.Count)
+	if math.IsNaN(requestCount) {
+		requestCount = 0
+	}
+	fmt.Fprintf(res, `{"request_count": %f}`, requestCount)
 }
 
 func Throughput(res http.ResponseWriter, req *http.Request) {

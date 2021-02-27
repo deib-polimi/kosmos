@@ -2,6 +2,7 @@ package provider
 
 import (
 	"fmt"
+
 	"github.com/kubernetes-sigs/custom-metrics-apiserver/pkg/provider"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -145,7 +146,7 @@ func (p *responseTimeMetricsProvider) updateMetrics() {
 func (p *responseTimeMetricsProvider) getMetricsForPod(pod *corev1.Pod) (*resource.Quantity, error) {
 
 	// Retrieve the metrics through the HTTP client
-	value, err := p.metricClient.GetMetrics(pod)
+	value, err := p.metricClient.ResponseTime(pod)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve metrics for pod with name %s and namespace %s, error: %v", pod.Name, pod.Namespace, err)
 	}

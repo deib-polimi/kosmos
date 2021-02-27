@@ -27,7 +27,7 @@ func TestGetMetrics(t *testing.T) {
 	client := NewClient()
 	server := serverMock()
 	client.Host = server.URL[7:]
-	metrics, err := client.GetMetrics(&v1.Pod{})
+	metrics, err := client.ResponseTime(&v1.Pod{})
 	if err != nil {
 		klog.Error(err)
 	}
