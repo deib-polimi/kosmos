@@ -19,7 +19,7 @@ spec:
       serviceAccountName: containerscale-controller
       containers:
       - name: containerscale-controller
-        image: lterrac/containerscale-controller:0.1.0
+        image: systemautoscaler/containerscale-controller:0.1.0
         imagePullPolicy: Always
         ports:
         - containerPort: 443

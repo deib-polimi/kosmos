@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: prime-numbers
-          image: pentabanana/prime-numbers
+          image: systemautoscaler/prime-numbers:0.1.0
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
@@ -26,7 +26,7 @@ spec:
               memory: 128Mi
               cpu: 250m
         - name: http-metrics
-          image: pentabanana/http-metrics:latest
+          image: systemautoscaler/http-metrics:0.1.0
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
