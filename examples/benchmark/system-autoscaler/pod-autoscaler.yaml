@@ -58,7 +58,7 @@ spec:
       serviceAccountName: pod-autoscaler
       containers:
         - name: pod-autoscaler
-          image: lterrac/pod-autoscaler:0.4.0
+          image: system-autoscaler/pod-autoscaler:0.4.0
           imagePullPolicy: Always
           resources:
             limits:
