@@ -7,7 +7,6 @@ import (
 
 	sainformers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions"
 
-
 	coreinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"

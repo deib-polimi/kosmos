@@ -24,6 +24,7 @@ const (
 	ResponseTime Metrics = "response_time"
 	RequestCount Metrics = "request_count"
 	Throughput   Metrics = "throughput"
+	All          Metrics = ""
 )
 
 // NewClient returns a new MetricClient representing a metric client.
@@ -60,6 +61,11 @@ func (c Client) RequestCount(pod *v1.Pod) (map[string]interface{}, error) {
 // Throughput returns the average pod throughput.
 func (c Client) Throughput(pod *v1.Pod) (map[string]interface{}, error) {
 	return c.getMetric(pod, Throughput)
+}
+
+// AllMetrics returns all the metrics available for the pod.
+func (c Client) AllMetrics(pod *v1.Pod) (map[string]interface{}, error) {
+	return c.getMetric(pod, All)
 }
 
 func (c Client) getMetric(pod *v1.Pod, metric Metrics) (map[string]interface{}, error) {

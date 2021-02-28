@@ -29,6 +29,7 @@ func main() {
 	mux.Handle("/metrics/response_time", http.HandlerFunc(ResponseTime))
 	mux.Handle("/metrics/request_count", http.HandlerFunc(RequestCount))
 	mux.Handle("/metrics/throughput", http.HandlerFunc(Throughput))
+	mux.Handle("/metrics/", http.HandlerFunc(AllMetrics))
 	mux.Handle("/", http.HandlerFunc(ForwardRequest))
 
 	address = os.Getenv("ADDRESS")
@@ -95,4 +96,20 @@ func RequestCount(res http.ResponseWriter, req *http.Request) {
 func Throughput(res http.ResponseWriter, req *http.Request) {
 	throughput := window.Reduce(rolling.Count) / windowSize.Seconds()
 	fmt.Fprintf(res, `{"throughput": %f}`, throughput)
+}
+
+// AllMetrics returns all the metrics available for the pod
+func AllMetrics(res http.ResponseWriter, req *http.Request) {
+	responseTime := window.Reduce(rolling.Avg)
+	if math.IsNaN(responseTime) {
+		responseTime = 0
+	}
+	requestCount := window.Reduce(rolling.Count)
+	if math.IsNaN(requestCount) {
+		requestCount = 0
+	}
+
+	throughput := window.Reduce(rolling.Count) / windowSize.Seconds()
+
+	fmt.Fprintf(res, `{"response_time": %f,"request_count": %f,"throughput": %f}`, responseTime, requestCount, throughput)
 }

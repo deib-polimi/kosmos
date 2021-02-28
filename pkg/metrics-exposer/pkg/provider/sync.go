@@ -7,6 +7,7 @@ import (
 	"github.com/kubernetes-sigs/custom-metrics-apiserver/pkg/provider"
 	"github.com/lterrac/system-autoscaler/pkg/metrics-exposer/pkg/metrics"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -40,7 +41,7 @@ func (m Metrics) metric(metric string) (resource.Quantity, error) {
 // for now, it updates the metrics for pods and services
 func (p *responseTimeMetricsProvider) updateMetrics() {
 
-	var responseTimeMetric *resource.Quantity
+	var metrics *Metrics
 	var err error
 
 	// TODO: retrieve the all the pods
@@ -62,25 +63,14 @@ func (p *responseTimeMetricsProvider) updateMetrics() {
 
 		pod, err := p.informers.Pod.Lister().Pods(podNamespace).Get(podName)
 		if err != nil {
-			klog.Errorf("failed to retrieve to retrieve the pod with name %s and namespace %s", podName, podNamespace)
+			klog.Errorf("failed to retrieve the pod with name %s and namespace %s", podName, podNamespace)
 			continue
 		}
 
-		responseTimeMetric, err = p.getResponseTime(pod)
-		if err != nil {
-			klog.Error("failed to retrieve the metrics for pod with name %s and namespace %s", podName, podNamespace)
-			continue
-		}
+		metrics, err = p.PodMetrics(pod)
 
-		requestCountMetric, err := p.getRequestCount(pod)
 		if err != nil {
-			klog.Error("failed to retrieve the metrics for pod with name %s and namespace %s", podName, podNamespace)
-			continue
-		}
-
-		throughputMetric, err := p.getThroughput(pod)
-		if err != nil {
-			klog.Error("failed to retrieve the metrics for pod with name %s and namespace %s", podName, podNamespace)
+			klog.Errorf("failed to retrieve metrics for pod with name %s and namespace %s", podName, podNamespace)
 			continue
 		}
 
@@ -88,7 +78,7 @@ func (p *responseTimeMetricsProvider) updateMetrics() {
 
 		info := provider.CustomMetricInfo{
 			GroupResource: groupResource,
-			Metric:        "response-time",
+			Metric:        "pod-metrics",
 			Namespaced:    true,
 		}
 
@@ -108,12 +98,6 @@ func (p *responseTimeMetricsProvider) updateMetrics() {
 			NamespacedName:   namespacedName,
 		}
 
-		metrics := Metrics{
-			ResponseTime: responseTimeMetric,
-			RequestCount: requestCountMetric,
-			Throughput:   throughputMetric,
-		}
-
 		p.setMetrics(metricInfo, metrics)
 
 		if _, ok := serviceMetricsMap[serviceNamespace]; !ok {
@@ -127,7 +111,7 @@ func (p *responseTimeMetricsProvider) updateMetrics() {
 			serviceMetrics = make([]*Metrics, 0)
 		}
 
-		serviceMetricsMap[serviceNamespace][serviceName] = append(serviceMetrics, &metrics)
+		serviceMetricsMap[serviceNamespace][serviceName] = append(serviceMetrics, metrics)
 
 	}
 
@@ -159,11 +143,12 @@ func (p *responseTimeMetricsProvider) updateMetrics() {
 
 			info := provider.CustomMetricInfo{
 				GroupResource: groupResource,
-				Metric:        "response-time",
+				Metric:        "service-metrics",
 				Namespaced:    true,
 			}
 
 			info, _, err = info.Normalized(p.mapper)
+
 			if err != nil {
 				klog.Errorf("Error normalizing info: %s", err)
 				continue
@@ -179,17 +164,15 @@ func (p *responseTimeMetricsProvider) updateMetrics() {
 				NamespacedName:   namespacedName,
 			}
 
-			metrics := Metrics{
+			metrics := &Metrics{
 				ResponseTime: averageResponseTime,
 				RequestCount: averageRequestCount,
 				Throughput:   averageThroughput,
 			}
 
 			p.setMetrics(metricInfo, metrics)
-
 		}
 	}
-
 }
 
 // getResponseTime retrieve the metrics of a pod
@@ -227,9 +210,23 @@ func (p *responseTimeMetricsProvider) getThroughput(pod *corev1.Pod) (*resource.
 
 }
 
+func (p *responseTimeMetricsProvider) PodMetrics(pod *v1.Pod) (*Metrics, error) {
+	value, err := p.metricClient.AllMetrics(pod)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve all metrics for pod with name %s and namespace %s, error: %v", pod.Name, pod.Namespace, err)
+	}
+
+	return &Metrics{
+		ResponseTime: resource.NewMilliQuantity(int64(value[string(metrics.ResponseTime)].(float64)), resource.BinarySI),
+		RequestCount: resource.NewMilliQuantity(int64(value[string(metrics.RequestCount)].(float64)), resource.BinarySI),
+		Throughput:   resource.NewMilliQuantity(int64(value[string(metrics.Throughput)].(float64)), resource.BinarySI),
+	}, nil
+}
+
 // setMetrics saves the metrics in the provider cache
-func (p *responseTimeMetricsProvider) setMetrics(metricInfo CustomMetricResource, value Metrics) {
+func (p *responseTimeMetricsProvider) setMetrics(metricInfo CustomMetricResource, value *Metrics) {
 	p.cacheLock.RLock()
 	defer p.cacheLock.RUnlock()
-	p.cache[metricInfo] = value
+	p.cache[metricInfo] = *value
 }
