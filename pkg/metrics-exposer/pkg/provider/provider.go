@@ -7,7 +7,6 @@ import (
 
 	"github.com/lterrac/system-autoscaler/pkg/metrics-exposer/pkg/metrics"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/klog/v2"
 
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -42,7 +41,7 @@ type responseTimeMetricsProvider struct {
 	metricClient *metrics.Client
 	informers    informers.Informers
 	cacheLock    sync.RWMutex
-	cache        map[CustomMetricResource]Metrics
+	cache        map[CustomMetricResource]metricValue
 }
 
 // NewResponseTimeMetricsProvider returns an instance of responseTimeMetricsProvider
@@ -52,7 +51,7 @@ func NewResponseTimeMetricsProvider(client dynamic.Interface, mapper apimeta.RES
 		mapper:       mapper,
 		metricClient: metrics.NewClient(),
 		informers:    informers,
-		cache:        make(map[CustomMetricResource]Metrics),
+		cache:        make(map[CustomMetricResource]metricValue),
 	}
 
 	go wait.Until(p.updateMetrics, time.Second, stopCh)
@@ -78,18 +77,8 @@ func (p *responseTimeMetricsProvider) valueFor(info provider.CustomMetricInfo, n
 	if !ok {
 		return resource.Quantity{}, errors.New("metric not in cache, failed to retrieve metrics")
 	}
-	klog.Info("KKKK")
 
-	klog.Info(metricInfo)
-	klog.Info(value)
-	klog.Info("---------------------------------------------------------")
-
-	for k, v := range p.cache {
-		klog.Info(k)
-		klog.Info(v)
-		klog.Info("---------------------------------------------------------")
-	}
-	return value.metric(metricInfo.CustomMetricInfo.Metric)
+	return value.value, nil
 }
 
 // metricFor is a helper function which formats a value, metric, and object info into a MetricValue which can be returned by the metrics API
