@@ -94,7 +94,6 @@ func main() {
 	coreInformerFactory.Start(stopCh)
 	saInformerFactory.Start(stopCh)
 
-
 	// TODO: handle this in a better way
 	go informers.Pod.Informer().Run(stopCh)
 	go informers.Node.Informer().Run(stopCh)

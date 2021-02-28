@@ -51,7 +51,7 @@ spec:
       serviceAccountName: custom-metrics-apiserver
       containers:
       - name: custom-metrics-apiserver
-        image: lterrac/metrics-exposer:0.1.0
+        image: systemautoscaler/metrics-exposer:0.1.0
         imagePullPolicy: Always
         resources:
           requests:

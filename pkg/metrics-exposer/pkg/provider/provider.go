@@ -7,6 +7,7 @@ import (
 
 	"github.com/lterrac/system-autoscaler/pkg/metrics-exposer/pkg/metrics"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog/v2"
 
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -77,7 +78,17 @@ func (p *responseTimeMetricsProvider) valueFor(info provider.CustomMetricInfo, n
 	if !ok {
 		return resource.Quantity{}, errors.New("metric not in cache, failed to retrieve metrics")
 	}
+	klog.Info("KKKK")
 
+	klog.Info(metricInfo)
+	klog.Info(value)
+	klog.Info("---------------------------------------------------------")
+
+	for k, v := range p.cache {
+		klog.Info(k)
+		klog.Info(v)
+		klog.Info("---------------------------------------------------------")
+	}
 	return value.metric(metricInfo.CustomMetricInfo.Metric)
 }
 

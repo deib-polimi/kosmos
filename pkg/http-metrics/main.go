@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/asecurityteam/rolling"
+	"k8s.io/klog/v2"
 )
 
 //
@@ -26,9 +27,9 @@ var windowGranularity time.Duration
 func main() {
 	mux := http.NewServeMux()
 
-	mux.Handle("/metrics/response_time", http.HandlerFunc(ResponseTime))
-	mux.Handle("/metrics/request_count", http.HandlerFunc(RequestCount))
-	mux.Handle("/metrics/throughput", http.HandlerFunc(Throughput))
+	mux.Handle("/metric/response_time", http.HandlerFunc(ResponseTime))
+	mux.Handle("/metric/request_count", http.HandlerFunc(RequestCount))
+	mux.Handle("/metric/throughput", http.HandlerFunc(Throughput))
 	mux.Handle("/metrics/", http.HandlerFunc(AllMetrics))
 	mux.Handle("/", http.HandlerFunc(ForwardRequest))
 
@@ -36,6 +37,8 @@ func main() {
 	port = os.Getenv("PORT")
 	windowSizeString := os.Getenv("WINDOW_SIZE")
 	windowGranularityString := os.Getenv("WINDOW_GRANULARITY")
+
+	var err error
 	log.Println("Reading environment variables")
 
 	srv := &http.Server{
@@ -45,13 +48,13 @@ func main() {
 	target, _ = url.Parse("http://" + address + ":" + port)
 	log.Println("Forwarding all requests to:", target)
 
-	windowSize, err := time.ParseDuration(windowSizeString)
+	windowSize, err = time.ParseDuration(windowSizeString)
 
 	if err != nil {
 		log.Fatalf("Failed to parse windows size. Error: %v", err)
 	}
 
-	windowGranularity, err := time.ParseDuration(windowGranularityString)
+	windowGranularity, err = time.ParseDuration(windowGranularityString)
 
 	if err != nil {
 		log.Fatalf("Failed to parse windows granularity. Error: %v", err)
@@ -108,6 +111,9 @@ func AllMetrics(res http.ResponseWriter, req *http.Request) {
 	if math.IsNaN(requestCount) {
 		requestCount = 0
 	}
+
+	klog.Info(windowSize)
+	klog.Info(windowSize.Seconds())
 
 	throughput := window.Reduce(rolling.Count) / windowSize.Seconds()
 
