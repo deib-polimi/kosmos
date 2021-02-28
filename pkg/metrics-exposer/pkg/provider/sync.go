@@ -5,7 +5,6 @@ import (
 
 	"github.com/kubernetes-sigs/custom-metrics-apiserver/pkg/provider"
 	"github.com/lterrac/system-autoscaler/pkg/metrics-exposer/pkg/metrics"
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/labels"
@@ -58,21 +57,21 @@ func (p *responseTimeMetricsProvider) updateMetrics() {
 			continue
 		}
 
-		err = p.UpdatePodMetric(podName, podNamespace, metrics.ResponseTime, *podMetrics.ResponseTime)
+		err = p.updatePodMetric(podName, podNamespace, metrics.ResponseTime, *podMetrics.ResponseTime)
 
 		if err != nil {
 			klog.Errorf("error while updating response time for pod with name %s and namespace %s", podName, podNamespace)
 			continue
 		}
 
-		err = p.UpdatePodMetric(podName, podNamespace, metrics.RequestCount, *podMetrics.RequestCount)
+		err = p.updatePodMetric(podName, podNamespace, metrics.RequestCount, *podMetrics.RequestCount)
 
 		if err != nil {
 			klog.Errorf("error while updating request count for pod with name %s and namespace %s", podName, podNamespace)
 			continue
 		}
 
-		err = p.UpdatePodMetric(podName, podNamespace, metrics.Throughput, *podMetrics.Throughput)
+		err = p.updatePodMetric(podName, podNamespace, metrics.Throughput, *podMetrics.Throughput)
 
 		if err != nil {
 			klog.Errorf("error while updating throughput for pod with name %s and namespace %s", podName, podNamespace)
@@ -127,47 +126,12 @@ func (p *responseTimeMetricsProvider) updateMetrics() {
 					Throughput:   averageThroughput,
 				}
 			}
-			p.UpdateServiceMetric(name, namespace, metrics.ResponseTime, *metricsValue.ResponseTime)
-			p.UpdateServiceMetric(name, namespace, metrics.RequestCount, *metricsValue.RequestCount)
-			p.UpdateServiceMetric(name, namespace, metrics.Throughput, *metricsValue.Throughput)
+			p.updateServiceMetric(name, namespace, metrics.ResponseTime, *metricsValue.ResponseTime)
+			p.updateServiceMetric(name, namespace, metrics.RequestCount, *metricsValue.RequestCount)
+			p.updateServiceMetric(name, namespace, metrics.Throughput, *metricsValue.Throughput)
 
 		}
 	}
-}
-
-// getResponseTime retrieve the metrics of a pod
-func (p *responseTimeMetricsProvider) getResponseTime(pod *corev1.Pod) (*resource.Quantity, error) {
-
-	// Retrieve the metrics through the HTTP client
-	value, err := p.metricClient.ResponseTime(pod)
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve %s for pod with name %s and namespace %s, error: %v", string(metrics.ResponseTime), pod.Name, pod.Namespace, err)
-	}
-	return resource.NewMilliQuantity(int64(value[string(metrics.ResponseTime)].(float64)), resource.BinarySI), nil
-}
-
-// getResponseTimeForPod retrieve the metrics of a pod
-func (p *responseTimeMetricsProvider) getRequestCount(pod *corev1.Pod) (*resource.Quantity, error) {
-
-	// Retrieve the metrics through the HTTP client
-	value, err := p.metricClient.RequestCount(pod)
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve %s for pod with name %s and namespace %s, error: %v", string(metrics.ResponseTime), pod.Name, pod.Namespace, err)
-	}
-	return resource.NewMilliQuantity(int64(value[string(metrics.RequestCount)].(float64)), resource.BinarySI), nil
-
-}
-
-// getResponseTimeForPod retrieve the metrics of a pod
-func (p *responseTimeMetricsProvider) getThroughput(pod *corev1.Pod) (*resource.Quantity, error) {
-
-	// Retrieve the metrics through the HTTP client
-	value, err := p.metricClient.ResponseTime(pod)
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve %s for pod with name %s and namespace %s, error: %v", string(metrics.ResponseTime), pod.Name, pod.Namespace, err)
-	}
-	return resource.NewMilliQuantity(int64(value[string(metrics.Throughput)].(float64)), resource.BinarySI), nil
-
 }
 
 func (p *responseTimeMetricsProvider) PodMetrics(pod *v1.Pod) (*Metrics, error) {
@@ -191,7 +155,7 @@ func (p *responseTimeMetricsProvider) setMetrics(metricInfo CustomMetricResource
 	p.cache[metricInfo] = value
 }
 
-func (p *responseTimeMetricsProvider) UpdatePodMetric(pod, namespace string, metric metrics.Metrics, quantity resource.Quantity) error {
+func (p *responseTimeMetricsProvider) updatePodMetric(pod, namespace string, metric metrics.Metrics, quantity resource.Quantity) error {
 
 	groupResource := schema.ParseGroupResource("pod")
 
@@ -227,7 +191,7 @@ func (p *responseTimeMetricsProvider) UpdatePodMetric(pod, namespace string, met
 	return nil
 }
 
-func (p *responseTimeMetricsProvider) UpdateServiceMetric(service, namespace string, metric metrics.Metrics, quantity resource.Quantity) error {
+func (p *responseTimeMetricsProvider) updateServiceMetric(service, namespace string, metric metrics.Metrics, quantity resource.Quantity) error {
 	groupResource := schema.ParseGroupResource("service")
 
 	info := provider.CustomMetricInfo{
