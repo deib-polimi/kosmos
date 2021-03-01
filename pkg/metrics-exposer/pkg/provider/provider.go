@@ -2,12 +2,11 @@ package provider
 
 import (
 	"errors"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"sync"
 	"time"
 
 	"github.com/lterrac/system-autoscaler/pkg/metrics-exposer/pkg/metrics"
-	"k8s.io/apimachinery/pkg/util/wait"
-
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"

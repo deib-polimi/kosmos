@@ -11,10 +11,8 @@ import (
 	"time"
 
 	"github.com/asecurityteam/rolling"
-	"k8s.io/klog/v2"
 )
 
-//
 var target = &url.URL{}
 var window = &rolling.TimePolicy{}
 
@@ -83,7 +81,7 @@ func ResponseTime(res http.ResponseWriter, req *http.Request) {
 	if math.IsNaN(responseTime) {
 		responseTime = 0
 	}
-	fmt.Fprintf(res, `{"response_time": %f}`, responseTime)
+	_, _ = fmt.Fprintf(res, `{"response_time": %f}`, responseTime)
 }
 
 // RequestCount return the current number of request sent to the pod
@@ -92,13 +90,13 @@ func RequestCount(res http.ResponseWriter, req *http.Request) {
 	if math.IsNaN(requestCount) {
 		requestCount = 0
 	}
-	fmt.Fprintf(res, `{"request_count": %f}`, requestCount)
+	_, _ = fmt.Fprintf(res, `{"request_count": %f}`, requestCount)
 }
 
 // Throughput returns the pod throughput in request per second
 func Throughput(res http.ResponseWriter, req *http.Request) {
 	throughput := window.Reduce(rolling.Count) / windowSize.Seconds()
-	fmt.Fprintf(res, `{"throughput": %f}`, throughput)
+	_, _ = fmt.Fprintf(res, `{"throughput": %f}`, throughput)
 }
 
 // AllMetrics returns all the metrics available for the pod
@@ -107,15 +105,12 @@ func AllMetrics(res http.ResponseWriter, req *http.Request) {
 	if math.IsNaN(responseTime) {
 		responseTime = 0
 	}
+
 	requestCount := window.Reduce(rolling.Count)
 	if math.IsNaN(requestCount) {
 		requestCount = 0
 	}
 
-	klog.Info(windowSize)
-	klog.Info(windowSize.Seconds())
-
 	throughput := window.Reduce(rolling.Count) / windowSize.Seconds()
-
-	fmt.Fprintf(res, `{"response_time": %f,"request_count": %f,"throughput": %f}`, responseTime, requestCount, throughput)
+	_, _ = fmt.Fprintf(res, `{"response_time": %f,"request_count": %f,"throughput": %f}`, responseTime, requestCount, throughput)
 }

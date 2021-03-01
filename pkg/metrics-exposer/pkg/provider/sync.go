@@ -90,7 +90,6 @@ func (p *responseTimeMetricsProvider) updateMetrics() {
 		}
 
 		serviceMetricsMap[serviceNamespace][serviceName] = append(serviceMetrics, podMetrics)
-
 	}
 
 	for namespace, nestedMap := range serviceMetricsMap {
@@ -103,11 +102,11 @@ func (p *responseTimeMetricsProvider) updateMetrics() {
 			for _, metric := range serviceMetrics {
 				requests := metric.RequestCount.Value()
 				responseTimeSum += int(metric.ResponseTime.MilliValue()) * int(requests)
-				requestCountSum += int(requests)
 				throughputSum += int(metric.Throughput.MilliValue()) * int(requests)
+				requestCountSum += int(requests)
 			}
-			var metricsValue *Metrics
 
+			var metricsValue *Metrics
 			if requestCountSum == 0 {
 				metricsValue = &Metrics{
 					ResponseTime: resource.NewQuantity(0, resource.BinarySI),
@@ -115,7 +114,6 @@ func (p *responseTimeMetricsProvider) updateMetrics() {
 					Throughput:   resource.NewQuantity(0, resource.BinarySI),
 				}
 			} else {
-
 				averageResponseTime := resource.NewMilliQuantity(int64(responseTimeSum/requestCountSum), resource.BinarySI)
 				averageRequestCount := resource.NewQuantity(int64(requestCountSum), resource.BinarySI)
 				averageThroughput := resource.NewMilliQuantity(int64(throughputSum/requestCountSum), resource.BinarySI)
@@ -126,9 +124,23 @@ func (p *responseTimeMetricsProvider) updateMetrics() {
 					Throughput:   averageThroughput,
 				}
 			}
-			p.updateServiceMetric(name, namespace, metrics.ResponseTime, *metricsValue.ResponseTime)
-			p.updateServiceMetric(name, namespace, metrics.RequestCount, *metricsValue.RequestCount)
-			p.updateServiceMetric(name, namespace, metrics.Throughput, *metricsValue.Throughput)
+			err = p.updateServiceMetric(name, namespace, metrics.ResponseTime, *metricsValue.ResponseTime)
+			if err != nil {
+				klog.Errorf("error while updating response time for service with name %s and namespace %s", name, namespace)
+				continue
+			}
+
+			err = p.updateServiceMetric(name, namespace, metrics.RequestCount, *metricsValue.RequestCount)
+			if err != nil {
+				klog.Errorf("error while updating request count for service with name %s and namespace %s", name, namespace)
+				continue
+			}
+
+			err = p.updateServiceMetric(name, namespace, metrics.Throughput, *metricsValue.Throughput)
+			if err != nil {
+				klog.Errorf("error while updating throughput for service with name %s and namespace %s", name, namespace)
+				continue
+			}
 
 		}
 	}
