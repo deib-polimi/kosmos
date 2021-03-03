@@ -9,6 +9,8 @@ import (
 	saclientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
 	samplescheme "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned/scheme"
 	"github.com/lterrac/system-autoscaler/pkg/informers"
+	podmetrics "github.com/lterrac/system-autoscaler/pkg/metrics-exposer/pkg/metrics"
+	metricsgetter "github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/metrics"
 	"github.com/lterrac/system-autoscaler/pkg/queue"
 	"github.com/modern-go/concurrent"
 	corev1 "k8s.io/api/core/v1"
@@ -21,6 +23,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
+	"k8s.io/metrics/pkg/apis/custom_metrics/v1beta2"
 )
 
 const (
@@ -47,7 +50,7 @@ type Controller struct {
 	recorder record.EventRecorder
 
 	// MetricClient is a client that polls the metrics from the pod.
-	MetricClient *Client
+	MetricClient metricsgetter.MetricGetter
 
 	// Key: namespace-name of the application, Value: assigned logic
 	logicMap concurrent.Map
@@ -59,7 +62,8 @@ type Controller struct {
 // NewController returns a new sample controller
 func NewController(kubernetesClientset *kubernetes.Clientset,
 	saClientSet saclientset.Interface,
-	informers informers.Informers) *Controller {
+	informers informers.Informers,
+	metricClient metricsgetter.MetricGetter) *Controller {
 
 	// Create event broadcaster
 	// Add sample-controller types to the default Kubernetes Scheme so Events can be
@@ -78,7 +82,7 @@ func NewController(kubernetesClientset *kubernetes.Clientset,
 		listers:             informers.GetListers(),
 		podScaleSynced:      informers.PodScale.Informer().HasSynced,
 		podSynced:           informers.Pod.Informer().HasSynced,
-		MetricClient:        NewMetricClient(),
+		MetricClient:        metricClient,
 		workqueue:           queue.NewQueue("SLAQueue"),
 	}
 
@@ -173,14 +177,20 @@ func (c *Controller) handleSLA(key string) error {
 	}
 
 	// Retrieve the metrics for the pods
-	var podMetrics []map[string]interface{}
+	podMetrics := make([]map[podmetrics.Metrics]*v1beta2.MetricValue, 0)
 	for _, pod := range matchedPods {
-		metrics, err := c.MetricClient.getMetrics(pod)
+		responseTime, err := c.MetricClient.GetMetrics(pod, podmetrics.ResponseTime)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve the metrics for pod with name %s and namespace %s, error: %s. Probably the pod is not ready yet, retrying", pod.Name, pod.Namespace, err)
-		} else {
-			podMetrics = append(podMetrics, metrics)
 		}
+
+		// TODO: should we add all the other metrics?
+		metrics := make(map[podmetrics.Metrics]*v1beta2.MetricValue)
+
+		metrics[podmetrics.ResponseTime] = responseTime
+
+		podMetrics = append(podMetrics, metrics)
+
 	}
 
 	// TODO: handle also statefulset, replicaset, etc. (all types of 'apps')

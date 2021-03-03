@@ -5,14 +5,16 @@ import (
 	"time"
 
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
+	podmetrics "github.com/lterrac/system-autoscaler/pkg/metrics-exposer/pkg/metrics"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
+	"k8s.io/metrics/pkg/apis/custom_metrics/v1beta2"
 )
 
 // Logic is the logic the controller uses to suggest new replica values for an application
 type Logic interface {
 	//computeReplica computes the number of replicas for an application
-	computeReplica(sla *v1beta1.ServiceLevelAgreement, pods []*corev1.Pod, podscales []*v1beta1.PodScale, metrics []map[string]interface{}, curReplica int32) int32
+	computeReplica(sla *v1beta1.ServiceLevelAgreement, pods []*corev1.Pod, podscales []*v1beta1.PodScale, metrics []map[podmetrics.Metrics]*v1beta2.MetricValue, curReplica int32) int32
 }
 
 type HPALogicState string
@@ -50,7 +52,7 @@ const (
 )
 
 //computeReplica computes the number of replicas for a service, given the serviceLevelAgreement
-func (logic *HPALogic) computeReplica(sla *v1beta1.ServiceLevelAgreement, pods []*corev1.Pod, podscales []*v1beta1.PodScale, metrics []map[string]interface{}, curReplica int32) int32 {
+func (logic *HPALogic) computeReplica(sla *v1beta1.ServiceLevelAgreement, pods []*corev1.Pod, podscales []*v1beta1.PodScale, metrics []map[podmetrics.Metrics]*v1beta2.MetricValue, curReplica int32) int32 {
 
 	minReplicas := sla.Spec.MinReplicas
 	maxReplicas := sla.Spec.MaxReplicas
@@ -65,11 +67,11 @@ func (logic *HPALogic) computeReplica(sla *v1beta1.ServiceLevelAgreement, pods [
 	desiredTarget := float64(sla.Spec.Metric.ResponseTime.MilliValue())
 	actualTarget := 0.0
 	for _, metric := range metrics {
-		result, ok := metric["response_time"]
+		result, ok := metric[podmetrics.ResponseTime]
 		if !ok {
 			klog.Info(`"response_time" was not in metrics. Metrics are:`, metric)
 		}
-		actualTarget += result.(float64)
+		actualTarget += float64(result.Value.Value())
 	}
 	nPods := float64(len(metrics))
 	actualTarget = actualTarget / nPods
