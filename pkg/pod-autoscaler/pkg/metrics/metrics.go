@@ -1,7 +1,8 @@
-package recommender
+package metricsgetter
 
 import (
 	"github.com/kubernetes-sigs/custom-metrics-apiserver/pkg/dynamicmapper"
+	"github.com/lterrac/system-autoscaler/pkg/metrics-exposer/pkg/metrics"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/labels"
@@ -12,7 +13,7 @@ import (
 
 // MetricGetter is used by the recommender to fetch Pod metrics
 type MetricGetter interface {
-	GetMetrics(p *corev1.Pod) (*metricsv1beta2.MetricValue, error)
+	GetMetrics(p *corev1.Pod, metric metrics.Metrics) (*metricsv1beta2.MetricValue, error)
 }
 
 // DefaultGetter is the standard implementation of MetriGetter
@@ -27,17 +28,19 @@ func NewDefaultGetter(cfg *rest.Config, m *dynamicmapper.RegeneratingDiscoveryRE
 	}
 }
 
-// GetMetrics retrieves the Pod metrics
-func (d *DefaultGetter) GetMetrics(p *corev1.Pod) (*metricsv1beta2.MetricValue, error) {
-	return d.client.NamespacedMetrics(p.Namespace).GetForObject(corev1.SchemeGroupVersion.WithKind("Pod").GroupKind(), p.Name, responseTime, labels.Everything())
+// GetMetrics retrieves the Pod metrics. metrics.All is not supported at the moment by metrics-exposer so don't use it
+func (d *DefaultGetter) GetMetrics(p *corev1.Pod, metric metrics.Metrics) (*metricsv1beta2.MetricValue, error) {
+	return d.client.NamespacedMetrics(p.Namespace).GetForObject(corev1.SchemeGroupVersion.WithKind("Pod").GroupKind(), p.Name, metric.String(), labels.Everything())
 }
 
 // FakeGetter is used to mock the custom metrics api, especially during e2e tests
-type FakeGetter struct{}
+type FakeGetter struct {
+	ResponseTime int64
+}
 
 // GetMetrics always return a MetricValue of 5
-func (d *FakeGetter) GetMetrics(p *corev1.Pod) (*metricsv1beta2.MetricValue, error) {
+func (d *FakeGetter) GetMetrics(p *corev1.Pod, metric metrics.Metrics) (*metricsv1beta2.MetricValue, error) {
 	return &metricsv1beta2.MetricValue{
-		Value: *resource.NewQuantity(5, resource.BinarySI),
+		Value: *resource.NewQuantity(d.ResponseTime, resource.BinarySI),
 	}, nil
 }

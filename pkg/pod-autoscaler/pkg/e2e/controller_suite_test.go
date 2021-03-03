@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	sainformers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions"
+	metricsgetter "github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/metrics"
 	resupd "github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/pod-resource-updater"
 	"github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/recommender"
 	"github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/types"
@@ -72,7 +73,9 @@ var _ = BeforeSuite(func(done Done) {
 	kubeClient = kubernetes.NewForConfigOrDie(cfg)
 	saClient = clientset.NewForConfigOrDie(cfg)
 
-	metricClient := &recommender.FakeGetter{}
+	metricClient := &metricsgetter.FakeGetter{
+		ResponseTime: 5,
+	}
 
 	By("bootstrapping informers")
 	crdInformerFactory := sainformers.NewSharedInformerFactory(saClient, time.Second*30)

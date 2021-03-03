@@ -10,6 +10,7 @@ import (
 
 	sainformers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions"
 	cm "github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/contention-manager"
+	metricsgetter "github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/metrics"
 	resupd "github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/pod-resource-updater"
 	"github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/types"
 	metricsclient "k8s.io/metrics/pkg/client/custom_metrics"
@@ -62,7 +63,7 @@ func main() {
 		klog.Fatalf("Error building REST Mapper: %s", err.Error())
 	}
 
-	metricsGetter := recommender.NewDefaultGetter(cfg, mapper, metricsclient.NewAvailableAPIsGetter(kubernetesClient))
+	metricsGetter := metricsgetter.NewDefaultGetter(cfg, mapper, metricsclient.NewAvailableAPIsGetter(kubernetesClient))
 
 	saInformerFactory := sainformers.NewSharedInformerFactory(client, time.Second*30)
 	coreInformerFactory := coreinformers.NewSharedInformerFactory(kubernetesClient, time.Second*30)
