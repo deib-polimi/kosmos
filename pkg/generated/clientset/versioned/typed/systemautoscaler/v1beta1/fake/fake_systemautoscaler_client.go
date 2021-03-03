@@ -12,8 +12,8 @@ type FakeSystemautoscalerV1beta1 struct {
 	*testing.Fake
 }
 
-func (c *FakeSystemautoscalerV1beta1) ContainerScales(namespace string) v1beta1.ContainerScaleInterface {
-	return &FakeContainerScales{c, namespace}
+func (c *FakeSystemautoscalerV1beta1) PodScales(namespace string) v1beta1.PodScaleInterface {
+	return &FakePodScales{c, namespace}
 }
 
 func (c *FakeSystemautoscalerV1beta1) ServiceLevelAgreements(namespace string) v1beta1.ServiceLevelAgreementInterface {

@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
-	"github.com/lterrac/system-autoscaler/pkg/containerscale-controller/pkg/types"
-	containerscalesclientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
+	podscalesclientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
 	samplescheme "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned/scheme"
+	"github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/types"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -34,16 +34,16 @@ const controllerAgentName = "pod-resource-updater"
 // For pod metrics it retrieves, it computes the new resources to assign to the pod.
 type Controller struct {
 
-	// containerScalesClientset is a clientset for our own API group
-	containerScalesClientset containerscalesclientset.Interface
+	// podScalesClientset is a clientset for our own API group
+	podScalesClientset podscalesclientset.Interface
 
 	// kubernetesCLientset is the client-go of kubernetes
 	kubernetesClientset kubernetes.Interface
 
 	listers informers.Listers
 
-	containerScalesSynced cache.InformerSynced
-	podSynced             cache.InformerSynced
+	podScalesSynced cache.InformerSynced
+	podSynced       cache.InformerSynced
 
 	// recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
@@ -57,7 +57,7 @@ type Controller struct {
 
 // NewController returns a new sample controller
 func NewController(kubernetesClientset *kubernetes.Clientset,
-	containerScalesClientset containerscalesclientset.Interface,
+	podScalesClientset podscalesclientset.Interface,
 	informers informers.Informers,
 	in chan types.NodeScales) *Controller {
 
@@ -70,7 +70,7 @@ func NewController(kubernetesClientset *kubernetes.Clientset,
 	eventBroadcaster.StartStructuredLogging(0)
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
-	fileLogger, err := logger.NewFileLogger("/var/containerscale.json")
+	fileLogger, err := logger.NewFileLogger("/var/podscale.json")
 
 	//TODO: remove as soon as possible
 	if err != nil {
@@ -79,14 +79,14 @@ func NewController(kubernetesClientset *kubernetes.Clientset,
 
 	// Instantiate the Controller
 	controller := &Controller{
-		containerScalesClientset: containerScalesClientset,
-		kubernetesClientset:      kubernetesClientset,
-		recorder:                 recorder,
-		listers:                  informers.GetListers(),
-		containerScalesSynced:    informers.ContainerScale.Informer().HasSynced,
-		podSynced:                informers.Pod.Informer().HasSynced,
-		log:                      fileLogger,
-		in:                       in,
+		podScalesClientset:  podScalesClientset,
+		kubernetesClientset: kubernetesClientset,
+		recorder:            recorder,
+		listers:             informers.GetListers(),
+		podScalesSynced:     informers.PodScale.Informer().HasSynced,
+		podSynced:           informers.Pod.Informer().HasSynced,
+		log:                 fileLogger,
+		in:                  in,
 	}
 
 	return controller
@@ -104,13 +104,13 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	// Wait for the caches to be synced before starting workers
 	klog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh,
-		c.containerScalesSynced,
+		c.podScalesSynced,
 		c.podSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
 	klog.Info("Starting pod resource updater workers")
-	// Launch the workers to process containerScale resources and recommend new pod scales
+	// Launch the workers to process podScale resources and recommend new pod scales
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runNodeScaleWorker, time.Second, stopCh)
 	}
@@ -126,56 +126,56 @@ func (c *Controller) Shutdown() {
 func (c *Controller) runNodeScaleWorker() {
 	for nodeScale := range c.in {
 		klog.Info("Processing ", nodeScale)
-		for _, containerScale := range nodeScale.ContainerScales {
+		for _, podScale := range nodeScale.PodScales {
 
-			pod, err := c.listers.Pods(containerScale.Spec.PodRef.Namespace).Get(containerScale.Spec.PodRef.Name)
+			pod, err := c.listers.Pods(podScale.Spec.Namespace).Get(podScale.Spec.Pod)
 			if err != nil {
 				klog.Error("Error retrieving the pod: ", err)
 				return
 			}
 
-			newPod, err := syncPod(pod, *containerScale)
+			newPod, err := syncPod(pod, *podScale)
 			if err != nil {
 				klog.Error("Error syncing the pod: ", err)
 				return
 			}
 
 			// try both updates in dry-run first and then actuate them consistently
-			updatedPod, updatedContainerScale, err := c.AtomicResourceUpdate(newPod, containerScale)
+			updatedPod, updatedPodScale, err := c.AtomicResourceUpdate(newPod, podScale)
 
 			if err != nil {
-				klog.Error("Error while updating pod and containerscale: ", err)
+				klog.Error("Error while updating pod and podscale: ", err)
 				//TODO: We are using this channel as a workqueue. Why don't use one?
 				c.in <- nodeScale
 				return
 			}
 
 			//TODO: handle error
-			_ = c.log.Log(updatedContainerScale)
+			_ = c.log.Log(updatedPodScale)
 
-			klog.Info("Desired resources:", updatedContainerScale.Spec.DesiredResources)
-			klog.Info("Actual resources:", updatedContainerScale.Status.ActualResources)
+			klog.Info("Desired resources:", updatedPodScale.Spec.DesiredResources)
+			klog.Info("Actual resources:", updatedPodScale.Status.ActualResources)
 			klog.Info("Pod resources:", updatedPod.Spec.Containers[0].Resources)
 		}
 	}
 }
 
-// AtomicResourceUpdate updates a Pod and its Containerscale consistently in order to keep synchronized the two resources. Before performing the real update
+// AtomicResourceUpdate updates a Pod and its PodScale consistently in order to keep synchronized the two resources. Before performing the real update
 // it runs a request in dry-run and it checks for any potential error
-func (c *Controller) AtomicResourceUpdate(pod *corev1.Pod, containerScale *v1beta1.ContainerScale) (*corev1.Pod, *v1beta1.ContainerScale, error) {
+func (c *Controller) AtomicResourceUpdate(pod *corev1.Pod, podScale *v1beta1.PodScale) (*corev1.Pod, *v1beta1.PodScale, error) {
 	var err error
-	_, _, err = c.updateResources(pod, containerScale, true)
+	_, _, err = c.updateResources(pod, podScale, true)
 
 	if err != nil {
 		klog.Error("Error while performing dry-run resource update: ", err)
 		return nil, nil, err
 	}
 
-	return c.updateResources(pod, containerScale, false)
+	return c.updateResources(pod, podScale, false)
 }
 
-// updateResources performs Pod and Containerscale resource update in dry-run mode or not whether the corresponding flag is passed
-func (c *Controller) updateResources(pod *corev1.Pod, containerScale *v1beta1.ContainerScale, dryRun bool) (newPod *corev1.Pod, newContainerScale *v1beta1.ContainerScale, err error) {
+// updateResources performs Pod and PodScale resource update in dry-run mode or not whether the corresponding flag is passed
+func (c *Controller) updateResources(pod *corev1.Pod, podScale *v1beta1.PodScale, dryRun bool) (newPod *corev1.Pod, newPodScale *v1beta1.PodScale, err error) {
 
 	opts := &metav1.UpdateOptions{}
 
@@ -183,19 +183,19 @@ func (c *Controller) updateResources(pod *corev1.Pod, containerScale *v1beta1.Co
 		opts.DryRun = []string{metav1.DryRunAll}
 	}
 
-	newPod, err = c.kubernetesClientset.CoreV1().Pods(containerScale.Spec.PodRef.Namespace).Update(context.TODO(), pod, *opts)
+	newPod, err = c.kubernetesClientset.CoreV1().Pods(podScale.Spec.Namespace).Update(context.TODO(), pod, *opts)
 
 	if err != nil {
 		klog.Error("Error updating the pod: ", err)
 		return nil, nil, err
 	}
 
-	newContainerScale, err = c.containerScalesClientset.SystemautoscalerV1beta1().ContainerScales(containerScale.Namespace).Update(context.TODO(), containerScale, *opts)
+	newPodScale, err = c.podScalesClientset.SystemautoscalerV1beta1().PodScales(podScale.Namespace).Update(context.TODO(), podScale, *opts)
 
 	if err != nil {
 		klog.Error("Error updating the pod scale: ", err)
 		return nil, nil, err
 	}
 
-	return newPod, newContainerScale, nil
+	return newPod, newPodScale, nil
 }

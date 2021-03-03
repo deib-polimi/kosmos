@@ -3,6 +3,8 @@ package replicaupdater
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
 	saclientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
 	samplescheme "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned/scheme"
@@ -19,7 +21,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
-	"time"
 )
 
 const (
@@ -38,8 +39,8 @@ type Controller struct {
 
 	listers informers.Listers
 
-	containerScaleSynced cache.InformerSynced
-	podSynced            cache.InformerSynced
+	podScaleSynced cache.InformerSynced
+	podSynced      cache.InformerSynced
 
 	// recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
@@ -71,14 +72,14 @@ func NewController(kubernetesClientset *kubernetes.Clientset,
 
 	// Instantiate the Controller
 	controller := &Controller{
-		saClientSet:          saClientSet,
-		kubernetesClientset:  kubernetesClientset,
-		recorder:             recorder,
-		listers:              informers.GetListers(),
-		containerScaleSynced: informers.ContainerScale.Informer().HasSynced,
-		podSynced:            informers.Pod.Informer().HasSynced,
-		MetricClient:         NewMetricClient(),
-		workqueue:            queue.NewQueue("SLAQueue"),
+		saClientSet:         saClientSet,
+		kubernetesClientset: kubernetesClientset,
+		recorder:            recorder,
+		listers:             informers.GetListers(),
+		podScaleSynced:      informers.PodScale.Informer().HasSynced,
+		podSynced:           informers.Pod.Informer().HasSynced,
+		MetricClient:        NewMetricClient(),
+		workqueue:           queue.NewQueue("SLAQueue"),
 	}
 
 	return controller
@@ -96,7 +97,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	// Wait for the caches to be synced before starting workers
 	klog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh,
-		c.containerScaleSynced,
+		c.podScaleSynced,
 		c.podSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
@@ -145,21 +146,21 @@ func (c *Controller) handleSLA(key string) error {
 		return fmt.Errorf("failed to retrieve the sla, error: %v", err)
 	}
 
-	containerScales, err := c.listers.ContainerScaleLister.List(labels.Everything())
+	podScales, err := c.listers.PodScaleLister.List(labels.Everything())
 	if err != nil {
 		return fmt.Errorf("failed to retrieve the container scales, error: %v", err)
 	}
 
-	if len(containerScales) == 0 {
+	if len(podScales) == 0 {
 		return fmt.Errorf("no container scales found")
 	}
 	// Filter all pod scales and pods matched by the sla
-	var matchedContainerScales []*v1beta1.ContainerScale
+	var matchedPodScales []*v1beta1.PodScale
 	var matchedPods []*corev1.Pod
-	for _, containerScale := range containerScales {
-		if containerScale.Spec.SLARef.Namespace == sla.Namespace && containerScale.Spec.SLARef.Name == sla.Name {
-			matchedContainerScales = append(matchedContainerScales, containerScale)
-			pod, err := c.listers.Pods(containerScale.Spec.PodRef.Namespace).Get(containerScale.Spec.PodRef.Name)
+	for _, podScale := range podScales {
+		if podScale.Spec.Namespace == sla.Namespace && podScale.Spec.SLA == sla.Name {
+			matchedPodScales = append(matchedPodScales, podScale)
+			pod, err := c.listers.Pods(podScale.Spec.Namespace).Get(podScale.Spec.Pod)
 			if err != nil {
 				return fmt.Errorf("failed to retrieve the pod, error: %v", err)
 			} else {
@@ -223,7 +224,7 @@ func (c *Controller) handleSLA(key string) error {
 	}
 
 	// Compute the new amount of replicas
-	nReplicas := logic.computeReplica(sla, matchedPods, matchedContainerScales, podMetrics, *deployment.Spec.Replicas)
+	nReplicas := logic.computeReplica(sla, matchedPods, matchedPodScales, podMetrics, *deployment.Spec.Replicas)
 	klog.Info("SLA key: ", key, " new amount of replicas: ", nReplicas)
 
 	// Set the new amount of replicas

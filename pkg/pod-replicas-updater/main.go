@@ -2,6 +2,8 @@ package main
 
 import (
 	"flag"
+	"time"
+
 	clientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
 	sainformers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions"
 	informers2 "github.com/lterrac/system-autoscaler/pkg/informers"
@@ -11,7 +13,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
-	"time"
 )
 
 var (
@@ -49,7 +50,7 @@ func main() {
 		Pod:                   coreInformerFactory.Core().V1().Pods(),
 		Node:                  coreInformerFactory.Core().V1().Nodes(),
 		Service:               coreInformerFactory.Core().V1().Services(),
-		ContainerScale:        saInformerFactory.Systemautoscaler().V1beta1().ContainerScales(),
+		PodScale:              saInformerFactory.Systemautoscaler().V1beta1().PodScales(),
 		ServiceLevelAgreement: saInformerFactory.Systemautoscaler().V1beta1().ServiceLevelAgreements(),
 	}
 

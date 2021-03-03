@@ -1,17 +1,18 @@
 package replicaupdater
 
 import (
+	"math"
+	"time"
+
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
-	"math"
-	"time"
 )
 
 // Logic is the logic the controller uses to suggest new replica values for an application
 type Logic interface {
 	//computeReplica computes the number of replicas for an application
-	computeReplica(sla *v1beta1.ServiceLevelAgreement, pods []*corev1.Pod, podscales []*v1beta1.ContainerScale, metrics []map[string]interface{}, curReplica int32) int32
+	computeReplica(sla *v1beta1.ServiceLevelAgreement, pods []*corev1.Pod, podscales []*v1beta1.PodScale, metrics []map[string]interface{}, curReplica int32) int32
 }
 
 type HPALogicState string
@@ -49,7 +50,7 @@ const (
 )
 
 //computeReplica computes the number of replicas for a service, given the serviceLevelAgreement
-func (logic *HPALogic) computeReplica(sla *v1beta1.ServiceLevelAgreement, pods []*corev1.Pod, podscales []*v1beta1.ContainerScale, metrics []map[string]interface{}, curReplica int32) int32 {
+func (logic *HPALogic) computeReplica(sla *v1beta1.ServiceLevelAgreement, pods []*corev1.Pod, podscales []*v1beta1.PodScale, metrics []map[string]interface{}, curReplica int32) int32 {
 
 	minReplicas := sla.Spec.MinReplicas
 	maxReplicas := sla.Spec.MaxReplicas

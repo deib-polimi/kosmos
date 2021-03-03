@@ -14,7 +14,7 @@ import (
 
 // Logic is the logic with which the recommender suggests new resources
 type Logic interface {
-	computeContainerScale(pod *v1.Pod, containerScale *v1beta1.ContainerScale, sla *v1beta1.ServiceLevelAgreement, metric *metricsv1beta2.MetricValue) (*v1beta1.ContainerScale, error)
+	computePodScale(pod *v1.Pod, podScale *v1beta1.PodScale, sla *v1beta1.ServiceLevelAgreement, metric *metricsv1beta2.MetricValue) (*v1beta1.PodScale, error)
 }
 
 // ControlTheoryLogic is the logic that apply control theory in order to recommendContainer new resources
@@ -24,10 +24,10 @@ type ControlTheoryLogic struct {
 }
 
 // newControlTheoryLogic returns a new control theory logic
-func newControlTheoryLogic(containerScale *v1beta1.ContainerScale) *ControlTheoryLogic {
+func newControlTheoryLogic(podScale *v1beta1.PodScale) *ControlTheoryLogic {
 	return &ControlTheoryLogic{
-		xcprec: float64(containerScale.Status.ActualResources.Cpu().MilliValue()),
-		cores:  float64(containerScale.Status.ActualResources.Cpu().MilliValue()),
+		xcprec: float64(podScale.Status.ActualResources.Cpu().MilliValue()),
+		cores:  float64(podScale.Status.ActualResources.Cpu().MilliValue()),
 	}
 }
 
@@ -39,9 +39,9 @@ const (
 	DC          = 10
 )
 
-// computeContainerScale computes a new pod scale for a given pod.
+// computePodScale computes a new pod scale for a given pod.
 // It also requires the old pod scale, the service level agreement and the pod metrics.
-func (logic *ControlTheoryLogic) computeContainerScale(pod *v1.Pod, containerScale *v1beta1.ContainerScale, sla *v1beta1.ServiceLevelAgreement, metric *metricsv1beta2.MetricValue) (*v1beta1.ContainerScale, error) {
+func (logic *ControlTheoryLogic) computePodScale(pod *v1.Pod, podScale *v1beta1.PodScale, sla *v1beta1.ServiceLevelAgreement, metric *metricsv1beta2.MetricValue) (*v1beta1.PodScale, error) {
 
 	container, err := ContainerToScale(*pod, sla.Spec.Service.Container)
 
@@ -52,7 +52,7 @@ func (logic *ControlTheoryLogic) computeContainerScale(pod *v1.Pod, containerSca
 
 	// Compute the cpu and memory value for the pod
 	desiredCPU := logic.computeCPUResource(container, sla, metric)
-	desiredMemory := logic.computeMemoryResource(container, containerScale, sla, metric)
+	desiredMemory := logic.computeMemoryResource(container, podScale, sla, metric)
 
 	desiredResources := make(v1.ResourceList)
 	desiredResources[v1.ResourceCPU] = *desiredCPU
@@ -64,21 +64,21 @@ func (logic *ControlTheoryLogic) computeContainerScale(pod *v1.Pod, containerSca
 	cappedResources[v1.ResourceCPU] = *cappedCPU
 	cappedResources[v1.ResourceMemory] = *cappedMemory
 
-	// Copy the current ContainerScale and edit the desired value
-	newContainerScale := containerScale.DeepCopy()
-	newContainerScale.Spec.DesiredResources = desiredResources
-	newContainerScale.Status.CappedResources = cappedResources
+	// Copy the current PodScale and edit the desired value
+	newPodScale := podScale.DeepCopy()
+	newPodScale.Spec.DesiredResources = desiredResources
+	newPodScale.Status.CappedResources = cappedResources
 
-	return newContainerScale, nil
+	return newPodScale, nil
 }
 
 // computeMemoryResource computes memory resources for a given pod.
-func (logic *ControlTheoryLogic) computeMemoryResource(container v1.Container, containerScale *v1beta1.ContainerScale, sla *v1beta1.ServiceLevelAgreement, metric *metricsv1beta2.MetricValue) *resource.Quantity {
+func (logic *ControlTheoryLogic) computeMemoryResource(container v1.Container, podScale *v1beta1.PodScale, sla *v1beta1.ServiceLevelAgreement, metric *metricsv1beta2.MetricValue) *resource.Quantity {
 
 	// Retrieve the value of actual and desired cpu resources
 	// TODO: maybe can be deleted
-	desiredResource := containerScale.Spec.DesiredResources.Memory()
-	//actualResource := containerScale.Status.ActualResources.Memory()
+	desiredResource := podScale.Spec.DesiredResources.Memory()
+	//actualResource := podScale.Status.ActualResources.Memory()
 
 	// Compute the new desired value
 	newDesiredResource := resource.NewMilliQuantity(desiredResource.MilliValue(), resource.BinarySI)

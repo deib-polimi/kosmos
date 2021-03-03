@@ -1,7 +1,7 @@
 apiVersion: systemautoscaler.polimi.it/v1beta1
-kind: ContainerScale
+kind: PodScale
 metadata:
-  name: example-containerscale
+  name: example-podscale
 spec:
   serviceLevelAgreement:
     name: example-sla
