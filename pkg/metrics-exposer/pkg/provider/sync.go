@@ -153,9 +153,9 @@ func (p *responseTimeMetricsProvider) PodMetrics(pod *v1.Pod) (*Metrics, error) 
 	}
 
 	return &Metrics{
-		ResponseTime: resource.NewMilliQuantity(int64(value[string(metrics.ResponseTime)].(float64)), resource.BinarySI),
-		RequestCount: resource.NewQuantity(int64(value[string(metrics.RequestCount)].(float64)), resource.BinarySI),
-		Throughput:   resource.NewMilliQuantity(int64(value[string(metrics.Throughput)].(float64)), resource.BinarySI),
+		ResponseTime: resource.NewMilliQuantity(int64(value[metrics.ResponseTime.String()].(float64)), resource.BinarySI),
+		RequestCount: resource.NewQuantity(int64(value[metrics.RequestCount.String()].(float64)), resource.BinarySI),
+		Throughput:   resource.NewMilliQuantity(int64(value[metrics.Throughput.String()].(float64)), resource.BinarySI),
 	}, nil
 }
 
@@ -172,7 +172,7 @@ func (p *responseTimeMetricsProvider) updatePodMetric(pod, namespace string, met
 
 	info := provider.CustomMetricInfo{
 		GroupResource: groupResource,
-		Metric:        string(metric),
+		Metric:        metric.String(),
 		Namespaced:    true,
 	}
 
@@ -207,7 +207,7 @@ func (p *responseTimeMetricsProvider) updateServiceMetric(service, namespace str
 
 	info := provider.CustomMetricInfo{
 		GroupResource: groupResource,
-		Metric:        string(metric),
+		Metric:        metric.String(),
 		Namespaced:    true,
 	}
 

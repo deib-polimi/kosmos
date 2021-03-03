@@ -27,6 +27,10 @@ const (
 	All          Metrics = ""
 )
 
+func (m Metrics) String() string {
+	return string(m)
+}
+
 // NewClient returns a new MetricClient representing a metric client.
 func NewClient() *Client {
 	httpClient := http.Client{
@@ -76,7 +80,7 @@ func (c Client) getMetric(pod *v1.Pod, metric Metrics) (map[string]interface{}, 
 	host := c.Host
 	host = strings.Replace(host, "{pod_address}", podAddress, -1)
 	host = strings.Replace(host, "{pod_port}", "8000", -1)
-	path := "metrics/" + metric
+	path := "metrics/" + metric.String()
 	// Create the request
 	metricServerURL := url.URL{
 		// TODO: http is not a good protocol for polling data
@@ -84,7 +88,7 @@ func (c Client) getMetric(pod *v1.Pod, metric Metrics) (map[string]interface{}, 
 		// offerings the metrics
 		Scheme: "http",
 		Host:   host,
-		Path:   string(path),
+		Path:   path,
 	}
 	request, err := http.NewRequest(http.MethodGet, metricServerURL.String(), nil)
 	if err != nil {
