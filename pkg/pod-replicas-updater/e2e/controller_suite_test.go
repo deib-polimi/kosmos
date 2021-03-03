@@ -76,7 +76,7 @@ var _ = BeforeSuite(func(done Done) {
 		Pod:                   coreInformerFactory.Core().V1().Pods(),
 		Node:                  coreInformerFactory.Core().V1().Nodes(),
 		Service:               coreInformerFactory.Core().V1().Services(),
-		ContainerScale:        crdInformerFactory.Systemautoscaler().V1beta1().ContainerScales(),
+		PodScale:              crdInformerFactory.Systemautoscaler().V1beta1().PodScales(),
 		ServiceLevelAgreement: crdInformerFactory.Systemautoscaler().V1beta1().ServiceLevelAgreements(),
 	}
 
@@ -250,16 +250,16 @@ func newDeployment(name string, container string, labels map[string]string, sele
 	}
 }
 
-func newContainerScale(sla *sa.ServiceLevelAgreement, pod *corev1.Pod, selectorLabels map[string]string) *sa.ContainerScale {
+func newPodScale(sla *sa.ServiceLevelAgreement, pod *corev1.Pod, selectorLabels map[string]string) *sa.PodScale {
 	podLabels := make(labels.Set)
 	for k, v := range selectorLabels {
 		podLabels[k] = v
 	}
 	podLabels["system.autoscaler/node"] = pod.Spec.NodeName
-	return &sa.ContainerScale{
+	return &sa.PodScale{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "sa.polimi.it/v1beta1",
-			Kind:       "ContainerScale",
+			Kind:       "PodScale",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pod-" + pod.GetName(),
@@ -274,19 +274,14 @@ func newContainerScale(sla *sa.ServiceLevelAgreement, pod *corev1.Pod, selectorL
 				},
 			},
 		},
-		Spec: sa.ContainerScaleSpec{
-			SLARef: sa.SLARef{
-				Name:      sla.GetName(),
-				Namespace: sla.GetNamespace(),
-			},
-			PodRef: sa.PodRef{
-				Name:      pod.GetName(),
-				Namespace: pod.GetNamespace(),
-			},
+		Spec: sa.PodScaleSpec{
+			SLA:              sla.GetName(),
+			Namespace:        sla.GetNamespace(),
+			Pod:              pod.GetName(),
 			Container:        pod.Spec.Containers[0].Name,
 			DesiredResources: sla.Spec.DefaultResources,
 		},
-		Status: sa.ContainerScaleStatus{
+		Status: sa.PodScaleStatus{
 			ActualResources: sla.Spec.DefaultResources,
 			CappedResources: sla.Spec.DefaultResources,
 		},

@@ -27,8 +27,7 @@ func (p *responseTimeMetricsProvider) updateMetrics() {
 	var podMetrics *Metrics
 	var err error
 
-	// TODO: retrieve the all the pods
-	containerScales, err := p.informers.ContainerScale.Lister().List(labels.Everything())
+	podScales, err := p.informers.PodScale.Lister().List(labels.Everything())
 	if err != nil {
 		klog.Error("failed to retrieve to retrieve the container scales")
 		return
@@ -36,60 +35,60 @@ func (p *responseTimeMetricsProvider) updateMetrics() {
 
 	serviceMetricsMap := make(map[string]map[string][]*Metrics)
 
-	for _, containerScale := range containerScales {
+	for _, podScale := range podScales {
 
-		podNamespace := containerScale.Spec.PodRef.Namespace
-		podName := containerScale.Spec.PodRef.Name
+		namespace := podScale.Spec.Namespace
+		podName := podScale.Spec.Pod
 
-		serviceNamespace := containerScale.Spec.ServiceRef.Namespace
-		serviceName := containerScale.Spec.ServiceRef.Name
+		serviceName := podScale.Spec.Service
 
-		pod, err := p.informers.Pod.Lister().Pods(podNamespace).Get(podName)
+		pod, err := p.informers.Pod.Lister().Pods(namespace).Get(podName)
 		if err != nil {
-			klog.Errorf("failed to retrieve the pod with name %s and namespace %s", podName, podNamespace)
+			klog.Errorf("failed to retrieve to retrieve the pod with name %s and namespace %s", podName, namespace)
 			continue
 		}
 
 		podMetrics, err = p.PodMetrics(pod)
 
 		if err != nil {
-			klog.Errorf("failed to retrieve metrics for pod with name %s and namespace %s", podName, podNamespace)
+			klog.Error("failed to retrieve the metrics for pod with name %s and namespace %s", podName, namespace)
 			continue
 		}
 
-		err = p.updatePodMetric(podName, podNamespace, metrics.ResponseTime, *podMetrics.ResponseTime)
+		err = p.updatePodMetric(podName, namespace, metrics.ResponseTime, *podMetrics.ResponseTime)
 
 		if err != nil {
-			klog.Errorf("error while updating response time for pod with name %s and namespace %s", podName, podNamespace)
+			klog.Errorf("error while updating response time for pod with name %s and namespace %s", podName, namespace)
 			continue
 		}
 
-		err = p.updatePodMetric(podName, podNamespace, metrics.RequestCount, *podMetrics.RequestCount)
+		err = p.updatePodMetric(podName, namespace, metrics.RequestCount, *podMetrics.RequestCount)
 
 		if err != nil {
-			klog.Errorf("error while updating request count for pod with name %s and namespace %s", podName, podNamespace)
+			klog.Errorf("error while updating request count for pod with name %s and namespace %s", podName, namespace)
 			continue
 		}
 
-		err = p.updatePodMetric(podName, podNamespace, metrics.Throughput, *podMetrics.Throughput)
+		err = p.updatePodMetric(podName, namespace, metrics.Throughput, *podMetrics.Throughput)
 
 		if err != nil {
-			klog.Errorf("error while updating throughput for pod with name %s and namespace %s", podName, podNamespace)
+			klog.Errorf("error while updating throughput for pod with name %s and namespace %s", podName, namespace)
 			continue
 		}
 
-		if _, ok := serviceMetricsMap[serviceNamespace]; !ok {
-			serviceMetricsMap[serviceNamespace] = make(map[string][]*Metrics)
+		if _, ok := serviceMetricsMap[namespace]; !ok {
+			serviceMetricsMap[namespace] = make(map[string][]*Metrics)
 		}
 
 		// group metrics by service
-		serviceMetrics, ok := serviceMetricsMap[serviceNamespace][serviceName]
+		serviceMetrics, ok := serviceMetricsMap[namespace][serviceName]
 
 		if !ok {
 			serviceMetrics = make([]*Metrics, 0)
 		}
 
-		serviceMetricsMap[serviceNamespace][serviceName] = append(serviceMetrics, podMetrics)
+		serviceMetricsMap[namespace][serviceName] = append(serviceMetrics, podMetrics)
+
 	}
 
 	for namespace, nestedMap := range serviceMetricsMap {

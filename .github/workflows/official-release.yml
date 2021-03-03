@@ -6,7 +6,7 @@ on:
       - main
       - development
     tags:
-      - "containerscale-controller/v*"
+      - "podscale-controller/v*"
       - "pod-autoscaler/v*"
 
 jobs:

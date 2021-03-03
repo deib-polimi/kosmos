@@ -8,8 +8,8 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// ContainerScales returns a ContainerScaleInformer.
-	ContainerScales() ContainerScaleInformer
+	// PodScales returns a PodScaleInformer.
+	PodScales() PodScaleInformer
 	// ServiceLevelAgreements returns a ServiceLevelAgreementInformer.
 	ServiceLevelAgreements() ServiceLevelAgreementInformer
 }
@@ -25,9 +25,9 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// ContainerScales returns a ContainerScaleInformer.
-func (v *version) ContainerScales() ContainerScaleInformer {
-	return &containerScaleInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+// PodScales returns a PodScaleInformer.
+func (v *version) PodScales() PodScaleInformer {
+	return &podScaleInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // ServiceLevelAgreements returns a ServiceLevelAgreementInformer.

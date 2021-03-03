@@ -2,8 +2,9 @@ package e2e_test
 
 import (
 	"context"
+
 	sa "github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
-	"github.com/lterrac/system-autoscaler/pkg/containerscale-controller/pkg/types"
+	"github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -48,21 +49,21 @@ var _ = Describe("Resource Updater controller", func() {
 				return pod.Spec.NodeName != ""
 			}, timeout, interval).Should(BeTrue())
 
-			containerScale := newContainerScale(sla, pod, labels)
-			containerScale, err = saClient.SystemautoscalerV1beta1().ContainerScales(namespace).Create(ctx, containerScale, metav1.CreateOptions{})
+			podScale := newPodScale(sla, pod, labels)
+			podScale, err = saClient.SystemautoscalerV1beta1().PodScales(namespace).Create(ctx, podScale, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
-			updatedContainerScale := containerScale.DeepCopy()
-			updatedContainerScale.Status.ActualResources[corev1.ResourceCPU] = *resource.NewScaledQuantity(500, resource.Milli)
-			updatedContainerScale.Status.ActualResources[corev1.ResourceMemory] = *resource.NewScaledQuantity(500, resource.Mega)
-			klog.Info(updatedContainerScale)
+			updatedPodScale := podScale.DeepCopy()
+			updatedPodScale.Status.ActualResources[corev1.ResourceCPU] = *resource.NewScaledQuantity(500, resource.Milli)
+			updatedPodScale.Status.ActualResources[corev1.ResourceMemory] = *resource.NewScaledQuantity(500, resource.Mega)
+			klog.Info(updatedPodScale)
 
-			containerScales := make([]*sa.ContainerScale, 0)
-			containerScales = append(containerScales, updatedContainerScale)
+			podScales := make([]*sa.PodScale, 0)
+			podScales = append(podScales, updatedPodScale)
 
 			nodeScale := types.NodeScales{
-				Node:            pod.Spec.NodeName,
-				ContainerScales: containerScales,
+				Node:      pod.Spec.NodeName,
+				PodScales: podScales,
 			}
 
 			contentionManagerOut <- nodeScale
@@ -79,11 +80,11 @@ var _ = Describe("Resource Updater controller", func() {
 
 				return requestCpu == limitCpu &&
 					requestMem == limitMem &&
-					requestCpu == updatedContainerScale.Status.ActualResources.Cpu().ScaledValue(resource.Milli) &&
-					requestMem == updatedContainerScale.Status.ActualResources.Memory().ScaledValue(resource.Mega)
+					requestCpu == updatedPodScale.Status.ActualResources.Cpu().ScaledValue(resource.Milli) &&
+					requestMem == updatedPodScale.Status.ActualResources.Memory().ScaledValue(resource.Mega)
 			}, timeout, interval).Should(BeTrue())
 
-			err = saClient.SystemautoscalerV1beta1().ContainerScales(namespace).Delete(ctx, containerScale.Name, metav1.DeleteOptions{})
+			err = saClient.SystemautoscalerV1beta1().PodScales(namespace).Delete(ctx, podScale.Name, metav1.DeleteOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
 			err = saClient.SystemautoscalerV1beta1().ServiceLevelAgreements(namespace).Delete(ctx, sla.Name, metav1.DeleteOptions{})

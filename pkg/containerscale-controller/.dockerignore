@@ -1,5 +1,0 @@
-**/testdata
-.dockerignore
-Dockerfile
-README.md
-*.out

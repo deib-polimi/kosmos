@@ -16,74 +16,74 @@ func TestSyncPod(t *testing.T) {
 	// TODO: The test case should be modified in future in order to handle more granularity.
 	// Instead of pod resource values, we should insert cpu and mem values for each container.
 	testcases := []struct {
-		description                  string
-		podQOS                       v1.PodQOSClass
-		podNumberOfContainers        int64
-		podCPUValue                  int64
-		podMemValue                  int64
-		containerScaleCPUActualValue int64
-		containerScaleMemActualValue int64
-		success                      bool
+		description            string
+		podQOS                 v1.PodQOSClass
+		podNumberOfContainers  int64
+		podCPUValue            int64
+		podMemValue            int64
+		podScaleCPUActualValue int64
+		podScaleMemActualValue int64
+		success                bool
 	}{
 		{
-			description:                  "successfully increased the resources of a pod",
-			podQOS:                       v1.PodQOSGuaranteed,
-			podNumberOfContainers:        1,
-			podCPUValue:                  100,
-			podMemValue:                  100,
-			containerScaleCPUActualValue: 1000,
-			containerScaleMemActualValue: 1000,
-			success:                      true,
+			description:            "successfully increased the resources of a pod",
+			podQOS:                 v1.PodQOSGuaranteed,
+			podNumberOfContainers:  1,
+			podCPUValue:            100,
+			podMemValue:            100,
+			podScaleCPUActualValue: 1000,
+			podScaleMemActualValue: 1000,
+			success:                true,
 		},
 		{
-			description:                  "successfully decreased the resources of a pod",
-			podQOS:                       v1.PodQOSGuaranteed,
-			podNumberOfContainers:        1,
-			podCPUValue:                  100,
-			podMemValue:                  100,
-			containerScaleCPUActualValue: 1000,
-			containerScaleMemActualValue: 1000,
-			success:                      true,
+			description:            "successfully decreased the resources of a pod",
+			podQOS:                 v1.PodQOSGuaranteed,
+			podNumberOfContainers:  1,
+			podCPUValue:            100,
+			podMemValue:            100,
+			podScaleCPUActualValue: 1000,
+			podScaleMemActualValue: 1000,
+			success:                true,
 		},
 		{
-			description:                  "fail to update a pod with negative cpu resource value",
-			podQOS:                       v1.PodQOSGuaranteed,
-			podNumberOfContainers:        1,
-			podCPUValue:                  100,
-			podMemValue:                  100,
-			containerScaleCPUActualValue: -1,
-			containerScaleMemActualValue: 1000,
-			success:                      false,
+			description:            "fail to update a pod with negative cpu resource value",
+			podQOS:                 v1.PodQOSGuaranteed,
+			podNumberOfContainers:  1,
+			podCPUValue:            100,
+			podMemValue:            100,
+			podScaleCPUActualValue: -1,
+			podScaleMemActualValue: 1000,
+			success:                false,
 		},
 		{
-			description:                  "fail to update a pod with negative memory resource value",
-			podQOS:                       v1.PodQOSGuaranteed,
-			podNumberOfContainers:        1,
-			podCPUValue:                  100,
-			podMemValue:                  100,
-			containerScaleCPUActualValue: 1000,
-			containerScaleMemActualValue: -1,
-			success:                      false,
+			description:            "fail to update a pod with negative memory resource value",
+			podQOS:                 v1.PodQOSGuaranteed,
+			podNumberOfContainers:  1,
+			podCPUValue:            100,
+			podMemValue:            100,
+			podScaleCPUActualValue: 1000,
+			podScaleMemActualValue: -1,
+			success:                false,
 		},
 		{
-			description:                  "fail to update a pod that has BE QOS",
-			podQOS:                       v1.PodQOSBestEffort,
-			podNumberOfContainers:        1,
-			podCPUValue:                  100,
-			podMemValue:                  100,
-			containerScaleCPUActualValue: 1000,
-			containerScaleMemActualValue: 1000,
-			success:                      false,
+			description:            "fail to update a pod that has BE QOS",
+			podQOS:                 v1.PodQOSBestEffort,
+			podNumberOfContainers:  1,
+			podCPUValue:            100,
+			podMemValue:            100,
+			podScaleCPUActualValue: 1000,
+			podScaleMemActualValue: 1000,
+			success:                false,
 		},
 		{
-			description:                  "fail to update a pod that has BU QOS",
-			podQOS:                       v1.PodQOSBurstable,
-			podNumberOfContainers:        1,
-			podCPUValue:                  100,
-			podMemValue:                  100,
-			containerScaleCPUActualValue: 1000,
-			containerScaleMemActualValue: 1000,
-			success:                      false,
+			description:            "fail to update a pod that has BU QOS",
+			podQOS:                 v1.PodQOSBurstable,
+			podNumberOfContainers:  1,
+			podCPUValue:            100,
+			podMemValue:            100,
+			podScaleCPUActualValue: 1000,
+			podScaleMemActualValue: 1000,
+			success:                false,
 		},
 		//{
 		//	// TODO: this test should be changed once we are able to update multiple containers
@@ -92,8 +92,8 @@ func TestSyncPod(t *testing.T) {
 		//	podNumberOfContainers:  2,
 		//	podCPUValue:            100,
 		//	podMemValue:            100,
-		//	containerScaleCPUActualValue: 1000,
-		//	containerScaleMemActualValue: 1000,
+		//	podScaleCPUActualValue: 1000,
+		//	podScaleMemActualValue: 1000,
 		//	success:                false,
 		//},
 	}
@@ -137,40 +137,38 @@ func TestSyncPod(t *testing.T) {
 				},
 			}
 			// Instantiate the pod scale
-			containerScale := v1beta1.ContainerScale{
+			podScale := v1beta1.PodScale{
 				TypeMeta: metav1.TypeMeta{
-					Kind:       "containerscales",
+					Kind:       "podscales",
 					APIVersion: v1beta1.SchemeGroupVersion.String(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "containerscale-name",
+					Name:      "podscale-name",
 					Namespace: "default",
 				},
-				Spec: v1beta1.ContainerScaleSpec{
-					PodRef: v1beta1.PodRef{
-						Name:      "pod-name",
-						Namespace: "default",
-					},
+				Spec: v1beta1.PodScaleSpec{
+					Pod:       "pod-name",
+					Namespace: "default",
 					DesiredResources: v1.ResourceList{
-						v1.ResourceCPU:    *resource.NewScaledQuantity(tt.containerScaleCPUActualValue, resource.Milli),
-						v1.ResourceMemory: *resource.NewScaledQuantity(tt.containerScaleMemActualValue, resource.Mega),
+						v1.ResourceCPU:    *resource.NewScaledQuantity(tt.podScaleCPUActualValue, resource.Milli),
+						v1.ResourceMemory: *resource.NewScaledQuantity(tt.podScaleMemActualValue, resource.Mega),
 					},
 					Container: "container-n-0",
 				},
-				Status: v1beta1.ContainerScaleStatus{
+				Status: v1beta1.PodScaleStatus{
 					ActualResources: v1.ResourceList{
-						v1.ResourceCPU:    *resource.NewScaledQuantity(tt.containerScaleCPUActualValue, resource.Milli),
-						v1.ResourceMemory: *resource.NewScaledQuantity(tt.containerScaleMemActualValue, resource.Mega),
+						v1.ResourceCPU:    *resource.NewScaledQuantity(tt.podScaleCPUActualValue, resource.Milli),
+						v1.ResourceMemory: *resource.NewScaledQuantity(tt.podScaleMemActualValue, resource.Mega),
 					},
 				},
 			}
-			newPod, err := syncPod(&pod, containerScale)
+			newPod, err := syncPod(&pod, podScale)
 			if tt.success {
 				require.Nil(t, err, "Do not expect error")
-				require.Equal(t, newPod.Spec.Containers[0].Resources.Limits.Cpu().ScaledValue(resource.Milli), tt.containerScaleCPUActualValue)
-				require.Equal(t, newPod.Spec.Containers[0].Resources.Requests.Cpu().ScaledValue(resource.Milli), tt.containerScaleCPUActualValue)
-				require.Equal(t, newPod.Spec.Containers[0].Resources.Limits.Memory().ScaledValue(resource.Mega), tt.containerScaleMemActualValue)
-				require.Equal(t, newPod.Spec.Containers[0].Resources.Requests.Memory().ScaledValue(resource.Mega), tt.containerScaleMemActualValue)
+				require.Equal(t, newPod.Spec.Containers[0].Resources.Limits.Cpu().ScaledValue(resource.Milli), tt.podScaleCPUActualValue)
+				require.Equal(t, newPod.Spec.Containers[0].Resources.Requests.Cpu().ScaledValue(resource.Milli), tt.podScaleCPUActualValue)
+				require.Equal(t, newPod.Spec.Containers[0].Resources.Limits.Memory().ScaledValue(resource.Mega), tt.podScaleMemActualValue)
+				require.Equal(t, newPod.Spec.Containers[0].Resources.Requests.Memory().ScaledValue(resource.Mega), tt.podScaleMemActualValue)
 				require.Equal(t, newPod.Status.QOSClass, v1.PodQOSGuaranteed)
 			} else {
 				require.Error(t, err, "expected error")

@@ -2,6 +2,6 @@
 
 package v1beta1
 
-type ContainerScaleExpansion interface{}
+type PodScaleExpansion interface{}
 
 type ServiceLevelAgreementExpansion interface{}

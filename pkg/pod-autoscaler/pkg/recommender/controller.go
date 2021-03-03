@@ -9,7 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
-	"github.com/lterrac/system-autoscaler/pkg/containerscale-controller/pkg/types"
+	"github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/types"
 	"github.com/modern-go/concurrent"
 
 	corev1 "k8s.io/api/core/v1"
@@ -22,7 +22,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 
-	containerscalesclientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
+	podscalesclientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
 	samplescheme "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned/scheme"
 )
 
@@ -35,12 +35,12 @@ const responseTime = "response_time"
 // For pod metrics it retrieves, it computes the new resources to assign to the pod.
 type Controller struct {
 
-	// containerScalesClientset is a clientset for our own API group
-	containerScalesClientset containerscalesclientset.Interface
+	// podScalesClientset is a clientset for our own API group
+	podScalesClientset podscalesclientset.Interface
 
 	listers informers.Listers
 
-	containerScalesSynced cache.InformerSynced
+	podScalesSynced cache.InformerSynced
 
 	// kubernetesCLientset is the client-go of kubernetes
 	kubernetesClientset kubernetes.Interface
@@ -71,7 +71,7 @@ type Status struct {
 // NewController returns a new recommender
 func NewController(
 	kubernetesClientset kubernetes.Interface,
-	containerScalesClientset containerscalesclientset.Interface,
+	podScalesClientset podscalesclientset.Interface,
 	metricsClient MetricGetter,
 	informers informers.Informers,
 	out chan types.NodeScales,
@@ -93,15 +93,15 @@ func NewController(
 
 	// Instantiate the Controller
 	controller := &Controller{
-		containerScalesClientset: containerScalesClientset,
-		listers:                  informers.GetListers(),
-		containerScalesSynced:    informers.ContainerScale.Informer().HasSynced,
-		kubernetesClientset:      kubernetesClientset,
-		recommendNodeQueue:       queue.NewQueue("RecommendQueue"),
-		status:                   status,
-		MetricGetter:             metricsClient,
-		recorder:                 recorder,
-		out:                      out,
+		podScalesClientset:  podScalesClientset,
+		listers:             informers.GetListers(),
+		podScalesSynced:     informers.PodScale.Informer().HasSynced,
+		kubernetesClientset: kubernetesClientset,
+		recommendNodeQueue:  queue.NewQueue("RecommendQueue"),
+		status:              status,
+		MetricGetter:        metricsClient,
+		recorder:            recorder,
+		out:                 out,
 	}
 
 	klog.Info("Setting up event handlers")
@@ -120,12 +120,12 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 
 	// Wait for the caches to be synced before starting workers
 	klog.Info("Waiting for informer caches to sync")
-	if ok := cache.WaitForCacheSync(stopCh, c.containerScalesSynced); !ok {
+	if ok := cache.WaitForCacheSync(stopCh, c.podScalesSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
 	klog.Info("Starting recommender workers")
-	// Launch the workers to process containerScale resources and recommendContainer new pod scales
+	// Launch the workers to process podScale resources and recommendContainer new pod scales
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runNodeRecommenderWorker, time.Second, stopCh)
 	}
@@ -168,35 +168,35 @@ func (c *Controller) recommendNode(node string) error {
 	// Recommend to all pods in a node new pod scales resources.
 	klog.Info("Recommending to node ", node)
 
-	newContainerScales := make([]*v1beta1.ContainerScale, 0)
+	newPodScales := make([]*v1beta1.PodScale, 0)
 
 	listSelector := labels.Set(map[string]string{"system.autoscaler/node": node}).AsSelector()
 
-	containerscales, err := c.listers.ContainerScaleLister.List(listSelector)
+	podscales, err := c.listers.PodScaleLister.List(listSelector)
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("list pod scales failed: %s", err))
 		return nil
 	}
 
-	if len(containerscales) == 0 {
-		utilruntime.HandleError(fmt.Errorf("no containerscales found on node: %s", node))
+	if len(podscales) == 0 {
+		utilruntime.HandleError(fmt.Errorf("no podscales found on node: %s", node))
 		return nil
 	}
 
-	for _, containerscale := range containerscales {
-		newContainerScale, err := c.recommendContainer(containerscale)
+	for _, podscale := range podscales {
+		newPodScale, err := c.recommendContainer(podscale)
 		if err != nil {
 			//utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key))
 			// TODO: evaluate if we should use a 'continue'
 			klog.Info(err)
 			return err
 		}
-		newContainerScales = append(newContainerScales, newContainerScale)
+		newPodScales = append(newPodScales, newPodScale)
 	}
 
 	nodeScales := types.NodeScales{
-		Node:            node,
-		ContainerScales: newContainerScales,
+		Node:      node,
+		PodScales: newPodScales,
 	}
 
 	// Send to output channel.
@@ -206,32 +206,31 @@ func (c *Controller) recommendNode(node string) error {
 }
 
 // recommendContainer recommends the new resources to assign to a pod
-func (c *Controller) recommendContainer(containerScale *v1beta1.ContainerScale) (*v1beta1.ContainerScale, error) {
-	key := fmt.Sprintf("%s/%s", containerScale.Namespace, containerScale.Name)
+func (c *Controller) recommendContainer(podScale *v1beta1.PodScale) (*v1beta1.PodScale, error) {
+	key := fmt.Sprintf("%s/%s", podScale.Namespace, podScale.Name)
 
 	klog.Info("Recommending for ", key)
 
 	// Get the pod associated with the pod scale
-	pod, err := c.listers.Pods(containerScale.Spec.PodRef.Namespace).Get(containerScale.Spec.PodRef.Name)
+	pod, err := c.listers.Pods(podScale.Spec.Namespace).Get(podScale.Spec.Pod)
 	if err != nil {
-		return nil, fmt.Errorf("error: %s, cannot retrieve pod with name %s and namespace %s", err, containerScale.Spec.PodRef.Name, containerScale.Spec.PodRef.Namespace)
+		return nil, fmt.Errorf("error: %s, cannot retrieve pod with name %s and namespace %s", err, podScale.Spec.Pod, podScale.Spec.Namespace)
 	}
 
 	// Retrieve the sla
-	sla, err := c.listers.ServiceLevelAgreements(containerScale.Spec.SLARef.Namespace).Get(containerScale.Spec.SLARef.Name)
+	sla, err := c.listers.ServiceLevelAgreements(podScale.Spec.Namespace).Get(podScale.Spec.SLA)
 	if err != nil {
-		//utilruntime.HandleError(fmt.Errorf("error: %s, failed to get sla with name %s and namespace %s from lister", err, containerScale.Spec.SLARef.Name, containerScale.Spec.SLARef.Namespace))
 		return nil, err
 	}
 
 	// Retrieve the logic
-	logicInterface, ok := c.status.logicMap.LoadOrStore(key, newControlTheoryLogic(containerScale))
+	logicInterface, ok := c.status.logicMap.LoadOrStore(key, newControlTheoryLogic(podScale))
 	if !ok {
 		return nil, fmt.Errorf("the key %s has no logic associated with it", key)
 	}
 	logic, ok := logicInterface.(Logic)
 	if !ok {
-		return nil, fmt.Errorf("error: %s, failed to cast logic with name %s and namespace %s", err, containerScale.Spec.SLARef.Name, containerScale.Spec.SLARef.Namespace)
+		return nil, fmt.Errorf("error: %s, failed to cast logic with name %s and namespace %s", err, podScale.Spec.SLA, podScale.Spec.Namespace)
 	}
 
 	// Retrieve the metrics
@@ -241,7 +240,7 @@ func (c *Controller) recommendContainer(containerScale *v1beta1.ContainerScale) 
 	}
 
 	// Compute the new resources
-	newContainerScale, err := logic.computeContainerScale(pod, containerScale, sla, metrics)
+	newPodScale, err := logic.computePodScale(pod, podScale, sla, metrics)
 
-	return newContainerScale, nil
+	return newPodScale, nil
 }

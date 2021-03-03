@@ -2,6 +2,7 @@ package e2e_test
 
 import (
 	"context"
+
 	sa "github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -56,12 +57,12 @@ var _ = Describe("Replica updater controller", func() {
 			podList, err := getPodsForSvc(svc, namespace, *kubeClient)
 			Expect(err).ShouldNot(HaveOccurred())
 
-			var containerScales []*sa.ContainerScale
+			var podScales []*sa.PodScale
 			for _, pod := range podList.Items {
-				containerScale := newContainerScale(sla, &pod, labels)
-				containerScale, err = saClient.SystemautoscalerV1beta1().ContainerScales(namespace).Create(ctx, containerScale, metav1.CreateOptions{})
+				podScale := newPodScale(sla, &pod, labels)
+				podScale, err = saClient.SystemautoscalerV1beta1().PodScales(namespace).Create(ctx, podScale, metav1.CreateOptions{})
 				Expect(err).ShouldNot(HaveOccurred())
-				containerScales = append(containerScales, containerScale)
+				podScales = append(podScales, podScale)
 			}
 
 			Eventually(func() bool {
@@ -70,8 +71,8 @@ var _ = Describe("Replica updater controller", func() {
 				return *(dp.Spec.Replicas) < int32(nReplicas)
 			}, timeout, interval).Should(BeTrue())
 
-			for _, containerScale := range containerScales {
-				err = saClient.SystemautoscalerV1beta1().ContainerScales(namespace).Delete(ctx, containerScale.Name, metav1.DeleteOptions{})
+			for _, podScale := range podScales {
+				err = saClient.SystemautoscalerV1beta1().PodScales(namespace).Delete(ctx, podScale.Name, metav1.DeleteOptions{})
 				Expect(err).ShouldNot(HaveOccurred())
 			}
 
@@ -129,13 +130,13 @@ var _ = Describe("Replica updater controller", func() {
 			podList, err := getPodsForSvc(svc, namespace, *kubeClient)
 			Expect(err).ShouldNot(HaveOccurred())
 
-			var containerScales []*sa.ContainerScale
+			var podScales []*sa.PodScale
 			for _, pod := range podList.Items {
-				containerScale := newContainerScale(sla, &pod, labels)
-				klog.Info(containerScale)
-				containerScale, err = saClient.SystemautoscalerV1beta1().ContainerScales(namespace).Create(ctx, containerScale, metav1.CreateOptions{})
+				podScale := newPodScale(sla, &pod, labels)
+				klog.Info(podScale)
+				podScale, err = saClient.SystemautoscalerV1beta1().PodScales(namespace).Create(ctx, podScale, metav1.CreateOptions{})
 				Expect(err).ShouldNot(HaveOccurred())
-				containerScales = append(containerScales, containerScale)
+				podScales = append(podScales, podScale)
 			}
 
 			Eventually(func() bool {
@@ -143,8 +144,8 @@ var _ = Describe("Replica updater controller", func() {
 				return *(dp.Spec.Replicas) > int32(nReplicas)
 			}, timeout, interval).Should(BeTrue())
 
-			for _, containerScale := range containerScales {
-				err = saClient.SystemautoscalerV1beta1().ContainerScales(namespace).Delete(ctx, containerScale.Name, metav1.DeleteOptions{})
+			for _, podScale := range podScales {
+				err = saClient.SystemautoscalerV1beta1().PodScales(namespace).Delete(ctx, podScale.Name, metav1.DeleteOptions{})
 				Expect(err).ShouldNot(HaveOccurred())
 			}
 

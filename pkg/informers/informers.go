@@ -11,7 +11,7 @@ type Informers struct {
 	Pod                   coreinformers.PodInformer
 	Node                  coreinformers.NodeInformer
 	Service               coreinformers.ServiceInformer
-	ContainerScale        sainformers.ContainerScaleInformer
+	PodScale              sainformers.PodScaleInformer
 	ServiceLevelAgreement sainformers.ServiceLevelAgreementInformer
 }
 
@@ -20,7 +20,7 @@ func (i *Informers) GetListers() Listers {
 		i.Pod.Lister(),
 		i.Node.Lister(),
 		i.Service.Lister(),
-		i.ContainerScale.Lister(),
+		i.PodScale.Lister(),
 		i.ServiceLevelAgreement.Lister(),
 	}
 }
@@ -29,6 +29,6 @@ type Listers struct {
 	corelisters.PodLister
 	corelisters.NodeLister
 	corelisters.ServiceLister
-	salisters.ContainerScaleLister
+	salisters.PodScaleLister
 	salisters.ServiceLevelAgreementLister
 }

@@ -155,5 +155,5 @@ rules:
     resources: [ "servicelevelagreements" ]
     verbs: [ "get", "watch", "list" ]
   - apiGroups: [ "systemautoscaler.polimi.it" ]
-    resources: [ "containerscales" ]
+    resources: [ "podscales" ]
     verbs: [ "get", "watch", "list" ]

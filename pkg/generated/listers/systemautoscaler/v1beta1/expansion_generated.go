@@ -2,13 +2,13 @@
 
 package v1beta1
 
-// ContainerScaleListerExpansion allows custom methods to be added to
-// ContainerScaleLister.
-type ContainerScaleListerExpansion interface{}
+// PodScaleListerExpansion allows custom methods to be added to
+// PodScaleLister.
+type PodScaleListerExpansion interface{}
 
-// ContainerScaleNamespaceListerExpansion allows custom methods to be added to
-// ContainerScaleNamespaceLister.
-type ContainerScaleNamespaceListerExpansion interface{}
+// PodScaleNamespaceListerExpansion allows custom methods to be added to
+// PodScaleNamespaceLister.
+type PodScaleNamespaceListerExpansion interface{}
 
 // ServiceLevelAgreementListerExpansion allows custom methods to be added to
 // ServiceLevelAgreementLister.
