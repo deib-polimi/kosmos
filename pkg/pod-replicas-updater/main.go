@@ -4,6 +4,10 @@ import (
 	"flag"
 	"time"
 
+	"github.com/kubernetes-sigs/custom-metrics-apiserver/pkg/dynamicmapper"
+	metricsgetter "github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/metrics"
+	metricsclient "k8s.io/metrics/pkg/client/custom_metrics"
+
 	clientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
 	sainformers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions"
 	informers2 "github.com/lterrac/system-autoscaler/pkg/informers"
@@ -42,6 +46,15 @@ func main() {
 		klog.Fatalf("Error building example clientset: %s", err.Error())
 	}
 
+	//TODO: tune refresh interval
+	mapper, err := dynamicmapper.NewRESTMapper(kubernetesClient, time.Second)
+
+	if err != nil {
+		klog.Fatalf("Error building REST Mapper: %s", err.Error())
+	}
+
+	metricsGetter := metricsgetter.NewDefaultGetter(cfg, mapper, metricsclient.NewAvailableAPIsGetter(kubernetesClient))
+
 	saInformerFactory := sainformers.NewSharedInformerFactory(client, time.Second*30)
 	coreInformerFactory := informers.NewSharedInformerFactory(kubernetesClient, time.Second*30)
 
@@ -59,6 +72,7 @@ func main() {
 		kubernetesClient,
 		client,
 		informers,
+		metricsGetter,
 	)
 
 	// notice that there is no need to run Start methods in a separate goroutine. (i.e. go kubeInformerFactory.Start(stopCh)

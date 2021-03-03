@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	metricsgetter "github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/metrics"
 	replicaupdater "github.com/lterrac/system-autoscaler/pkg/pod-replicas-updater/pkg"
 
 	"github.com/lterrac/system-autoscaler/pkg/informers"
@@ -83,16 +84,17 @@ var _ = BeforeSuite(func(done Done) {
 	By("bootstrapping controller")
 	stopCh := signals.SetupSignalHandler()
 
+	metricClient := &metricsgetter.FakeGetter{
+		ResponseTime: 50,
+	}
+
 	By("instantiating recommender")
 	replicaUpdater = replicaupdater.NewController(
 		kubeClient,
 		saClient,
 		informers,
+		metricClient,
 	)
-	client := replicaupdater.NewMetricClient()
-	server := serverMock()
-	client.Host = server.URL[7:]
-	replicaUpdater.MetricClient = client
 
 	By("starting informers")
 	crdInformerFactory.Start(stopCh)
