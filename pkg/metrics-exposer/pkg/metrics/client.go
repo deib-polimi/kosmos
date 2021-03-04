@@ -18,6 +18,15 @@ type Client struct {
 	httpClient http.Client
 }
 
+type Metrics string
+
+const (
+	ResponseTime Metrics = "response_time"
+	RequestCount Metrics = "request_count"
+	Throughput   Metrics = "throughput"
+	All          Metrics = ""
+)
+
 // NewClient returns a new MetricClient representing a metric client.
 func NewClient() *Client {
 	httpClient := http.Client{
@@ -39,9 +48,27 @@ func NewClient() *Client {
 	return client
 }
 
-// GetMetrics returns a list of the the metrics of a pod.
-func (c Client) GetMetrics(pod *v1.Pod) (map[string]interface{}, error) {
+// ResponseTime returns the average pod response time.
+func (c Client) ResponseTime(pod *v1.Pod) (map[string]interface{}, error) {
+	return c.getMetric(pod, ResponseTime)
+}
 
+// RequestCount returns the average pod request within the current time window.
+func (c Client) RequestCount(pod *v1.Pod) (map[string]interface{}, error) {
+	return c.getMetric(pod, RequestCount)
+}
+
+// Throughput returns the average pod throughput.
+func (c Client) Throughput(pod *v1.Pod) (map[string]interface{}, error) {
+	return c.getMetric(pod, Throughput)
+}
+
+// AllMetrics returns all the metrics available for the pod.
+func (c Client) AllMetrics(pod *v1.Pod) (map[string]interface{}, error) {
+	return c.getMetric(pod, All)
+}
+
+func (c Client) getMetric(pod *v1.Pod, metric Metrics) (map[string]interface{}, error) {
 	// Retrieve the location of the pod's metrics server
 	podAddress := pod.Status.PodIP
 
@@ -49,8 +76,7 @@ func (c Client) GetMetrics(pod *v1.Pod) (map[string]interface{}, error) {
 	host := c.Host
 	host = strings.Replace(host, "{pod_address}", podAddress, -1)
 	host = strings.Replace(host, "{pod_port}", "8000", -1)
-	path := "metrics/response_time"
-
+	path := "metrics/" + metric
 	// Create the request
 	metricServerURL := url.URL{
 		// TODO: http is not a good protocol for polling data
@@ -58,7 +84,7 @@ func (c Client) GetMetrics(pod *v1.Pod) (map[string]interface{}, error) {
 		// offerings the metrics
 		Scheme: "http",
 		Host:   host,
-		Path:   path,
+		Path:   string(path),
 	}
 	request, err := http.NewRequest(http.MethodGet, metricServerURL.String(), nil)
 	if err != nil {

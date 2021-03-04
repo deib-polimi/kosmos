@@ -2,8 +2,10 @@ package provider
 
 import (
 	"fmt"
+
 	"github.com/kubernetes-sigs/custom-metrics-apiserver/pkg/provider"
-	corev1 "k8s.io/api/core/v1"
+	"github.com/lterrac/system-autoscaler/pkg/metrics-exposer/pkg/metrics"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -11,9 +13,19 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// Metrics is the wrapper for Kubernetes resource metrics
+type Metrics struct {
+	ResponseTime *resource.Quantity
+	RequestCount *resource.Quantity
+	Throughput   *resource.Quantity
+}
+
 // updateMetrics updates the map of metrics
 // for now, it updates the metrics for pods and services
 func (p *responseTimeMetricsProvider) updateMetrics() {
+
+	var podMetrics *Metrics
+	var err error
 
 	// TODO: retrieve the all the pods
 	containerScales, err := p.informers.ContainerScale.Lister().List(labels.Everything())
@@ -22,8 +34,7 @@ func (p *responseTimeMetricsProvider) updateMetrics() {
 		return
 	}
 
-	// serviceMetricsMap[{namespace}][{name}] -> metrics
-	serviceMetricsMap := make(map[string]map[string][]*resource.Quantity)
+	serviceMetricsMap := make(map[string]map[string][]*Metrics)
 
 	for _, containerScale := range containerScales {
 
@@ -35,122 +46,118 @@ func (p *responseTimeMetricsProvider) updateMetrics() {
 
 		pod, err := p.informers.Pod.Lister().Pods(podNamespace).Get(podName)
 		if err != nil {
-			klog.Errorf("failed to retrieve to retrieve the pod with name %s and namespace %s", podName, podNamespace)
+			klog.Errorf("failed to retrieve the pod with name %s and namespace %s", podName, podNamespace)
 			continue
 		}
 
-		metric, err := p.getMetricsForPod(pod)
+		podMetrics, err = p.PodMetrics(pod)
+
 		if err != nil {
-			klog.Error("failed to retrieve the metrics for pod with name %s and namespace %s", podName, podNamespace)
+			klog.Errorf("failed to retrieve metrics for pod with name %s and namespace %s", podName, podNamespace)
 			continue
 		}
 
-		groupResource := schema.ParseGroupResource("pod")
+		err = p.updatePodMetric(podName, podNamespace, metrics.ResponseTime, *podMetrics.ResponseTime)
 
-		info := provider.CustomMetricInfo{
-			GroupResource: groupResource,
-			Metric:        "response-time",
-			Namespaced:    true,
-		}
-
-		info, _, err = info.Normalized(p.mapper)
 		if err != nil {
-			klog.Errorf("Error normalizing info: %s", err)
+			klog.Errorf("error while updating response time for pod with name %s and namespace %s", podName, podNamespace)
 			continue
 		}
 
-		namespacedName := types.NamespacedName{
-			Name:      podName,
-			Namespace: podNamespace,
+		err = p.updatePodMetric(podName, podNamespace, metrics.RequestCount, *podMetrics.RequestCount)
+
+		if err != nil {
+			klog.Errorf("error while updating request count for pod with name %s and namespace %s", podName, podNamespace)
+			continue
 		}
 
-		metricInfo := CustomMetricResource{
-			CustomMetricInfo: info,
-			NamespacedName:   namespacedName,
+		err = p.updatePodMetric(podName, podNamespace, metrics.Throughput, *podMetrics.Throughput)
+
+		if err != nil {
+			klog.Errorf("error while updating throughput for pod with name %s and namespace %s", podName, podNamespace)
+			continue
 		}
 
-		metricLabels := labels.Set{}
-
-		value := metricValue{
-			labels: metricLabels,
-			value:  *metric,
+		if _, ok := serviceMetricsMap[serviceNamespace]; !ok {
+			serviceMetricsMap[serviceNamespace] = make(map[string][]*Metrics)
 		}
-
-		p.setMetrics(metricInfo, value)
 
 		// group metrics by service
-		serviceMetrics := serviceMetricsMap[serviceNamespace][serviceName]
-		if serviceMetrics == nil {
-			serviceMetrics = make([]*resource.Quantity, 0)
+		serviceMetrics, ok := serviceMetricsMap[serviceNamespace][serviceName]
+
+		if !ok {
+			serviceMetrics = make([]*Metrics, 0)
 		}
 
-		if serviceMetricsMap[serviceNamespace] == nil {
-			serviceMetricsMap[serviceNamespace] = make(map[string][]*resource.Quantity)
-		}
-
-		serviceMetricsMap[serviceNamespace][serviceName] = append(serviceMetrics, metric)
-
+		serviceMetricsMap[serviceNamespace][serviceName] = append(serviceMetrics, podMetrics)
 	}
 
 	for namespace, nestedMap := range serviceMetricsMap {
-		for name, metrics := range nestedMap {
-
+		for name, serviceMetrics := range nestedMap {
 			// Compute average
-			sum := 0
-			for _, metric := range metrics {
-				sum += int(metric.MilliValue())
-			}
-			averageMetric := resource.NewMilliQuantity(int64(sum/len(metrics)), resource.BinarySI)
+			responseTimeSum := 0
+			requestCountSum := 0
+			throughputSum := 0
 
-			groupResource := schema.ParseGroupResource("service")
-
-			info := provider.CustomMetricInfo{
-				GroupResource: groupResource,
-				Metric:        "response-time",
-				Namespaced:    true,
+			for _, metric := range serviceMetrics {
+				requests := metric.RequestCount.Value()
+				responseTimeSum += int(metric.ResponseTime.MilliValue()) * int(requests)
+				throughputSum += int(metric.Throughput.MilliValue()) * int(requests)
+				requestCountSum += int(requests)
 			}
 
-			info, _, err = info.Normalized(p.mapper)
+			var metricsValue *Metrics
+			if requestCountSum == 0 {
+				metricsValue = &Metrics{
+					ResponseTime: resource.NewQuantity(0, resource.BinarySI),
+					RequestCount: resource.NewQuantity(0, resource.BinarySI),
+					Throughput:   resource.NewQuantity(0, resource.BinarySI),
+				}
+			} else {
+				averageResponseTime := resource.NewMilliQuantity(int64(responseTimeSum/requestCountSum), resource.BinarySI)
+				averageRequestCount := resource.NewQuantity(int64(requestCountSum), resource.BinarySI)
+				averageThroughput := resource.NewMilliQuantity(int64(throughputSum/requestCountSum), resource.BinarySI)
+
+				metricsValue = &Metrics{
+					ResponseTime: averageResponseTime,
+					RequestCount: averageRequestCount,
+					Throughput:   averageThroughput,
+				}
+			}
+			err = p.updateServiceMetric(name, namespace, metrics.ResponseTime, *metricsValue.ResponseTime)
 			if err != nil {
-				klog.Errorf("Error normalizing info: %s", err)
+				klog.Errorf("error while updating response time for service with name %s and namespace %s", name, namespace)
 				continue
 			}
 
-			namespacedName := types.NamespacedName{
-				Name:      name,
-				Namespace: namespace,
+			err = p.updateServiceMetric(name, namespace, metrics.RequestCount, *metricsValue.RequestCount)
+			if err != nil {
+				klog.Errorf("error while updating request count for service with name %s and namespace %s", name, namespace)
+				continue
 			}
 
-			metricInfo := CustomMetricResource{
-				CustomMetricInfo: info,
-				NamespacedName:   namespacedName,
+			err = p.updateServiceMetric(name, namespace, metrics.Throughput, *metricsValue.Throughput)
+			if err != nil {
+				klog.Errorf("error while updating throughput for service with name %s and namespace %s", name, namespace)
+				continue
 			}
-
-			metricLabels := labels.Set{}
-
-			value := metricValue{
-				labels: metricLabels,
-				value:  *averageMetric,
-			}
-
-			p.setMetrics(metricInfo, value)
 
 		}
 	}
-
 }
 
-// getMetricsForPod retrieve the metrics of a pod
-// TODO: Should we handle also other metrics besides the response time?
-func (p *responseTimeMetricsProvider) getMetricsForPod(pod *corev1.Pod) (*resource.Quantity, error) {
+func (p *responseTimeMetricsProvider) PodMetrics(pod *v1.Pod) (*Metrics, error) {
+	value, err := p.metricClient.AllMetrics(pod)
 
-	// Retrieve the metrics through the HTTP client
-	value, err := p.metricClient.GetMetrics(pod)
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve metrics for pod with name %s and namespace %s, error: %v", pod.Name, pod.Namespace, err)
+		return nil, fmt.Errorf("failed to retrieve all metrics for pod with name %s and namespace %s, error: %v", pod.Name, pod.Namespace, err)
 	}
-	return resource.NewMilliQuantity(int64(value["response_time"].(float64)), resource.BinarySI), nil
 
+	return &Metrics{
+		ResponseTime: resource.NewMilliQuantity(int64(value[string(metrics.ResponseTime)].(float64)), resource.BinarySI),
+		RequestCount: resource.NewQuantity(int64(value[string(metrics.RequestCount)].(float64)), resource.BinarySI),
+		Throughput:   resource.NewMilliQuantity(int64(value[string(metrics.Throughput)].(float64)), resource.BinarySI),
+	}, nil
 }
 
 // setMetrics saves the metrics in the provider cache
@@ -158,4 +165,75 @@ func (p *responseTimeMetricsProvider) setMetrics(metricInfo CustomMetricResource
 	p.cacheLock.RLock()
 	defer p.cacheLock.RUnlock()
 	p.cache[metricInfo] = value
+}
+
+func (p *responseTimeMetricsProvider) updatePodMetric(pod, namespace string, metric metrics.Metrics, quantity resource.Quantity) error {
+
+	groupResource := schema.ParseGroupResource("pod")
+
+	info := provider.CustomMetricInfo{
+		GroupResource: groupResource,
+		Metric:        string(metric),
+		Namespaced:    true,
+	}
+
+	info, _, err := info.Normalized(p.mapper)
+
+	if err != nil {
+		return fmt.Errorf("Error normalizing info: %s", err)
+	}
+
+	namespacedName := types.NamespacedName{
+		Name:      pod,
+		Namespace: namespace,
+	}
+
+	metricInfo := CustomMetricResource{
+		CustomMetricInfo: info,
+		NamespacedName:   namespacedName,
+	}
+
+	metricValue := metricValue{
+		labels: labels.Set{},
+		value:  quantity,
+	}
+
+	p.setMetrics(metricInfo, metricValue)
+
+	return nil
+}
+
+func (p *responseTimeMetricsProvider) updateServiceMetric(service, namespace string, metric metrics.Metrics, quantity resource.Quantity) error {
+	groupResource := schema.ParseGroupResource("service")
+
+	info := provider.CustomMetricInfo{
+		GroupResource: groupResource,
+		Metric:        string(metric),
+		Namespaced:    true,
+	}
+
+	info, _, err := info.Normalized(p.mapper)
+
+	if err != nil {
+		return fmt.Errorf("Error normalizing info: %s", err)
+	}
+
+	namespacedName := types.NamespacedName{
+		Name:      service,
+		Namespace: namespace,
+	}
+
+	metricInfo := CustomMetricResource{
+		CustomMetricInfo: info,
+		NamespacedName:   namespacedName,
+	}
+
+	metricsValue := metricValue{
+		labels: labels.Set{},
+		value:  quantity,
+	}
+
+	p.setMetrics(metricInfo, metricsValue)
+
+	return nil
 }

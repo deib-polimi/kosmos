@@ -94,7 +94,6 @@ func main() {
 	coreInformerFactory.Start(stopCh)
 	saInformerFactory.Start(stopCh)
 
-
 	// TODO: handle this in a better way
 	go informers.Pod.Informer().Run(stopCh)
 	go informers.Node.Informer().Run(stopCh)
@@ -102,7 +101,13 @@ func main() {
 	go informers.ContainerScale.Informer().Run(stopCh)
 	go informers.ServiceLevelAgreement.Informer().Run(stopCh)
 
-	if ok := cache.WaitForCacheSync(stopCh, informers.Pod.Informer().HasSynced, informers.ContainerScale.Informer().HasSynced, informers.Service.Informer().HasSynced, informers.ServiceLevelAgreement.Informer().HasSynced); !ok {
+	if ok := cache.WaitForCacheSync(
+		stopCh,
+		informers.Pod.Informer().HasSynced,
+		informers.ContainerScale.Informer().HasSynced,
+		informers.Service.Informer().HasSynced,
+		informers.ServiceLevelAgreement.Informer().HasSynced,
+		); !ok {
 		klog.Fatalf("failed to wait for caches to sync")
 	}
 
