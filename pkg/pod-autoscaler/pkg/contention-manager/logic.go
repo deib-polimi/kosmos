@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
-	"github.com/lterrac/system-autoscaler/pkg/containerscale-controller/pkg/types"
+	"github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/types"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,9 +29,9 @@ func proportional(desired, totalDesired, totalAvailable int64) int64 {
 // ContentionManager embeds the contention resolution logic on a given Node.
 type ContentionManager struct {
 	solverFn
-	CPUCapacity     *resource.Quantity
-	MemoryCapacity  *resource.Quantity
-	ContainerScales []*v1beta1.ContainerScale
+	CPUCapacity    *resource.Quantity
+	MemoryCapacity *resource.Quantity
+	PodScales      []*v1beta1.PodScale
 }
 
 // NewContentionManager returns a new ContentionManager instance
@@ -80,27 +80,27 @@ func NewContentionManager(n *corev1.Node, ns types.NodeScales, p []corev1.Pod, s
 	}
 
 	return &ContentionManager{
-		solverFn:        solver,
-		CPUCapacity:     allocatableCPU,
-		MemoryCapacity:  allocatableMemory,
-		ContainerScales: ns.ContainerScales,
+		solverFn:       solver,
+		CPUCapacity:    allocatableCPU,
+		MemoryCapacity: allocatableMemory,
+		PodScales:      ns.PodScales,
 	}
 }
 
-// Solve resolves the contentions between the containerscales
-func (m *ContentionManager) Solve() []*v1beta1.ContainerScale {
+// Solve resolves the contentions between the podscales
+func (m *ContentionManager) Solve() []*v1beta1.PodScale {
 	desiredCPU := &resource.Quantity{}
 	desiredMemory := &resource.Quantity{}
 
-	for _, containerscale := range m.ContainerScales {
-		desiredCPU.Add(*containerscale.Status.CappedResources.Cpu())
-		desiredMemory.Add(*containerscale.Status.CappedResources.Memory())
+	for _, podscale := range m.PodScales {
+		desiredCPU.Add(*podscale.Status.CappedResources.Cpu())
+		desiredMemory.Add(*podscale.Status.CappedResources.Memory())
 	}
 
 	var actualCPU *resource.Quantity
 	var actualMemory *resource.Quantity
 
-	for _, cs := range m.ContainerScales {
+	for _, cs := range m.PodScales {
 		if desiredCPU.Cmp(*m.CPUCapacity) == 1 {
 			actualCPU = resource.NewMilliQuantity(
 				m.solverFn(
@@ -138,16 +138,16 @@ func (m *ContentionManager) Solve() []*v1beta1.ContainerScale {
 		}
 	}
 
-	return m.ContainerScales
+	return m.PodScales
 }
 
 // processNextNode adjust the resources of all the pods scheduled on a node
 // according to the actual capacity. Resources not tracked by System Autoscaler
 // are not considered.
-func (c *Controller) processNextNode(containerscalesInfos <-chan types.NodeScales) bool {
-	for containerscalesInfo := range containerscalesInfos {
+func (c *Controller) processNextNode(podscalesInfos <-chan types.NodeScales) bool {
+	for podscalesInfo := range podscalesInfos {
 
-		node, err := c.listers.NodeLister.Get(containerscalesInfo.Node)
+		node, err := c.listers.NodeLister.Get(podscalesInfo.Node)
 
 		if err != nil {
 			utilruntime.HandleError(fmt.Errorf("error while getting node: %#v", err))
@@ -166,13 +166,13 @@ func (c *Controller) processNextNode(containerscalesInfos <-chan types.NodeScale
 			return true
 		}
 
-		cm := NewContentionManager(node, containerscalesInfo, pods.Items, proportional)
+		cm := NewContentionManager(node, podscalesInfo, pods.Items, proportional)
 
 		nodeScale := cm.Solve()
 
-		containerscalesInfo.ContainerScales = nodeScale
+		podscalesInfo.PodScales = nodeScale
 
-		c.out <- containerscalesInfo
+		c.out <- podscalesInfo
 	}
 
 	return true

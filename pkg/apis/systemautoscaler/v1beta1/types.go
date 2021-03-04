@@ -87,59 +87,42 @@ type MetricRequirement struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// ContainerScaleList is a list of ContainerScale resources
-type ContainerScaleList struct {
+// PodScaleList is a list of PodScale resources
+type PodScaleList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
-	Items []ContainerScale `json:"items"`
+	Items []PodScale `json:"items"`
 }
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// ContainerScale defines the mapping between a `ServiceLevelAgreement` and a
+// PodScale defines the mapping between a `ServiceLevelAgreement` and a
 // `Pod` matching the selector. It also keeps track of the resource values
 // computed by `Recommender` and adjusted by `Contention Manager`.
-type ContainerScale struct {
+type PodScale struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ContainerScaleSpec   `json:"spec"`
-	Status ContainerScaleStatus `json:"status"`
+	Spec   PodScaleSpec   `json:"spec"`
+	Status PodScaleStatus `json:"status"`
 }
 
-// ContainerScaleSpec is the spec for a ContainerScale resource
-type ContainerScaleSpec struct {
-	SLARef           SLARef          `json:"serviceLevelAgreement"`
-	PodRef           PodRef          `json:"pod"`
-	ServiceRef       ServiceRef      `json:"service"`
+// PodScaleSpec is the spec for a PodScale resource
+type PodScaleSpec struct {
+	Namespace        string          `json:"namespace"`
+	SLA              string          `json:"serviceLevelAgreement"`
+	Pod              string          `json:"pod"`
+	Service          string          `json:"service"`
 	Container        string          `json:"container"`
 	DesiredResources v1.ResourceList `json:"desired,omitempty" protobuf:"bytes,3,rep,name=desired,casttype=ResourceList,castkey=ResourceName"`
 }
 
-// PodRef is a reference to a pod
-type PodRef struct {
-	Name      string `json:"name"`
-	Namespace string `json:"namespace"`
-}
-
-// SLARef is a reference to a service level agreement
-type SLARef struct {
-	Name      string `json:"name"`
-	Namespace string `json:"namespace"`
-}
-
-// ServiceRef is a reference to a service
-type ServiceRef struct {
-	Name      string `json:"name"`
-	Namespace string `json:"namespace"`
-}
-
-// ContainerScaleStatus contains the resources patched by the
+// PodScaleStatus contains the resources patched by the
 // `Contention Manager` according to the available node resources
 // and other pods' SLA
-type ContainerScaleStatus struct {
+type PodScaleStatus struct {
 	CappedResources v1.ResourceList `json:"capped,omitempty" protobuf:"bytes,3,rep,name=actual,casttype=ResourceList,castkey=ResourceName"`
 	ActualResources v1.ResourceList `json:"actual,omitempty" protobuf:"bytes,3,rep,name=actual,casttype=ResourceList,castkey=ResourceName"`
 }

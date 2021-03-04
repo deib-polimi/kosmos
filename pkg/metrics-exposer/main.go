@@ -2,6 +2,9 @@ package main
 
 import (
 	"flag"
+	"os"
+	"time"
+
 	clientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
 	sainformers "github.com/lterrac/system-autoscaler/pkg/generated/informers/externalversions"
 	informers2 "github.com/lterrac/system-autoscaler/pkg/informers"
@@ -12,8 +15,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/component-base/logs"
 	"k8s.io/klog/v2"
-	"os"
-	"time"
 
 	"github.com/kubernetes-sigs/custom-metrics-apiserver/pkg/apiserver"
 	basecmd "github.com/kubernetes-sigs/custom-metrics-apiserver/pkg/cmd"
@@ -87,7 +88,7 @@ func main() {
 		Pod:                   coreInformerFactory.Core().V1().Pods(),
 		Node:                  coreInformerFactory.Core().V1().Nodes(),
 		Service:               coreInformerFactory.Core().V1().Services(),
-		ContainerScale:        saInformerFactory.Systemautoscaler().V1beta1().ContainerScales(),
+		PodScale:              saInformerFactory.Systemautoscaler().V1beta1().PodScales(),
 		ServiceLevelAgreement: saInformerFactory.Systemautoscaler().V1beta1().ServiceLevelAgreements(),
 	}
 
@@ -98,16 +99,16 @@ func main() {
 	go informers.Pod.Informer().Run(stopCh)
 	go informers.Node.Informer().Run(stopCh)
 	go informers.Service.Informer().Run(stopCh)
-	go informers.ContainerScale.Informer().Run(stopCh)
+	go informers.PodScale.Informer().Run(stopCh)
 	go informers.ServiceLevelAgreement.Informer().Run(stopCh)
 
 	if ok := cache.WaitForCacheSync(
 		stopCh,
 		informers.Pod.Informer().HasSynced,
-		informers.ContainerScale.Informer().HasSynced,
+		informers.PodScale.Informer().HasSynced,
 		informers.Service.Informer().HasSynced,
 		informers.ServiceLevelAgreement.Informer().HasSynced,
-		); !ok {
+	); !ok {
 		klog.Fatalf("failed to wait for caches to sync")
 	}
 

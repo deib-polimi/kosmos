@@ -2,8 +2,9 @@ package recommender
 
 import (
 	"encoding/json"
-	"k8s.io/klog/v2"
 	"testing"
+
+	"k8s.io/klog/v2"
 
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
 	"github.com/stretchr/testify/require"
@@ -82,16 +83,16 @@ func TestControlTheoryLogic(t *testing.T) {
 				},
 			}
 
-			containerScale := &v1beta1.ContainerScale{
+			podScale := &v1beta1.PodScale{
 				TypeMeta:   metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{},
-				Spec: v1beta1.ContainerScaleSpec{
+				Spec: v1beta1.PodScaleSpec{
 					DesiredResources: map[corev1.ResourceName]resource.Quantity{
 						corev1.ResourceCPU:    *resource.NewScaledQuantity((tt.lowerBound+tt.upperBound)/2, resource.Milli),
 						corev1.ResourceMemory: *resource.NewScaledQuantity((tt.lowerBound+tt.upperBound)/2, resource.Milli),
 					},
 				},
-				Status: v1beta1.ContainerScaleStatus{
+				Status: v1beta1.PodScaleStatus{
 					ActualResources: map[corev1.ResourceName]resource.Quantity{
 						corev1.ResourceCPU:    *resource.NewScaledQuantity((tt.lowerBound+tt.upperBound)/2, resource.Milli),
 						corev1.ResourceMemory: *resource.NewScaledQuantity((tt.lowerBound+tt.upperBound)/2, resource.Milli),
@@ -113,12 +114,12 @@ func TestControlTheoryLogic(t *testing.T) {
 			}
 
 			for i := 0; i < 200; i++ {
-				containerScale, err := logic.computeContainerScale(pod, containerScale, sla, &metricsMap)
+				podScale, err := logic.computePodScale(pod, podScale, sla, &metricsMap)
 				require.Nil(t, err)
-				require.GreaterOrEqual(t, containerScale.Status.CappedResources.Cpu().MilliValue(), tt.lowerBound)
-				x, _ := json.Marshal(containerScale)
+				require.GreaterOrEqual(t, podScale.Status.CappedResources.Cpu().MilliValue(), tt.lowerBound)
+				x, _ := json.Marshal(podScale)
 				klog.Info(string(x))
-				require.LessOrEqual(t, containerScale.Status.CappedResources.Cpu().MilliValue(), tt.upperBound)
+				require.LessOrEqual(t, podScale.Status.CappedResources.Cpu().MilliValue(), tt.upperBound)
 			}
 
 		})

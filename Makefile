@@ -1,5 +1,5 @@
 MAKEFLAGS += --no-print-directory
-COMPONENTS = pod-replicas-updater pod-autoscaler containerscale-controller
+COMPONENTS = pod-replicas-updater pod-autoscaler podscale-controller
 
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -12,7 +12,7 @@ endif
 all: build test coverage manifests release clean
 
 # Build binary
-build: fmt manifests test vet
+build: fmt test vet
 	$(call action, build)
 
 coverage:
@@ -29,7 +29,7 @@ fmt:
 
 install: install-crds install-rbac
 
-install-crds: manifests
+install-crds:
 	@echo "install CRDs manifests"
 	@kubectl apply -f config/crd/bases
 

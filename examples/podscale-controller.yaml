@@ -1,25 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: containerscale-controller
+  name: podscale-controller
   namespace: kube-system
 spec:
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: containerscale-controller
+      app: podscale-controller
   replicas: 1
   template:
     metadata:
       labels:
-        app: containerscale-controller
+        app: podscale-controller
     spec:
       automountServiceAccountToken: true
-      serviceAccountName: containerscale-controller
+      serviceAccountName: podscale-controller
       containers:
-      - name: containerscale-controller
-        image: systemautoscaler/containerscale-controller:0.1.0
+      - name: podscale-controller
+        image: systemautoscaler/podscale-controller:0.1.0
         imagePullPolicy: Always
         ports:
         - containerPort: 443
