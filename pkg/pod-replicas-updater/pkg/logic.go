@@ -14,7 +14,7 @@ import (
 // Logic is the logic the controller uses to suggest new replica values for an application
 type Logic interface {
 	//computeReplica computes the number of replicas for an application
-	computeReplica(sla *v1beta1.ServiceLevelAgreement, pods []*corev1.Pod, podscales []*v1beta1.PodScale, metrics []map[podmetrics.Metrics]*v1beta2.MetricValue, curReplica int32) int32
+	computeReplica(sla *v1beta1.ServiceLevelAgreement, pods []*corev1.Pod, podscales []*v1beta1.PodScale, metrics []map[podmetrics.MetricType]*v1beta2.MetricValue, curReplica int32) int32
 }
 
 type HPALogicState string
@@ -52,7 +52,7 @@ const (
 )
 
 //computeReplica computes the number of replicas for a service, given the serviceLevelAgreement
-func (logic *HPALogic) computeReplica(sla *v1beta1.ServiceLevelAgreement, pods []*corev1.Pod, podscales []*v1beta1.PodScale, metrics []map[podmetrics.Metrics]*v1beta2.MetricValue, curReplica int32) int32 {
+func (logic *HPALogic) computeReplica(sla *v1beta1.ServiceLevelAgreement, pods []*corev1.Pod, podscales []*v1beta1.PodScale, metrics []map[podmetrics.MetricType]*v1beta2.MetricValue, curReplica int32) int32 {
 
 	minReplicas := sla.Spec.MinReplicas
 	maxReplicas := sla.Spec.MaxReplicas
@@ -69,7 +69,7 @@ func (logic *HPALogic) computeReplica(sla *v1beta1.ServiceLevelAgreement, pods [
 	for _, metric := range metrics {
 		result, ok := metric[podmetrics.ResponseTime]
 		if !ok {
-			klog.Info(`"response_time" was not in metrics. Metrics are:`, metric)
+			klog.Info(`"response_time" was not in metrics. MetricType are:`, metric)
 		}
 		actualTarget += float64(result.Value.Value())
 	}

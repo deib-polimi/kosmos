@@ -177,7 +177,7 @@ func (c *Controller) handleSLA(key string) error {
 	}
 
 	// Retrieve the metrics for the pods
-	podMetrics := make([]map[podmetrics.Metrics]*v1beta2.MetricValue, 0)
+	podMetrics := make([]map[podmetrics.MetricType]*v1beta2.MetricValue, 0)
 	for _, pod := range matchedPods {
 		responseTime, err := c.MetricClient.GetMetrics(pod, podmetrics.ResponseTime)
 		if err != nil {
@@ -185,7 +185,7 @@ func (c *Controller) handleSLA(key string) error {
 		}
 
 		// TODO: should we add all the other metrics?
-		metrics := make(map[podmetrics.Metrics]*v1beta2.MetricValue)
+		metrics := make(map[podmetrics.MetricType]*v1beta2.MetricValue)
 
 		metrics[podmetrics.ResponseTime] = responseTime
 

@@ -166,13 +166,13 @@ func (p *responseTimeMetricsProvider) setMetrics(metricInfo CustomMetricResource
 	p.cache[metricInfo] = value
 }
 
-func (p *responseTimeMetricsProvider) updatePodMetric(pod, namespace string, metric metrics.Metrics, quantity resource.Quantity) error {
+func (p *responseTimeMetricsProvider) updatePodMetric(pod, namespace string, metricType metrics.MetricType, quantity resource.Quantity) error {
 
 	groupResource := schema.ParseGroupResource("pod")
 
 	info := provider.CustomMetricInfo{
 		GroupResource: groupResource,
-		Metric:        metric.String(),
+		Metric:        metricType.String(),
 		Namespaced:    true,
 	}
 
@@ -202,12 +202,12 @@ func (p *responseTimeMetricsProvider) updatePodMetric(pod, namespace string, met
 	return nil
 }
 
-func (p *responseTimeMetricsProvider) updateServiceMetric(service, namespace string, metric metrics.Metrics, quantity resource.Quantity) error {
+func (p *responseTimeMetricsProvider) updateServiceMetric(service, namespace string, metricType metrics.MetricType, quantity resource.Quantity) error {
 	groupResource := schema.ParseGroupResource("service")
 
 	info := provider.CustomMetricInfo{
 		GroupResource: groupResource,
-		Metric:        metric.String(),
+		Metric:        metricType.String(),
 		Namespaced:    true,
 	}
 

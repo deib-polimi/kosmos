@@ -18,16 +18,16 @@ type Client struct {
 	httpClient http.Client
 }
 
-type Metrics string
+type MetricType string
 
 const (
-	ResponseTime Metrics = "response_time"
-	RequestCount Metrics = "request_count"
-	Throughput   Metrics = "throughput"
-	All          Metrics = ""
+	ResponseTime MetricType = "response_time"
+	RequestCount MetricType = "request_count"
+	Throughput   MetricType = "throughput"
+	All          MetricType = ""
 )
 
-func (m Metrics) String() string {
+func (m MetricType) String() string {
 	return string(m)
 }
 
@@ -72,7 +72,7 @@ func (c Client) AllMetrics(pod *v1.Pod) (map[string]interface{}, error) {
 	return c.getMetric(pod, All)
 }
 
-func (c Client) getMetric(pod *v1.Pod, metric Metrics) (map[string]interface{}, error) {
+func (c Client) getMetric(pod *v1.Pod, metricType MetricType) (map[string]interface{}, error) {
 	// Retrieve the location of the pod's metrics server
 	podAddress := pod.Status.PodIP
 
@@ -80,7 +80,7 @@ func (c Client) getMetric(pod *v1.Pod, metric Metrics) (map[string]interface{}, 
 	host := c.Host
 	host = strings.Replace(host, "{pod_address}", podAddress, -1)
 	host = strings.Replace(host, "{pod_port}", "8000", -1)
-	path := "metrics/" + metric.String()
+	path := "metrics/" + metricType.String()
 	// Create the request
 	metricServerURL := url.URL{
 		// TODO: http is not a good protocol for polling data
