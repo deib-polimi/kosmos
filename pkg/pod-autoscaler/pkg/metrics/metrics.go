@@ -13,7 +13,8 @@ import (
 
 // MetricGetter is used by the recommender to fetch Pod metrics
 type MetricGetter interface {
-	GetMetrics(p *corev1.Pod, metricType metrics.MetricType) (*metricsv1beta2.MetricValue, error)
+	PodMetrics(p *corev1.Pod, metricType metrics.MetricType) (*metricsv1beta2.MetricValue, error)
+	ServiceMetrics(s *corev1.Service, metricType metrics.MetricType) (*metricsv1beta2.MetricValue, error)
 }
 
 // DefaultGetter is the standard implementation of MetriGetter
@@ -28,10 +29,16 @@ func NewDefaultGetter(cfg *rest.Config, m *dynamicmapper.RegeneratingDiscoveryRE
 	}
 }
 
-// GetMetrics retrieves the Pod metrics. metrics.All is not supported at the moment by metrics-exposer so don't use it
-func (d *DefaultGetter) GetMetrics(p *corev1.Pod, metricType metrics.MetricType) (*metricsv1beta2.MetricValue, error) {
+// PodMetrics retrieves the Pod metrics. metrics.All is not supported at the moment by metrics-exposer so don't use it
+func (d *DefaultGetter) PodMetrics(p *corev1.Pod, metricType metrics.MetricType) (*metricsv1beta2.MetricValue, error) {
 	return d.client.NamespacedMetrics(p.Namespace).GetForObject(corev1.SchemeGroupVersion.WithKind("Pod").GroupKind(), p.Name, metricType.String(), labels.Everything())
 }
+
+// PodMetrics retrieves the Pod metrics. metrics.All is not supported at the moment by metrics-exposer so don't use it
+func (d *DefaultGetter) ServiceMetrics(s *corev1.Service, metricType metrics.MetricType) (*metricsv1beta2.MetricValue, error) {
+	return d.client.NamespacedMetrics(s.Namespace).GetForObject(corev1.SchemeGroupVersion.WithKind("Service").GroupKind(), s.Name, metricType.String(), labels.Everything())
+}
+
 
 // FakeGetter is used to mock the custom metrics api, especially during e2e tests
 type FakeGetter struct {
@@ -39,7 +46,14 @@ type FakeGetter struct {
 }
 
 // GetMetrics always return a MetricValue of 5
-func (d *FakeGetter) GetMetrics(p *corev1.Pod, metricType metrics.MetricType) (*metricsv1beta2.MetricValue, error) {
+func (d *FakeGetter) PodMetrics(p *corev1.Pod, metricType metrics.MetricType) (*metricsv1beta2.MetricValue, error) {
+	return &metricsv1beta2.MetricValue{
+		Value: *resource.NewQuantity(d.ResponseTime, resource.BinarySI),
+	}, nil
+}
+
+// PodMetrics retrieves the Pod metrics. metrics.All is not supported at the moment by metrics-exposer so don't use it
+func (d *FakeGetter) ServiceMetrics(s *corev1.Service, metricType metrics.MetricType) (*metricsv1beta2.MetricValue, error) {
 	return &metricsv1beta2.MetricValue{
 		Value: *resource.NewQuantity(d.ResponseTime, resource.BinarySI),
 	}, nil

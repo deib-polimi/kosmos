@@ -235,7 +235,7 @@ func (c *Controller) recommendContainer(podScale *v1beta1.PodScale) (*v1beta1.Po
 	}
 
 	// Retrieve the metrics
-	metrics, err := c.MetricClient.GetMetrics(pod, metrics.ResponseTime)
+	metrics, err := c.MetricClient.PodMetrics(pod, metrics.ResponseTime)
 	if err != nil {
 		return nil, fmt.Errorf("error: %s, failed to get metrics from pod with name %s and namespace %s from lister", err, pod.GetName(), pod.GetNamespace())
 	}

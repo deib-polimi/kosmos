@@ -1,20 +1,20 @@
 package replicaupdater
 
 import (
+	"github.com/lterrac/system-autoscaler/pkg/metrics-exposer/pkg/metrics"
+	metricsgetter "github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/metrics"
+	"k8s.io/klog/v2"
 	"math"
 	"time"
 
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
-	podmetrics "github.com/lterrac/system-autoscaler/pkg/metrics-exposer/pkg/metrics"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/klog/v2"
-	"k8s.io/metrics/pkg/apis/custom_metrics/v1beta2"
 )
 
 // Logic is the logic the controller uses to suggest new replica values for an application
 type Logic interface {
 	//computeReplica computes the number of replicas for an application
-	computeReplica(sla *v1beta1.ServiceLevelAgreement, pods []*corev1.Pod, podscales []*v1beta1.PodScale, metrics []map[podmetrics.MetricType]*v1beta2.MetricValue, curReplica int32) int32
+	computeReplica(sla *v1beta1.ServiceLevelAgreement, pods []*corev1.Pod, podscales []*v1beta1.PodScale, service *corev1.Service, metricClient metricsgetter.MetricGetter, curReplica int32) int32
 }
 
 type HPALogicState string
@@ -52,7 +52,7 @@ const (
 )
 
 //computeReplica computes the number of replicas for a service, given the serviceLevelAgreement
-func (logic *HPALogic) computeReplica(sla *v1beta1.ServiceLevelAgreement, pods []*corev1.Pod, podscales []*v1beta1.PodScale, metrics []map[podmetrics.MetricType]*v1beta2.MetricValue, curReplica int32) int32 {
+func (logic *HPALogic) computeReplica(sla *v1beta1.ServiceLevelAgreement, pods []*corev1.Pod, podscales []*v1beta1.PodScale, service *corev1.Service, metricClient metricsgetter.MetricGetter, curReplica int32) int32 {
 
 	minReplicas := sla.Spec.MinReplicas
 	maxReplicas := sla.Spec.MaxReplicas
@@ -65,19 +65,17 @@ func (logic *HPALogic) computeReplica(sla *v1beta1.ServiceLevelAgreement, pods [
 
 	// Compute the desired amount of replica
 	desiredTarget := float64(sla.Spec.Metric.ResponseTime.MilliValue())
-	actualTarget := 0.0
-	for _, metric := range metrics {
-		result, ok := metric[podmetrics.ResponseTime]
-		if !ok {
-			klog.Info(`"response_time" was not in metrics. MetricType are:`, metric)
-		}
-		actualTarget += float64(result.Value.Value())
+	responseTime, err := metricClient.ServiceMetrics(service, metrics.ResponseTime)
+
+	if err != nil {
+		klog.Errorf("failed to retrieve metrics for service with name %s and namespace %s, error: %s", service.Name, service.Namespace, err)
+		return curReplica
 	}
-	nPods := float64(len(metrics))
-	actualTarget = actualTarget / nPods
+
+	actualTarget := float64(responseTime.Value.MilliValue())
 
 	// Apply constraints
-	nReplicas := int32(math.Min(float64(maxReplicas), math.Max(float64(minReplicas), math.Round(actualTarget/desiredTarget*nPods))))
+	nReplicas := int32(math.Min(float64(maxReplicas), math.Max(float64(minReplicas), math.Round(actualTarget/desiredTarget*float64(curReplica)))))
 
 	// Check tolerance
 	// If the new amount of replicas is between the upper bound and the lower bound
