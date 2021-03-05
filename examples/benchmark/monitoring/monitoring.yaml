@@ -51,6 +51,8 @@ spec:
       labels:
         app: monitoring
     spec:
+      nodeSelector:
+        kubernetes.io/hostname: master
       automountServiceAccountToken: true
       serviceAccountName: sa-monitoring
       containers:

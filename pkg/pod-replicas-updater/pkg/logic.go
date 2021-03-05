@@ -56,10 +56,10 @@ func newCustomLogic(earlyStop bool) *CustomLogic {
 }
 
 const (
-	scaleUpPeriodMillis   = 15000
-	scaleDownPeriodMillis = 15000
-	stabilizePeriodMillis = 30000
-	tolerance             = 1.10
+	scaleUpPeriodMillis   = 30000
+	scaleDownPeriodMillis = 30000
+	stabilizePeriodMillis = 60000
+	tolerance             = 1.2
 )
 
 //computeReplica computes the number of replicas for a service, given the serviceLevelAgreement
@@ -68,7 +68,10 @@ func (logic *HPALogic) computeReplica(sla *v1beta1.ServiceLevelAgreement, pods [
 	minReplicas := sla.Spec.MinReplicas
 	maxReplicas := sla.Spec.MaxReplicas
 
+	klog.Info("current_state:", logic.state)
+
 	// If the application has recently changed the amount of replicas, it will wait for it to stabilize
+	klog.Info(time.Since(logic.stabilizeTime).Milliseconds())
 	if time.Since(logic.stabilizeTime).Milliseconds() < stabilizePeriodMillis {
 		logic.state = SteadyState
 		return curReplica
@@ -91,11 +94,11 @@ func (logic *HPALogic) computeReplica(sla *v1beta1.ServiceLevelAgreement, pods [
 	// Check tolerance
 	// If the new amount of replicas is between the upper bound and the lower bound
 	// do no take any action
-	toleranceUpperBound := int32(float64(nReplicas) * tolerance)
-	toleranceLowerBound := int32(float64(nReplicas) * (tolerance - 1))
+	toleranceUpperBound := int32(float64(desiredTarget) * tolerance)
+	toleranceLowerBound := int32(float64(desiredTarget) * (2 - tolerance))
 	if nReplicas < toleranceUpperBound && nReplicas > toleranceLowerBound {
 		logic.state = SteadyState
-		return nReplicas
+		return curReplica
 	}
 
 	// Scale Up
@@ -184,16 +187,6 @@ func (logic *CustomLogic) computeReplica(sla *v1beta1.ServiceLevelAgreement, pod
 	}
 
 	nReplicas = int32(math.Min(float64(maxReplicas), math.Max(float64(minReplicas), float64(nReplicas))))
-
-	// Check tolerance
-	// If the new amount of replicas is between the upper bound and the lower bound
-	// do no take any action
-	toleranceUpperBound := int32(float64(nReplicas) * tolerance)
-	toleranceLowerBound := int32(float64(nReplicas) * (tolerance - 1))
-	if nReplicas < toleranceUpperBound && nReplicas > toleranceLowerBound {
-		logic.state = SteadyState
-		return nReplicas
-	}
 
 	// Scale Up
 	if nReplicas > curReplica {
