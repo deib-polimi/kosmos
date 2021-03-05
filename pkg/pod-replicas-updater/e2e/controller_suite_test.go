@@ -2,8 +2,6 @@ package e2e_test
 
 import (
 	"context"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -114,19 +112,6 @@ var _ = AfterSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 })
 
-func serverMock() *httptest.Server {
-	handler := http.NewServeMux()
-	handler.HandleFunc("/", usersMock)
-
-	srv := httptest.NewServer(handler)
-
-	return srv
-}
-
-func usersMock(w http.ResponseWriter, _ *http.Request) {
-	_, _ = w.Write([]byte(`{"response_time":50.0}`))
-}
-
 func getPodsForSvc(svc *corev1.Service, namespace string, client kubernetes.Clientset) (*corev1.PodList, error) {
 	set := labels.Set(svc.Spec.Selector)
 	listOptions := metav1.ListOptions{LabelSelector: set.AsSelector().String()}
@@ -149,7 +134,7 @@ func newSLA(name string, container string, labels map[string]string, responseTim
 				},
 			},
 			Metric: sa.MetricRequirement{
-				ResponseTime: *resource.NewMilliQuantity(responseTime, resource.BinarySI),
+				ResponseTime: *resource.NewQuantity(responseTime, resource.BinarySI),
 			},
 			DefaultResources: map[corev1.ResourceName]resource.Quantity{
 				corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
