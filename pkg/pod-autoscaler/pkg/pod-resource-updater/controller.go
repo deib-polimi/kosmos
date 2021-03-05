@@ -153,9 +153,9 @@ func (c *Controller) runNodeScaleWorker() {
 			//TODO: handle error
 			_ = c.log.Log(updatedPodScale)
 
-			klog.Info("Desired resources:", updatedContainerScale.Spec.DesiredResources)
-			klog.Info("Capped resources:", updatedContainerScale.Status.CappedResources)
-			klog.Info("Actual resources:", updatedContainerScale.Status.ActualResources)
+			klog.Info("Desired resources:", updatedPodScale.Spec.DesiredResources)
+			klog.Info("Capped resources:", updatedPodScale.Status.CappedResources)
+			klog.Info("Actual resources:", updatedPodScale.Status.ActualResources)
 			klog.Info("Pod resources:", updatedPod.Spec.Containers[0].Resources)
 		}
 	}
