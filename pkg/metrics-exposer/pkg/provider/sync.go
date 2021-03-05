@@ -153,9 +153,9 @@ func (p *responseTimeMetricsProvider) PodMetrics(pod *v1.Pod) (*Metrics, error) 
 	}
 
 	return &Metrics{
-		ResponseTime: resource.NewMilliQuantity(int64(value[string(metrics.ResponseTime)].(float64)), resource.BinarySI),
-		RequestCount: resource.NewQuantity(int64(value[string(metrics.RequestCount)].(float64)), resource.BinarySI),
-		Throughput:   resource.NewMilliQuantity(int64(value[string(metrics.Throughput)].(float64)), resource.BinarySI),
+		ResponseTime: resource.NewMilliQuantity(int64(value[metrics.ResponseTime.String()].(float64)), resource.BinarySI),
+		RequestCount: resource.NewQuantity(int64(value[metrics.RequestCount.String()].(float64)), resource.BinarySI),
+		Throughput:   resource.NewMilliQuantity(int64(value[metrics.Throughput.String()].(float64)), resource.BinarySI),
 	}, nil
 }
 
@@ -166,13 +166,13 @@ func (p *responseTimeMetricsProvider) setMetrics(metricInfo CustomMetricResource
 	p.cache[metricInfo] = value
 }
 
-func (p *responseTimeMetricsProvider) updatePodMetric(pod, namespace string, metric metrics.Metrics, quantity resource.Quantity) error {
+func (p *responseTimeMetricsProvider) updatePodMetric(pod, namespace string, metricType metrics.MetricType, quantity resource.Quantity) error {
 
 	groupResource := schema.ParseGroupResource("pod")
 
 	info := provider.CustomMetricInfo{
 		GroupResource: groupResource,
-		Metric:        string(metric),
+		Metric:        metricType.String(),
 		Namespaced:    true,
 	}
 
@@ -202,12 +202,12 @@ func (p *responseTimeMetricsProvider) updatePodMetric(pod, namespace string, met
 	return nil
 }
 
-func (p *responseTimeMetricsProvider) updateServiceMetric(service, namespace string, metric metrics.Metrics, quantity resource.Quantity) error {
+func (p *responseTimeMetricsProvider) updateServiceMetric(service, namespace string, metricType metrics.MetricType, quantity resource.Quantity) error {
 	groupResource := schema.ParseGroupResource("service")
 
 	info := provider.CustomMetricInfo{
 		GroupResource: groupResource,
-		Metric:        string(metric),
+		Metric:        metricType.String(),
 		Namespaced:    true,
 	}
 

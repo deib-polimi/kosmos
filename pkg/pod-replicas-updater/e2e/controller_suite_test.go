@@ -2,11 +2,10 @@ package e2e_test
 
 import (
 	"context"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
+	metricsgetter "github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/metrics"
 	replicaupdater "github.com/lterrac/system-autoscaler/pkg/pod-replicas-updater/pkg"
 
 	"github.com/lterrac/system-autoscaler/pkg/informers"
@@ -83,16 +82,17 @@ var _ = BeforeSuite(func(done Done) {
 	By("bootstrapping controller")
 	stopCh := signals.SetupSignalHandler()
 
+	metricClient := &metricsgetter.FakeGetter{
+		ResponseTime: 50,
+	}
+
 	By("instantiating recommender")
 	replicaUpdater = replicaupdater.NewController(
 		kubeClient,
 		saClient,
 		informers,
+		metricClient,
 	)
-	client := replicaupdater.NewMetricClient()
-	server := serverMock()
-	client.Host = server.URL[7:]
-	replicaUpdater.MetricClient = client
 
 	By("starting informers")
 	crdInformerFactory.Start(stopCh)
@@ -111,19 +111,6 @@ var _ = AfterSuite(func() {
 	err := testEnv.Stop()
 	Expect(err).ToNot(HaveOccurred())
 })
-
-func serverMock() *httptest.Server {
-	handler := http.NewServeMux()
-	handler.HandleFunc("/", usersMock)
-
-	srv := httptest.NewServer(handler)
-
-	return srv
-}
-
-func usersMock(w http.ResponseWriter, _ *http.Request) {
-	_, _ = w.Write([]byte(`{"response_time":50.0}`))
-}
 
 func getPodsForSvc(svc *corev1.Service, namespace string, client kubernetes.Clientset) (*corev1.PodList, error) {
 	set := labels.Set(svc.Spec.Selector)
@@ -147,7 +134,7 @@ func newSLA(name string, container string, labels map[string]string, responseTim
 				},
 			},
 			Metric: sa.MetricRequirement{
-				ResponseTime: *resource.NewMilliQuantity(responseTime, resource.BinarySI),
+				ResponseTime: *resource.NewQuantity(responseTime, resource.BinarySI),
 			},
 			DefaultResources: map[corev1.ResourceName]resource.Quantity{
 				corev1.ResourceCPU:    *resource.NewScaledQuantity(50, resource.Milli),
@@ -250,7 +237,7 @@ func newDeployment(name string, container string, labels map[string]string, sele
 	}
 }
 
-func newPodScale(sla *sa.ServiceLevelAgreement, pod *corev1.Pod, selectorLabels map[string]string) *sa.PodScale {
+func newPodScale(sla *sa.ServiceLevelAgreement, service *corev1.Service, pod *corev1.Pod, selectorLabels map[string]string) *sa.PodScale {
 	podLabels := make(labels.Set)
 	for k, v := range selectorLabels {
 		podLabels[k] = v
@@ -278,6 +265,7 @@ func newPodScale(sla *sa.ServiceLevelAgreement, pod *corev1.Pod, selectorLabels 
 			SLA:              sla.GetName(),
 			Namespace:        sla.GetNamespace(),
 			Pod:              pod.GetName(),
+			Service:          service.GetName(),
 			Container:        pod.Spec.Containers[0].Name,
 			DesiredResources: sla.Spec.DefaultResources,
 		},

@@ -9,6 +9,7 @@ import (
 	saclientset "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned"
 	samplescheme "github.com/lterrac/system-autoscaler/pkg/generated/clientset/versioned/scheme"
 	"github.com/lterrac/system-autoscaler/pkg/informers"
+	metricsgetter "github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/metrics"
 	"github.com/lterrac/system-autoscaler/pkg/queue"
 	"github.com/modern-go/concurrent"
 	corev1 "k8s.io/api/core/v1"
@@ -47,7 +48,7 @@ type Controller struct {
 	recorder record.EventRecorder
 
 	// MetricClient is a client that polls the metrics from the pod.
-	MetricClient *Client
+	MetricClient metricsgetter.MetricGetter
 
 	// Key: namespace-name of the application, Value: assigned logic
 	logicMap concurrent.Map
@@ -59,7 +60,8 @@ type Controller struct {
 // NewController returns a new sample controller
 func NewController(kubernetesClientset *kubernetes.Clientset,
 	saClientSet saclientset.Interface,
-	informers informers.Informers) *Controller {
+	informers informers.Informers,
+	metricClient metricsgetter.MetricGetter) *Controller {
 
 	// Create event broadcaster
 	// Add sample-controller types to the default Kubernetes Scheme so Events can be
@@ -78,7 +80,7 @@ func NewController(kubernetesClientset *kubernetes.Clientset,
 		listers:             informers.GetListers(),
 		podScaleSynced:      informers.PodScale.Informer().HasSynced,
 		podSynced:           informers.Pod.Informer().HasSynced,
-		MetricClient:        NewMetricClient(),
+		MetricClient:        metricClient,
 		workqueue:           queue.NewQueue("SLAQueue"),
 	}
 
@@ -157,6 +159,7 @@ func (c *Controller) handleSLA(key string) error {
 	// Filter all pod scales and pods matched by the sla
 	var matchedPodScales []*v1beta1.PodScale
 	var matchedPods []*corev1.Pod
+	var service *corev1.Service
 	for _, podScale := range podScales {
 		if podScale.Spec.Namespace == sla.Namespace && podScale.Spec.SLA == sla.Name {
 			matchedPodScales = append(matchedPodScales, podScale)
@@ -166,21 +169,14 @@ func (c *Controller) handleSLA(key string) error {
 			} else {
 				matchedPods = append(matchedPods, pod)
 			}
+			service, err = c.listers.Services(podScale.Spec.Namespace).Get(podScale.Spec.Service)
+			if err != nil {
+				return fmt.Errorf("failed to retrieve the service, error: %v", err)
+			}
 		}
 	}
 	if len(matchedPods) == 0 {
 		return fmt.Errorf("no pod has been matched")
-	}
-
-	// Retrieve the metrics for the pods
-	var podMetrics []map[string]interface{}
-	for _, pod := range matchedPods {
-		metrics, err := c.MetricClient.getMetrics(pod)
-		if err != nil {
-			return fmt.Errorf("failed to retrieve the metrics for pod with name %s and namespace %s, error: %s. Probably the pod is not ready yet, retrying", pod.Name, pod.Namespace, err)
-		} else {
-			podMetrics = append(podMetrics, metrics)
-		}
 	}
 
 	// TODO: handle also statefulset, replicaset, etc. (all types of 'apps')
@@ -224,7 +220,7 @@ func (c *Controller) handleSLA(key string) error {
 	}
 
 	// Compute the new amount of replicas
-	nReplicas := logic.computeReplica(sla, matchedPods, matchedPodScales, podMetrics, *deployment.Spec.Replicas)
+	nReplicas := logic.computeReplica(sla, matchedPods, matchedPodScales, service, c.MetricClient, *deployment.Spec.Replicas)
 	klog.Info("SLA key: ", key, " new amount of replicas: ", nReplicas)
 
 	// Set the new amount of replicas

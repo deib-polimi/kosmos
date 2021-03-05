@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/lterrac/system-autoscaler/pkg/informers"
+	"github.com/lterrac/system-autoscaler/pkg/metrics-exposer/pkg/metrics"
+	metricsgetter "github.com/lterrac/system-autoscaler/pkg/pod-autoscaler/pkg/metrics"
 	"github.com/lterrac/system-autoscaler/pkg/queue"
 	"k8s.io/apimachinery/pkg/labels"
 
@@ -27,7 +29,6 @@ import (
 )
 
 const controllerAgentName = "recommender"
-const responseTime = "response_time"
 
 // Controller is the controller that recommends resources to the pods.
 // For each Pod Scale assigned to the recommender, it will have a pod saved in a list.
@@ -51,8 +52,8 @@ type Controller struct {
 	// status represents the state of the controller
 	status *Status
 
-	// MetricGetter is a client that polls the metrics from the pod.
-	MetricGetter MetricGetter
+	// MetricClient is a client that polls the metrics from the pod.
+	MetricClient metricsgetter.MetricGetter
 
 	// recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
@@ -72,7 +73,7 @@ type Status struct {
 func NewController(
 	kubernetesClientset kubernetes.Interface,
 	podScalesClientset podscalesclientset.Interface,
-	metricsClient MetricGetter,
+	metricsClient metricsgetter.MetricGetter,
 	informers informers.Informers,
 	out chan types.NodeScales,
 ) *Controller {
@@ -99,7 +100,7 @@ func NewController(
 		kubernetesClientset: kubernetesClientset,
 		recommendNodeQueue:  queue.NewQueue("RecommendQueue"),
 		status:              status,
-		MetricGetter:        metricsClient,
+		MetricClient:        metricsClient,
 		recorder:            recorder,
 		out:                 out,
 	}
@@ -234,7 +235,7 @@ func (c *Controller) recommendContainer(podScale *v1beta1.PodScale) (*v1beta1.Po
 	}
 
 	// Retrieve the metrics
-	metrics, err := c.MetricGetter.GetMetrics(pod)
+	metrics, err := c.MetricClient.PodMetrics(pod, metrics.ResponseTime)
 	if err != nil {
 		return nil, fmt.Errorf("error: %s, failed to get metrics from pod with name %s and namespace %s from lister", err, pod.GetName(), pod.GetNamespace())
 	}
