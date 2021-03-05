@@ -1,17 +1,19 @@
-apiVersion: v1
 kind: ServiceAccount
+apiVersion: v1
 metadata:
-  name: podscale-controller
+  name: pod-replicas-updater
   namespace: kube-system
-automountServiceAccountToken: false
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: system-autoscaler:podscale-controller
+  name: pod-replicas-updater
 rules:
+  - apiGroups: ["apps"]
+    resources: ["*"]
+    verbs: ["*"]
   - apiGroups: [""]
-    resources: ["pods", "services", "nodes"]
+    resources: ["pods", "services", "nodes", "replicaset"]
     verbs: ["update", "get", "watch", "list"]
   - apiGroups: [""]
     resources: ["events"]
@@ -19,55 +21,46 @@ rules:
   - apiGroups: ["systemautoscaler.polimi.it"]
     resources: ["servicelevelagreements"]
     verbs: ["get", "watch", "list"]
-  - apiGroups: ["systemautoscaler.polimi.it"]
-    resources: ["podscales"]
-    verbs: ["*"]
+  - apiGroups: [ "systemautoscaler.polimi.it" ]
+    resources: [ "podscales" ]
+    verbs: [ "*" ]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: system-autoscaler:podscale-controller
+  name: pod-replicas-updater
 subjects:
   - kind: ServiceAccount
-    name: podscale-controller
+    name: pod-replicas-updater
     namespace: kube-system
     apiGroup: ""
 roleRef:
   kind: ClusterRole
-  name: system-autoscaler:podscale-controller
+  name: pod-replicas-updater
   apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: podscale-controller
+  labels:
+    app: pod-replicas-updater
+  name: pod-replicas-updater
   namespace: kube-system
 spec:
-  strategy:
-    type: Recreate
+  replicas: 1
   selector:
     matchLabels:
-      app: podscale-controller
-  replicas: 1
+      app: pod-replicas-updater
   template:
     metadata:
       labels:
-        app: podscale-controller
+        app: pod-replicas-updater
+      name: pod-replicas-updater
     spec:
       nodeSelector:
         kubernetes.io/hostname: master
-      automountServiceAccountToken: true
-      serviceAccountName: podscale-controller
       containers:
-        - name: podscale-controller
-          image: systemautoscaler/podscale-controller:0.1.0
+        - name: pod-replicas-updater
+          image: pentabanana/pod-replicas-updater:latest
           imagePullPolicy: Always
-          resources:
-            limits:
-              cpu: 200m
-              memory: 200Mi
-            requests:
-              cpu: 100m
-              memory: 100Mi
-
-
+      serviceAccountName: pod-replicas-updater

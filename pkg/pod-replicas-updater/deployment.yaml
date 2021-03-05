@@ -57,6 +57,8 @@ spec:
         app: pod-replicas-updater
       name: pod-replicas-updater
     spec:
+      nodeSelector:
+        kubernetes.io/hostname: master
       containers:
         - name: pod-replicas-updater
           image: pentabanana/pod-replicas-updater:latest

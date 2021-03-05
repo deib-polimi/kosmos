@@ -19,15 +19,17 @@ type Logic interface {
 
 // ControlTheoryLogic is the logic that apply control theory in order to recommendContainer new resources
 type ControlTheoryLogic struct {
-	xcprec float64
-	cores  float64
+	xcprec    float64
+	cores     float64
+	prevError float64
 }
 
 // newControlTheoryLogic returns a new control theory logic
 func newControlTheoryLogic(podScale *v1beta1.PodScale) *ControlTheoryLogic {
 	return &ControlTheoryLogic{
-		xcprec: float64(podScale.Status.ActualResources.Cpu().MilliValue()),
-		cores:  float64(podScale.Status.ActualResources.Cpu().MilliValue()),
+		xcprec:    float64(podScale.Status.ActualResources.Cpu().MilliValue()),
+		cores:     float64(podScale.Status.ActualResources.Cpu().MilliValue()),
+		prevError: 0.0,
 	}
 }
 
@@ -35,8 +37,10 @@ const (
 	// Control theory constants
 	maxScaleOut = 3
 	minCPU      = 5
-	BC          = 5
-	DC          = 10
+	BC          = 25
+	DC          = 50
+	minError    = -20000.0
+	maxError    = 20000.0
 )
 
 // computePodScale computes a new pod scale for a given pod.
@@ -51,7 +55,7 @@ func (logic *ControlTheoryLogic) computePodScale(pod *v1.Pod, podScale *v1beta1.
 	}
 
 	// Compute the cpu and memory value for the pod
-	desiredCPU := logic.computeCPUResource(container, sla, metric)
+	desiredCPU := logic.computeCPUResource(container, podScale, sla, metric)
 	desiredMemory := logic.computeMemoryResource(container, podScale, sla, metric)
 
 	desiredResources := make(v1.ResourceList)
@@ -59,7 +63,7 @@ func (logic *ControlTheoryLogic) computePodScale(pod *v1.Pod, podScale *v1beta1.
 	desiredResources[v1.ResourceMemory] = *desiredMemory
 
 	cappedResources := make(v1.ResourceList)
-	cappedCPU, _ := applyBounds(desiredCPU, sla.Spec.MinResources.Memory(), sla.Spec.MaxResources.Memory(), sla.Spec.MinResources != nil, sla.Spec.MaxResources != nil)
+	cappedCPU, _ := applyBounds(desiredCPU, sla.Spec.MinResources.Cpu(), sla.Spec.MaxResources.Cpu(), sla.Spec.MinResources != nil, sla.Spec.MaxResources != nil)
 	cappedMemory, _ := applyBounds(desiredMemory, sla.Spec.MinResources.Memory(), sla.Spec.MaxResources.Memory(), sla.Spec.MinResources != nil, sla.Spec.MaxResources != nil)
 	cappedResources[v1.ResourceCPU] = *cappedCPU
 	cappedResources[v1.ResourceMemory] = *cappedMemory
@@ -90,19 +94,24 @@ func (logic *ControlTheoryLogic) computeMemoryResource(container v1.Container, p
 }
 
 // computeMemoryResource computes memory resources for a given pod.
-func (logic *ControlTheoryLogic) computeCPUResource(container v1.Container, sla *v1beta1.ServiceLevelAgreement, metric *metricsv1beta2.MetricValue) *resource.Quantity {
+func (logic *ControlTheoryLogic) computeCPUResource(container v1.Container, podScale *v1beta1.PodScale, sla *v1beta1.ServiceLevelAgreement, metric *metricsv1beta2.MetricValue) *resource.Quantity {
+
+	actualCpu := podScale.Status.ActualResources.Cpu().MilliValue()
+	logic.cores = float64(actualCpu)
+	logic.xcprec = logic.cores - BC*logic.prevError
 
 	// Compute the new desired value
-	result, ok := metric.Value.AsInt64()
-	if !ok {
-		klog.Info(`response_time cannot be casted to Int64. response_time is:`, metric)
-		return resource.NewMilliQuantity(container.Resources.Requests.Cpu().MilliValue(), resource.BinarySI)
-	}
+	//result := metric.Value.MilliValue()
+	//if !ok {
+	//	klog.Info(`response_time cannot be casted to Int64. response_time is:`, metric)
+	//	return resource.NewMilliQuantity(container.Resources.Requests.Cpu().MilliValue(), resource.BinarySI)
+	//}
 
-	responseTime := float64(result) / 1000
+	responseTime := float64(metric.Value.MilliValue()) / 1000
 	// The response time is in seconds
 	setPoint := float64(sla.Spec.Metric.ResponseTime.MilliValue()) / 1000
 	e := 1/setPoint - 1/responseTime
+	e = math.Min(math.Max(e, minError), maxError)
 	xc := float64(logic.xcprec + BC*e)
 	oldcores := logic.cores
 	cores := math.Min(math.Max(minCPU, xc+DC*e), oldcores*maxScaleOut)

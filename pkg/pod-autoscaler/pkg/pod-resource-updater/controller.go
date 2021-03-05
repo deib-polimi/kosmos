@@ -154,6 +154,7 @@ func (c *Controller) runNodeScaleWorker() {
 			_ = c.log.Log(updatedPodScale)
 
 			klog.Info("Desired resources:", updatedPodScale.Spec.DesiredResources)
+			klog.Info("Capped resources:", updatedPodScale.Status.CappedResources)
 			klog.Info("Actual resources:", updatedPodScale.Status.ActualResources)
 			klog.Info("Pod resources:", updatedPod.Spec.Containers[0].Resources)
 		}
