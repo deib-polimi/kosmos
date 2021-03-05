@@ -252,7 +252,7 @@ func newDeployment(name string, container string, labels map[string]string, sele
 	}
 }
 
-func newPodScale(sla *sa.ServiceLevelAgreement, pod *corev1.Pod, selectorLabels map[string]string) *sa.PodScale {
+func newPodScale(sla *sa.ServiceLevelAgreement, service *corev1.Service, pod *corev1.Pod, selectorLabels map[string]string) *sa.PodScale {
 	podLabels := make(labels.Set)
 	for k, v := range selectorLabels {
 		podLabels[k] = v
@@ -280,6 +280,7 @@ func newPodScale(sla *sa.ServiceLevelAgreement, pod *corev1.Pod, selectorLabels 
 			SLA:              sla.GetName(),
 			Namespace:        sla.GetNamespace(),
 			Pod:              pod.GetName(),
+			Service:          service.GetName(),
 			Container:        pod.Spec.Containers[0].Name,
 			DesiredResources: sla.Spec.DefaultResources,
 		},

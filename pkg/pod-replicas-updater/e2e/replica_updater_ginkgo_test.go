@@ -59,7 +59,7 @@ var _ = Describe("Replica updater controller", func() {
 
 			var podScales []*sa.PodScale
 			for _, pod := range podList.Items {
-				podScale := newPodScale(sla, &pod, labels)
+				podScale := newPodScale(sla, svc, &pod, labels)
 				podScale, err = saClient.SystemautoscalerV1beta1().PodScales(namespace).Create(ctx, podScale, metav1.CreateOptions{})
 				Expect(err).ShouldNot(HaveOccurred())
 				podScales = append(podScales, podScale)
@@ -132,7 +132,7 @@ var _ = Describe("Replica updater controller", func() {
 
 			var podScales []*sa.PodScale
 			for _, pod := range podList.Items {
-				podScale := newPodScale(sla, &pod, labels)
+				podScale := newPodScale(sla, svc, &pod, labels)
 				klog.Info(podScale)
 				podScale, err = saClient.SystemautoscalerV1beta1().PodScales(namespace).Create(ctx, podScale, metav1.CreateOptions{})
 				Expect(err).ShouldNot(HaveOccurred())
