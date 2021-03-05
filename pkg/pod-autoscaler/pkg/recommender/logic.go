@@ -27,8 +27,8 @@ type ControlTheoryLogic struct {
 // newControlTheoryLogic returns a new control theory logic
 func newControlTheoryLogic(podScale *v1beta1.PodScale) *ControlTheoryLogic {
 	return &ControlTheoryLogic{
-		xcprec:    float64(containerScale.Status.ActualResources.Cpu().MilliValue()),
-		cores:     float64(containerScale.Status.ActualResources.Cpu().MilliValue()),
+		xcprec:    float64(podScale.Status.ActualResources.Cpu().MilliValue()),
+		cores:     float64(podScale.Status.ActualResources.Cpu().MilliValue()),
 		prevError: 0.0,
 	}
 }
@@ -55,7 +55,7 @@ func (logic *ControlTheoryLogic) computePodScale(pod *v1.Pod, podScale *v1beta1.
 	}
 
 	// Compute the cpu and memory value for the pod
-	desiredCPU := logic.computeCPUResource(container, sla, metric)
+	desiredCPU := logic.computeCPUResource(container, podScale, sla, metric)
 	desiredMemory := logic.computeMemoryResource(container, podScale, sla, metric)
 
 	desiredResources := make(v1.ResourceList)
@@ -94,9 +94,9 @@ func (logic *ControlTheoryLogic) computeMemoryResource(container v1.Container, p
 }
 
 // computeMemoryResource computes memory resources for a given pod.
-func (logic *ControlTheoryLogic) computeCPUResource(container v1.Container, sla *v1beta1.ServiceLevelAgreement, metric *metricsv1beta2.MetricValue) *resource.Quantity {
+func (logic *ControlTheoryLogic) computeCPUResource(container v1.Container, podScale *v1beta1.PodScale, sla *v1beta1.ServiceLevelAgreement, metric *metricsv1beta2.MetricValue) *resource.Quantity {
 
-	actualCpu := containerScale.Status.ActualResources.Cpu().MilliValue()
+	actualCpu := podScale.Status.ActualResources.Cpu().MilliValue()
 	logic.cores = float64(actualCpu)
 	logic.xcprec = logic.cores - BC*logic.prevError
 
