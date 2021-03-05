@@ -44,6 +44,17 @@ func newHPALogic() *HPALogic {
 	}
 }
 
+// newCustomLogic returns a new HPA logic
+func newCustomLogic(earlyStop bool) *CustomLogic {
+	return &CustomLogic{
+		startScaleUpTime:   time.Now(),
+		startScaleDownTime: time.Now(),
+		stabilizeTime:      time.Now(),
+		state:              SteadyState,
+		earlyStop:          earlyStop,
+	}
+}
+
 const (
 	scaleUpPeriodMillis   = 15000
 	scaleDownPeriodMillis = 15000
@@ -122,7 +133,7 @@ func (logic *HPALogic) computeReplica(sla *v1beta1.ServiceLevelAgreement, pods [
 
 // TODO: lot of code is duplicated, we should try handle it
 // CustomLogic is the logic that emulates the custom logic
-type CustomLogicA struct {
+type CustomLogic struct {
 	startScaleUpTime   time.Time
 	startScaleDownTime time.Time
 	stabilizeTime      time.Time
@@ -131,7 +142,7 @@ type CustomLogicA struct {
 }
 
 //computeReplica computes the number of replicas for a service, given the serviceLevelAgreement
-func (logic *CustomLogicA) computeReplica(sla *v1beta1.ServiceLevelAgreement, pods []*corev1.Pod, podscales []*v1beta1.PodScale, service *corev1.Service, metricClient metricsgetter.MetricGetter, curReplica int32) int32 {
+func (logic *CustomLogic) computeReplica(sla *v1beta1.ServiceLevelAgreement, pods []*corev1.Pod, podscales []*v1beta1.PodScale, service *corev1.Service, metricClient metricsgetter.MetricGetter, curReplica int32) int32 {
 
 
 	minReplicas := sla.Spec.MinReplicas
