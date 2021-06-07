@@ -7,7 +7,7 @@ Kubernetes components embedding vertical and horizontal container resource scali
 
 The controllers are freely inspired from [sample-controller](https://github.com/kubernetes/sample-controller)
 
-# Components
+# ~~Components~~ (outdated - all components are in `pkg/` directory)
 - [Contention Manager](pkg/contention-manager/README.md)
 - [Pod Replicas Updater](pkg/pod-replicas-updater/README.md)
 - [Pod Resource Updater](pkg/pod-resource-updater/README.md)
