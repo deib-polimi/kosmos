@@ -1,0 +1,21 @@
+apiVersion: systemautoscaler.polimi.it/v1beta1
+kind: ServiceLevelAgreement
+metadata:
+  name: prime-numbers
+spec:
+  metric:
+    responseTime: 100m
+  defaultResources:
+    memory: 128Mi
+    cpu: 250m
+  minResources:
+    memory: 64Mi
+    cpu: 100m
+  maxResources:
+    memory: 256Mi
+    cpu: 20000m
+  service:
+    container: prime-numbers
+    selector:
+      matchLabels:
+        app: prime-numbers

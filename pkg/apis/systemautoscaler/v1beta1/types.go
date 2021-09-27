@@ -2,19 +2,9 @@ package v1beta1
 
 import (
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-// TODO: decide whether to keep these or use `register.go`
-// const (
-// 	GroupName string = "PodScale.polimi.it"
-// 	Kind      string = "PodScale"
-// 	Version   string = "v1beta1"
-// 	Plural    string = "PodScales"
-// 	Singluar  string = "PodScale"
-// 	ShortName string = "sysaut"
-// 	Name      string = Plural + "." + GroupName
-// )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -35,6 +25,7 @@ type ServiceLevelAgreement struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
+	// +kubebuilder:validation:Required
 	Spec ServiceLevelAgreementSpec `json:"spec"`
 }
 
@@ -45,11 +36,38 @@ type ServiceLevelAgreement struct {
 // is empty in the `PodSpec`.
 type ServiceLevelAgreementSpec struct {
 	// Specify the metric on which the requirement is set.
+	// +kubebuilder:validation:Required
 	Metric MetricRequirement `json:"metric"`
 	// Specify the default resources assigned to pods in case `requests` field is empty in `PodSpec`.
+	// +kubebuilder:validation:Required
 	DefaultResources v1.ResourceList `json:"defaultResources,omitempty" protobuf:"bytes,3,rep,name=defaultResources,casttype=ResourceList,castkey=ResourceName"`
+	// The lower bound of resources to assign to containers.
+	// +kubebuilder:validation:Optional
+	MinResources v1.ResourceList `json:"minResources,omitempty" protobuf:"bytes,3,rep,name=minResources,casttype=ResourceList,castkey=ResourceName"`
+	// The upper bound of resources to assign to containers.
+	// +kubebuilder:validation:Optional
+	MaxResources v1.ResourceList `json:"maxResources,omitempty" protobuf:"bytes,3,rep,name=maxResources,casttype=ResourceList,castkey=ResourceName"`
+	// The lower bound of replicas for the application.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:=1
+	MinReplicas int32 `json:"minReplicas,omitempty" protobuf:"bytes,3,rep,name=minResources,casttype=ResourceList,castkey=ResourceName"`
+	// The upper bound of replicas for the application.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:=100
+	MaxReplicas int32 `json:"maxReplicas,omitempty" protobuf:"bytes,3,rep,name=maxResources,casttype=ResourceList,castkey=ResourceName"`
+	// Identify the Service on which the agreement is defined
+	// +kubebuilder:validation:Required
+	Service *Service `json:"service"`
+}
+
+// Service is used to identify the application to scale by its service Lavels and the container offering the Application service
+type Service struct {
 	// Specify the selector to match Services and Service Level Agreement
+	// +kubebuilder:validation:Required
 	Selector *metav1.LabelSelector `json:"selector"`
+	// The container to track inside the Pods.
+	// +kubebuilder:validation:Required
+	Container string `json:"container"`
 }
 
 // MetricRequirement specifies a requirement for a metric.
@@ -63,7 +81,8 @@ type ServiceLevelAgreementSpec struct {
 // is 4 units of time. This means that the system will try
 // to keep the service response time below 4 on average.
 type MetricRequirement struct {
-	ResponseTime *int32 `json:"responseTime,omitempty"`
+	// +kubebuilder:validation:Required
+	ResponseTime resource.Quantity `json:"responseTime,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -92,28 +111,18 @@ type PodScale struct {
 
 // PodScaleSpec is the spec for a PodScale resource
 type PodScaleSpec struct {
-	SLAAgreement     SLAReference    `json:"serviceLevelAgreement"`
-	PodRef           PodReference    `json:"pod"`
+	Namespace        string          `json:"namespace"`
+	SLA              string          `json:"serviceLevelAgreement"`
+	Pod              string          `json:"pod"`
+	Service          string          `json:"service"`
+	Container        string          `json:"container"`
 	DesiredResources v1.ResourceList `json:"desired,omitempty" protobuf:"bytes,3,rep,name=desired,casttype=ResourceList,castkey=ResourceName"`
 }
-
-// SLAReference specify the Service Level Agreement associated with the PodScale resource.
-type SLAReference struct {
-	// TODO: Decide if use all the objectMeta or something lighter
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-}
-
-// PodReference specify the Pod associated with the PodScale resource.
-type PodReference struct {
-	// TODO: Decide if use all the objectMeta or something lighter
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-}
-
-// TODO: Decide if useful or not
 
 // PodScaleStatus contains the resources patched by the
 // `Contention Manager` according to the available node resources
 // and other pods' SLA
 type PodScaleStatus struct {
+	CappedResources v1.ResourceList `json:"capped,omitempty" protobuf:"bytes,3,rep,name=actual,casttype=ResourceList,castkey=ResourceName"`
 	ActualResources v1.ResourceList `json:"actual,omitempty" protobuf:"bytes,3,rep,name=actual,casttype=ResourceList,castkey=ResourceName"`
 }

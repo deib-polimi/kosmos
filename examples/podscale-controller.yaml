@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: podscale-controller
+  namespace: kube-system
+spec:
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: podscale-controller
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: podscale-controller
+    spec:
+      automountServiceAccountToken: true
+      serviceAccountName: podscale-controller
+      containers:
+      - name: podscale-controller
+        image: systemautoscaler/podscale-controller:0.1.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 443
+        resources:
+          limits:
+            cpu: 200m
+            memory: 200Mi
+          requests:
+            cpu: 100m
+            memory: 100Mi
+

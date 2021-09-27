@@ -1,14 +1,7 @@
 name: base-pipeline
 
 on:
-  push:
-    branches:
-    - main
-    - dev
-  pull_request:
-    branches:
-    - main
-    - dev
+  - push
 
 jobs:
 
@@ -36,10 +29,6 @@ jobs:
     - name: Get dependencies
       run: |
         go get -v -t -d ./...
-
-    - name: Build
-      run: |
-        make build
 
     - name: Test
       run: |

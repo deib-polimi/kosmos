@@ -1,5 +1,5 @@
 MAKEFLAGS += --no-print-directory
-COMPONENTS = contention-manager pod-replicas-updater pod-resource-updater recommender
+COMPONENTS = pod-replicas-updater pod-autoscaler podscale-controller
 
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -7,13 +7,12 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-CRD_OPTIONS ?= "crd:trivialVersions=true"
+.PHONY: all build cluster clean coverage controller-gen e2e fmt install install-crds install-rbac manifests release test vet
 
-.PHONY: all build coverage clean manifests test
+all: build test coverage manifests release clean
 
-all: build coverage clean manifests test
-
-build:
+# Build binary
+build: fmt test vet
 	$(call action, build)
 
 coverage:
@@ -22,12 +21,41 @@ coverage:
 clean:
 	$(call action, clean)
 
+cluster: kind
+	@kind create cluster --config ./config/cluster-conf/development-cluster.yaml --image systemautoscaler/kindest-node:latest
+
+fmt:
+	$(call action, fmt)
+
+install: install-crds install-rbac
+
+install-crds:
+	@echo "install CRDs manifests"
+	@kubectl apply -f config/crd/bases
+
+install-rbac:
+	@echo "install RBAC"
+	@kubectl apply -f config/permissions
+
+release:
+	$(call action, release)
+
 test:
+	@echo "run local tests"
 	$(call action, test)
+
+e2e: install
+	@echo "run e2e tests"
+	@kubectl apply -f ./config/cluster-conf/e2e-namespace.yaml
+	$(call action, e2e)
+
+vet:
+	$(call action, vet)
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=systemautoscaler-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	@echo "generate CRDs manifests"
+	$(CONTROLLER_GEN) crd paths="./pkg/apis/systemautoscaler/..." crd:crdVersions={v1} output:crd:artifacts:config=config/crd/bases
 
 controller-gen:
 ifeq (, $(shell which controller-gen))
@@ -44,10 +72,12 @@ else
 CONTROLLER_GEN=$(shell which controller-gen)
 endif
 
-
 define action
 	@for c in $(COMPONENTS); \
 		do \
 		$(MAKE) $(1) -C pkg/$$c; \
+		if [ $$? -ne 0 ]; then \
+			return 1; \
+		fi \
     done
 endef

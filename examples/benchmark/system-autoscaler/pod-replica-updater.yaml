@@ -1,0 +1,66 @@
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: pod-replicas-updater
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: pod-replicas-updater
+rules:
+  - apiGroups: ["apps"]
+    resources: ["*"]
+    verbs: ["*"]
+  - apiGroups: [""]
+    resources: ["pods", "services", "nodes", "replicaset"]
+    verbs: ["update", "get", "watch", "list"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["*"]
+  - apiGroups: ["systemautoscaler.polimi.it"]
+    resources: ["servicelevelagreements"]
+    verbs: ["get", "watch", "list"]
+  - apiGroups: [ "systemautoscaler.polimi.it" ]
+    resources: [ "podscales" ]
+    verbs: [ "*" ]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: pod-replicas-updater
+subjects:
+  - kind: ServiceAccount
+    name: pod-replicas-updater
+    namespace: kube-system
+    apiGroup: ""
+roleRef:
+  kind: ClusterRole
+  name: pod-replicas-updater
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: pod-replicas-updater
+  name: pod-replicas-updater
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pod-replicas-updater
+  template:
+    metadata:
+      labels:
+        app: pod-replicas-updater
+      name: pod-replicas-updater
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: master
+      containers:
+        - name: pod-replicas-updater
+          image: pentabanana/pod-replicas-updater:latest
+          imagePullPolicy: Always
+      serviceAccountName: pod-replicas-updater

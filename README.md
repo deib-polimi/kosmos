@@ -11,6 +11,7 @@ The controllers are freely inspired from [sample-controller](https://github.com/
 - [Contention Manager](pkg/contention-manager/README.md)
 - [Pod Replicas Updater](pkg/pod-replicas-updater/README.md)
 - [Pod Resource Updater](pkg/pod-resource-updater/README.md)
+- [PodScale Controller](pkg/podscale-controller/README.md)
 - [Recommender](pkg/recommender/README.md)
 
 # CRDs code generation

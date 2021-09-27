@@ -19,7 +19,8 @@ vendor/
 .idea
 
 # binaries
-pkg/*/contention-manager
+pkg/*/pod-autoscaler
 pkg/*/pod-replicas-updater
-pkg/*/pod-resource-updater
-pkg/*/recommender
+pkg/*/podscale-controller
+pkg/*/http-metrics
+pkg/*/metrics-exposer

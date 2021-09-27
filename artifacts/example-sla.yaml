@@ -1,0 +1,15 @@
+apiVersion: systemautoscaler.polimi.it/v1beta1
+kind: ServiceLevelAgreement
+metadata:
+  name: example-sla
+spec:
+  metric:
+    responseTime: 10
+  defaultResources:
+    cpu: 50m
+    memory: 70Mi
+  service:
+    container: pippo
+    selector:
+      matchLabels:
+        app: example-flask
