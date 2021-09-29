@@ -232,7 +232,8 @@ func (c *Controller) recommendContainer(podScale *v1beta1.PodScale) (*v1beta1.Po
 		case v1beta1.AdaptiveGainControl:
 			logicInterface = newAdaptiveGainControlLogic(podScale)
 		default:
-			return nil, fmt.Errorf("illegal value %s as recommender logic", sla.Spec.RecommenderLogic)
+			logicInterface = newFixedGainControlLogic(podScale)
+			//return nil, fmt.Errorf("illegal value %s as recommender logic", sla.Spec.RecommenderLogic)
 		}
 		c.status.logicMap.Store(key, logicInterface)
 	}

@@ -37,8 +37,8 @@ const (
 	// Control theory constants
 	maxScaleOut = 1.5
 	minCPU      = 5
-	BC          = 50
-	DC          = 75
+	BC          = 40
+	DC          = 80
 	minError    = -10
 	maxError    = 10
 	minBC       = 10
