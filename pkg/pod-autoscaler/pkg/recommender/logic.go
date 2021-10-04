@@ -37,8 +37,6 @@ const (
 	// Control theory constants
 	maxScaleOut = 3
 	minCPU      = 5
-	BC          = 25
-	DC          = 50
 	minError    = -20000.0
 	maxError    = 20000.0
 )
@@ -95,6 +93,8 @@ func (logic *ControlTheoryLogic) computeMemoryResource(container v1.Container, p
 
 // computeMemoryResource computes memory resources for a given pod.
 func (logic *ControlTheoryLogic) computeCPUResource(container v1.Container, podScale *v1beta1.PodScale, sla *v1beta1.ServiceLevelAgreement, metric *metricsv1beta2.MetricValue) *resource.Quantity {
+	BC := float64(sla.Spec.IntegralGain)
+	DC := float64(sla.Spec.ProportionalGain)
 
 	actualCpu := podScale.Status.ActualResources.Cpu().MilliValue()
 	logic.cores = float64(actualCpu)

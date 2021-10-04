@@ -53,9 +53,12 @@ vet:
 	$(call action, vet)
 
 # Generate manifests e.g. CRD, RBAC etc.
+
 manifests: controller-gen
 	@echo "generate CRDs manifests"
-	$(CONTROLLER_GEN) crd paths="./pkg/apis/systemautoscaler/..." crd:crdVersions={v1} output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) crd paths="./pkg/apis/systemautoscaler/..." crd:crdVersions={v1} "crd:trivialVersions=true" output:crd:artifacts:config=config/crd/bases
+	@rm -f config/systemautoscaler.polimi.it_podscales.yaml
+	@rm -f config/systemautoscaler.polimi.it_servicelevelagreements.yaml
 
 controller-gen:
 ifeq (, $(shell which controller-gen))

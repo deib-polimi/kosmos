@@ -58,6 +58,14 @@ type ServiceLevelAgreementSpec struct {
 	// Identify the Service on which the agreement is defined
 	// +kubebuilder:validation:Required
 	Service *Service `json:"service"`
+	// Integral gain used by recommender. BC parameter
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:=25
+	IntegralGain int32 `json:"integralGain,omitempty"`
+	// Proportional gain used by recommender. DC parameter
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:=50
+	ProportionalGain int32 `json:"proportionalGain,omitempty"`
 }
 
 // Service is used to identify the application to scale by its service Lavels and the container offering the Application service
