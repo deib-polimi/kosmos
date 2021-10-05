@@ -243,5 +243,5 @@ func (c *Controller) recommendContainer(podScale *v1beta1.PodScale) (*v1beta1.Po
 	// Compute the new resources
 	newPodScale, err := logic.computePodScale(pod, podScale, sla, metrics)
 
-	return newPodScale, nil
+	return newPodScale, err
 }
