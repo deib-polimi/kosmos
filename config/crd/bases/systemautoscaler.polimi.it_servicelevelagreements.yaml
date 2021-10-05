@@ -90,6 +90,10 @@ spec:
                   x-kubernetes-int-or-string: true
                 description: The lower bound of resources to assign to containers.
                 type: object
+              recommenderLogic:
+                default: fixedGainControl
+                description: Specify the logic used during the recommendation phase
+                type: string
               service:
                 description: Identify the Service on which the agreement is defined
                 properties:

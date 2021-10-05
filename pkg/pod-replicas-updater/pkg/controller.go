@@ -165,7 +165,8 @@ func (c *Controller) handleSLA(key string) error {
 			matchedPodScales = append(matchedPodScales, podScale)
 			pod, err := c.listers.Pods(podScale.Spec.Namespace).Get(podScale.Spec.Pod)
 			if err != nil {
-				return fmt.Errorf("failed to retrieve the pod, error: %v", err)
+				//return fmt.Errorf("failed to retrieve the pod, error: %v", err)
+				continue
 			} else {
 				matchedPods = append(matchedPods, pod)
 			}
@@ -210,7 +211,7 @@ func (c *Controller) handleSLA(key string) error {
 	}
 
 	// Retrieve the associated logic
-	logicInterface, ok := c.logicMap.LoadOrStore(key, newHPALogic())
+	logicInterface, ok := c.logicMap.LoadOrStore(key, newCustomLogic(true, c.kubernetesClientset))
 	if !ok {
 		return fmt.Errorf("the key %s has no previous logic associated with it, initializing it", key)
 	}
