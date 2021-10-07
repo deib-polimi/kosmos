@@ -79,8 +79,8 @@ func main() {
 
 	//TODO: should be renamed
 	//TODO: we should try without buffer
-	recommenderOut := make(chan types.NodeScales, 100)
-	contentionManagerOut := make(chan types.NodeScales, 100)
+	recommenderOut := make(chan types.NodeScales, 10000)
+	contentionManagerOut := make(chan types.NodeScales, 10000)
 
 	// TODO: adjust arguments to recommender
 	recommenderController := recommender.NewController(
@@ -111,17 +111,17 @@ func main() {
 	saInformerFactory.Start(stopCh)
 	coreInformerFactory.Start(stopCh)
 
-	if err = recommenderController.Run(1, stopCh); err != nil {
+	if err = recommenderController.Run(4, stopCh); err != nil {
 		klog.Fatalf("Error running recommender: %s", err.Error())
 	}
 	defer recommenderController.Shutdown()
 
-	if err = contentionManagerController.Run(2, stopCh); err != nil {
+	if err = contentionManagerController.Run(4, stopCh); err != nil {
 		klog.Fatalf("Error running update controller: %s", err.Error())
 	}
 	defer contentionManagerController.Shutdown()
 
-	if err = updaterController.Run(2, stopCh); err != nil {
+	if err = updaterController.Run(4, stopCh); err != nil {
 		klog.Fatalf("Error running update controller: %s", err.Error())
 	}
 	defer updaterController.Shutdown()

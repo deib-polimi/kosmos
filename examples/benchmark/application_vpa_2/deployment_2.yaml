@@ -1,16 +1,16 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: prime-numbers
+  name: prime-numbers-1
 spec:
   selector:
     matchLabels:
-      app: prime-numbers
-  replicas: 1
+      app: prime-numbers-1
+  replicas: 5
   template:
     metadata:
       labels:
-        app: prime-numbers
+        app: prime-numbers-1
     spec:
       affinity:
         podAntiAffinity:
@@ -20,21 +20,21 @@ spec:
                   - key: app
                     operator: In
                     values:
-                      - prime-numbers
+                      - prime-numbers-1
               topologyKey: "kubernetes.io/hostname"
       containers:
-        - name: prime-numbers
-          image: systemautoscaler/prime-numbers:0.1.0
+        - name: prime-numbers-1
+          image: systemautoscaler/prime-numbers-1:0.1.0
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
           resources:
             requests:
               memory: 128Mi
-              cpu: 250m
+              cpu: 500m
             limits:
               memory: 128Mi
-              cpu: 250m
+              cpu: 500m
         - name: http-metrics
           image: systemautoscaler/http-metrics:0.1.0
           imagePullPolicy: Always

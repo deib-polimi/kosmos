@@ -1,0 +1,36 @@
+apiVersion: autoscaling/v2beta2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: prime-numbers
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: prime-numbers
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+    - type: Object
+      object:
+        metric:
+          name: response_time
+        describedObject:
+          apiVersion: /v1
+          kind: Service
+          name: prime-numbers
+        target:
+          type: Value
+          value: 200m
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 90
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 15
+    scaleUp:
+      stabilizationWindowSeconds: 90
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 15

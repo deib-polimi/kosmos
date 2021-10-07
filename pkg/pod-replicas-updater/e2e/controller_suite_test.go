@@ -44,7 +44,7 @@ var saClient *systemautoscaler.Clientset
 var replicaUpdater *replicaupdater.Controller
 
 const namespace = "e2e"
-const timeout = 180 * time.Second
+const timeout = 600 * time.Second
 const interval = 1 * time.Second
 
 var _ = BeforeSuite(func(done Done) {

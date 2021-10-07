@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"k8s.io/klog/v2"
 	"log"
 	"math"
 	"net/http"
@@ -102,6 +103,7 @@ func Throughput(res http.ResponseWriter, req *http.Request) {
 
 // AllMetrics returns all the metrics available for the pod
 func AllMetrics(res http.ResponseWriter, req *http.Request) {
+
 	responseTime := window.Reduce(rolling.Avg)
 	if math.IsNaN(responseTime) {
 		responseTime = 0
@@ -114,5 +116,7 @@ func AllMetrics(res http.ResponseWriter, req *http.Request) {
 
 	throughput := window.Reduce(rolling.Count) / windowSize.Seconds()
 	// TODO: maybe we should wrap this into an helper function of metrics struct
+
+	klog.Infof(`{"%s": %f,"%s": %f,"%s": %f}`, metrics.ResponseTime.String(), responseTime, metrics.RequestCount.String(), requestCount, metrics.Throughput.String(), throughput)
 	_, _ = fmt.Fprintf(res, `{"%s": %f,"%s": %f,"%s": %f}`, metrics.ResponseTime.String(), responseTime, metrics.RequestCount.String(), requestCount, metrics.Throughput.String(), throughput)
 }
