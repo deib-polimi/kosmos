@@ -18,7 +18,7 @@ The controllers are freely inspired from [sample-controller](https://github.com/
 
 Since the API code generator used in [hack/update-codegen.sh](hack/update-codegen.sh) was not designed to work with Go modules, it is mandatory to recreate the entire module path in order to make the code generation work.  
 This gives you two options:  
-1) Create the folders `github.com/lterrac` and clone this repository in any location of your filesystem.
+1) Create the folders `github.com/deib-polimi` and clone this repository in any location of your filesystem.
 2) Clone the repository inside the `GOPATH` directory.
 
 In the end there is no choice other than to preserve the module hierarchy.
