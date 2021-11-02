@@ -39,7 +39,6 @@ func (d *DefaultGetter) ServiceMetrics(s *corev1.Service, metricType metrics.Met
 	return d.client.NamespacedMetrics(s.Namespace).GetForObject(corev1.SchemeGroupVersion.WithKind("Service").GroupKind(), s.Name, metricType.String(), labels.Everything())
 }
 
-
 // FakeGetter is used to mock the custom metrics api, especially during e2e tests
 type FakeGetter struct {
 	ResponseTime int64

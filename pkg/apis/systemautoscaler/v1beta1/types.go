@@ -60,11 +60,11 @@ type ServiceLevelAgreementSpec struct {
 	Service *Service `json:"service"`
 	// Integral gain used by recommender. BC parameter
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default:=25
+	// +kubebuilder:default:=5
 	IntegralGain int32 `json:"integralGain,omitempty"`
 	// Proportional gain used by recommender. DC parameter
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default:=50
+	// +kubebuilder:default:=10
 	ProportionalGain int32 `json:"proportionalGain,omitempty"`
 }
 

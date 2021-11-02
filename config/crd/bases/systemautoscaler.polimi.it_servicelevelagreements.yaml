@@ -14,7 +14,7 @@ spec:
     listKind: ServiceLevelAgreementList
     plural: servicelevelagreements
     singular: servicelevelagreement
-  preserveUnknownFields: false
+  preserveUnknownFields: true
   scope: Namespaced
   versions:
   - name: v1beta1
@@ -53,7 +53,7 @@ spec:
                   `requests` field is empty in `PodSpec`.
                 type: object
               integralGain:
-                default: 25
+                default: 5
                 description: Integral gain used by recommender. BC parameter
                 format: int32
                 type: integer
@@ -96,7 +96,7 @@ spec:
                 description: The lower bound of resources to assign to containers.
                 type: object
               proportionalGain:
-                default: 50
+                default: 10
                 description: Proportional gain used by recommender. DC parameter
                 format: int32
                 type: integer

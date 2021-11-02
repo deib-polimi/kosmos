@@ -14,7 +14,7 @@ spec:
     listKind: PodScaleList
     plural: podscales
     singular: podscale
-  preserveUnknownFields: false
+  preserveUnknownFields: true
   scope: Namespaced
   versions:
   - name: v1beta1

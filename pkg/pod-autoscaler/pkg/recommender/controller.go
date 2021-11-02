@@ -185,6 +185,15 @@ func (c *Controller) recommendNode(node string) error {
 	}
 
 	for _, podscale := range podscales {
+		gpu, err := c.isGPUPod(podscale)
+		if err != nil {
+			klog.Error(err)
+			return err
+		}
+		if gpu {
+			continue
+		}
+
 		newPodScale, err := c.recommendContainer(podscale)
 		if err != nil {
 			//utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key))
@@ -204,6 +213,29 @@ func (c *Controller) recommendNode(node string) error {
 	// The contention manager will handle the new pod scales of the node.
 	c.out <- nodeScales
 	return nil
+}
+
+// do not scale pods with GPU (related to edge autoscaler work)
+func (c *Controller) isGPUPod(podscale *v1beta1.PodScale) (bool, error) {
+	pod, err := c.listers.Pods(podscale.Spec.Namespace).Get(podscale.Spec.Pod)
+	if err != nil {
+		return false, fmt.Errorf("error: %s, cannot retrieve pod with name %s and namespace %s", err, podscale.Spec.Pod, podscale.Spec.Namespace)
+	}
+
+	var container corev1.Container
+
+	for _, c := range pod.Spec.Containers {
+		if c.Name == podscale.Spec.Container {
+			container = c
+			break
+		}
+	}
+
+	if len(container.Resources.Limits) > 2 || len(container.Resources.Limits) > 2 {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 // recommendContainer recommends the new resources to assign to a pod
