@@ -48,7 +48,7 @@ type ServiceLevelAgreementSpec struct {
 	Metric MetricRequirement `json:"metric"`
 	// Specify the logic used during the recommendation phase
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default:="fixed_gain_control"
+	// +kubebuilder:default:="fixedGainControl"
 	RecommenderLogic RecommendLogic `json:"recommenderLogic"`
 	// Specify the default resources assigned to pods in case `requests` field is empty in `PodSpec`.
 	// +kubebuilder:validation:Required
@@ -70,6 +70,14 @@ type ServiceLevelAgreementSpec struct {
 	// Identify the Service on which the agreement is defined
 	// +kubebuilder:validation:Required
 	Service *Service `json:"service"`
+	// Integral gain used by recommender. BC parameter
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:=5
+	IntegralGain int32 `json:"integralGain,omitempty"`
+	// Proportional gain used by recommender. DC parameter
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:=10
+	ProportionalGain int32 `json:"proportionalGain,omitempty"`
 }
 
 // Service is used to identify the application to scale by its service Lavels and the container offering the Application service

@@ -37,8 +37,6 @@ const (
 	// Control theory constants
 	maxScaleOut = 1.5
 	minCPU      = 5
-	BC          = 40
-	DC          = 80
 	minError    = -10
 	maxError    = 10
 	minBC       = 10
@@ -99,7 +97,8 @@ func (logic *FixedGainControlLogic) computeMemoryResource(container v1.Container
 
 // computeMemoryResource computes memory resources for a given pod.
 func (logic *FixedGainControlLogic) computeCPUResource(container v1.Container, podScale *v1beta1.PodScale, sla *v1beta1.ServiceLevelAgreement, metric *metricsv1beta2.MetricValue) *resource.Quantity {
-
+	BC := float64(sla.Spec.IntegralGain)
+	DC := float64(sla.Spec.ProportionalGain)
 	actualCpu := podScale.Status.ActualResources.Cpu().MilliValue()
 	logic.cores = float64(actualCpu)
 	logic.xcprec = logic.cores - BC*logic.prevError
@@ -155,16 +154,20 @@ type AdaptiveGainControlLogic struct {
 	prevError float64
 	bc        float64
 	dc        float64
+	slaBc     float64
+	slaDc     float64
 }
 
 // newAdaptiveGainControlLogic returns a new adaptive gain feedback controller
-func newAdaptiveGainControlLogic(podScale *v1beta1.PodScale) *AdaptiveGainControlLogic {
+func newAdaptiveGainControlLogic(podScale *v1beta1.PodScale, sla *v1beta1.ServiceLevelAgreement) *AdaptiveGainControlLogic {
 	return &AdaptiveGainControlLogic{
 		xcprec:    float64(podScale.Status.ActualResources.Cpu().MilliValue()),
 		cores:     float64(podScale.Status.ActualResources.Cpu().MilliValue()),
 		prevError: 0.0,
-		bc:        BC,
-		dc:        DC,
+		bc:        float64(sla.Spec.IntegralGain),
+		dc:        float64(sla.Spec.ProportionalGain),
+		slaBc:     float64(sla.Spec.IntegralGain),
+		slaDc:     float64(sla.Spec.ProportionalGain),
 	}
 }
 
@@ -237,7 +240,7 @@ func (logic *AdaptiveGainControlLogic) computeCPUResource(container v1.Container
 
 	// Adapt the gains
 	logic.bc = math.Min(math.Max(logic.bc*math.Sqrt(math.Abs(e)*2), minBC), maxBC)
-	logic.dc = math.Min(math.Max(logic.bc*DC/BC, minDC), maxDC)
+	logic.dc = math.Min(math.Max(logic.bc*logic.slaDc/logic.slaBc, minDC), maxDC)
 
 	newDesiredResource := resource.NewMilliQuantity(int64(cores), resource.BinarySI)
 	klog.Infof("error is  %v,  bc is %v, dc is %v", e, logic.bc, logic.dc)

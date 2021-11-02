@@ -32,6 +32,12 @@ release:
 		echo "$(IMAGE) unchanged: no version tag on HEAD commit" ;\
 	fi
 
+dev: build
+	@echo "Building dev release"
+	@docker build -t $(REPO)/$(IMAGE):dev .
+	@docker push $(REPO)/$(IMAGE):dev 
+	@echo "Dev release built and pushed"
+
 vet:
 	@go vet ./...
 

@@ -4,7 +4,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.3.0
+    controller-gen.kubebuilder.io/version: v0.6.2
   creationTimestamp: null
   name: servicelevelagreements.systemautoscaler.polimi.it
 spec:
@@ -14,8 +14,8 @@ spec:
     listKind: ServiceLevelAgreementList
     plural: servicelevelagreements
     singular: servicelevelagreement
-  preserveUnknownFields: false
   scope: Namespaced
+  preserveUnknownFields: true
   versions:
   - name: v1beta1
     schema:
@@ -52,6 +52,11 @@ spec:
                 description: Specify the default resources assigned to pods in case
                   `requests` field is empty in `PodSpec`.
                 type: object
+              integralGain:
+                default: 5
+                description: Integral gain used by recommender. BC parameter
+                format: int32
+                type: integer
               maxReplicas:
                 default: 100
                 description: The upper bound of replicas for the application.
@@ -90,8 +95,13 @@ spec:
                   x-kubernetes-int-or-string: true
                 description: The lower bound of resources to assign to containers.
                 type: object
+              proportionalGain:
+                default: 10
+                description: Proportional gain used by recommender. DC parameter
+                format: int32
+                type: integer
               recommenderLogic:
-                default: fixedGainControl
+                default: fixed_gain_control
                 description: Specify the logic used during the recommendation phase
                 type: string
               service:
