@@ -160,25 +160,27 @@ func (c *Controller) runNodeScaleWorker() {
 				}
 			}
 
-			if requireUpdate {
-				// try both updates in dry-run first and then actuate them consistently
-				updatedPod, updatedPodScale, err := c.AtomicResourceUpdate(newPod, podScale)
-
-				if err != nil {
-					klog.Error("Error while updating pod and podscale: ", err)
-					//TODO: We are using this channel as a workqueue. Why don't use one?
-					c.in <- nodeScale
-					return
-				}
-
-				//TODO: handle error
-				_ = c.log.Log(updatedPodScale)
-
-				klog.Info("Desired resources:", updatedPodScale.Spec.DesiredResources)
-				klog.Info("Capped resources:", updatedPodScale.Status.CappedResources)
-				klog.Info("Actual resources:", updatedPodScale.Status.ActualResources)
-				klog.Info("Pod resources:", updatedPod.Spec.Containers[0].Resources)
+			if !requireUpdate {
+				return
 			}
+
+			// try both updates in dry-run first and then actuate them consistently
+			updatedPod, updatedPodScale, err := c.AtomicResourceUpdate(newPod, podScale)
+
+			if err != nil {
+				klog.Error("Error while updating pod and podscale: ", err)
+				//TODO: We are using this channel as a workqueue. Why don't use one?
+				c.in <- nodeScale
+				return
+			}
+
+			//TODO: handle error
+			_ = c.log.Log(updatedPodScale)
+
+			klog.Info("Desired resources:", updatedPodScale.Spec.DesiredResources)
+			klog.Info("Capped resources:", updatedPodScale.Status.CappedResources)
+			klog.Info("Actual resources:", updatedPodScale.Status.ActualResources)
+			klog.Info("Pod resources:", updatedPod.Spec.Containers[0].Resources)
 
 		}
 	}
@@ -187,13 +189,6 @@ func (c *Controller) runNodeScaleWorker() {
 // AtomicResourceUpdate updates a Pod and its PodScale consistently in order to keep synchronized the two resources. Before performing the real update
 // it runs a request in dry-run and it checks for any potential error
 func (c *Controller) AtomicResourceUpdate(pod *corev1.Pod, podScale *v1beta1.PodScale) (*corev1.Pod, *v1beta1.PodScale, error) {
-	//var err error
-	//_, _, err = c.updateResources(pod, podScale, true)
-	//
-	//if err != nil {
-	//	klog.Error("Error while performing dry-run resource update: ", err)
-	//	return nil, nil, err
-	//}
 
 	return c.updateResources(pod, podScale, false)
 }

@@ -29,6 +29,7 @@ var windowGranularity time.Duration
 // MetricsDB
 var database *db.MetricsPersistor
 var metricChan chan db.RawResponseTime
+var proxy *httputil.ReverseProxy
 
 // Useful information
 var node string
@@ -83,6 +84,8 @@ func main() {
 
 	windowSize, err = time.ParseDuration(windowSizeString)
 
+	proxy = httputil.NewSingleHostReverseProxy(target)
+
 	if err != nil {
 		log.Fatalf("Failed to parse windows size. Error: %v", err)
 	}
@@ -107,8 +110,10 @@ func ForwardRequest(res http.ResponseWriter, req *http.Request) {
 	klog.Infof("Received request %v", req)
 
 	requestTime := time.Now()
-	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.ServeHTTP(res, req)
+
+	if proxy != nil {
+		proxy.ServeHTTP(res, req)
+	}
 
 	klog.Infof("Response forwarded back")
 
