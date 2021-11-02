@@ -111,7 +111,12 @@ func ForwardRequest(res http.ResponseWriter, req *http.Request) {
 
 	requestTime := time.Now()
 
-	if proxy != nil {
+	if proxy == nil {
+		klog.Error("Proxy is nil")
+		res.WriteHeader(http.StatusBadGateway)
+		_, _ = fmt.Fprint(res, "Proxy is nil")
+		return
+	}else{
 		proxy.ServeHTTP(res, req)
 
 		klog.Infof("Response forwarded back")
@@ -130,8 +135,6 @@ func ForwardRequest(res http.ResponseWriter, req *http.Request) {
 			}
 			window.Append(float64(delta.Milliseconds()))
 		}
-	} else {
-		klog.Error("Proxy is nil")
 	}
 }
 
