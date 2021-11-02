@@ -131,13 +131,15 @@ func (c *Controller) runNodeScaleWorker() {
 			pod, err := c.listers.Pods(podScale.Spec.Namespace).Get(podScale.Spec.Pod)
 			if err != nil {
 				klog.Error("Error retrieving the pod: ", err)
-				return
+				c.in <- nodeScale
+				break
 			}
 
 			newPod, err := syncPod(pod, *podScale)
 			if err != nil {
 				klog.Error("Error syncing the pod: ", err)
-				return
+				c.in <- nodeScale
+				break
 			}
 
 			requireUpdate := false
@@ -159,8 +161,7 @@ func (c *Controller) runNodeScaleWorker() {
 				klog.Error("Error while updating pod and podscale: ", err)
 				//TODO: We are using this channel as a workqueue. Why don't use one?
 				c.in <- nodeScale
-				// If the updates of one pod fails, keep on updating the others
-				continue
+				break
 			}
 
 			//TODO: handle error
