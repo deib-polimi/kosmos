@@ -48,7 +48,7 @@ type ServiceLevelAgreementSpec struct {
 	Metric MetricRequirement `json:"metric"`
 	// Specify the logic used during the recommendation phase
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default:="fixed_gain_control"
+	// +kubebuilder:default:="fixedGainControl"
 	RecommenderLogic RecommendLogic `json:"recommenderLogic"`
 	// Specify the default resources assigned to pods in case `requests` field is empty in `PodSpec`.
 	// +kubebuilder:validation:Required
