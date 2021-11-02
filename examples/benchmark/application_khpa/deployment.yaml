@@ -31,10 +31,10 @@ spec:
           resources:
             requests:
               memory: 128Mi
-              cpu: 250m
+              cpu: 2000m
             limits:
               memory: 128Mi
-              cpu: 250m
+              cpu: 2000m
         - name: http-metrics
           image: systemautoscaler/http-metrics:0.1.0
           imagePullPolicy: Always

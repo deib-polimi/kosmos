@@ -14,8 +14,8 @@ spec:
     listKind: ServiceLevelAgreementList
     plural: servicelevelagreements
     singular: servicelevelagreement
-  preserveUnknownFields: true
   scope: Namespaced
+  preserveUnknownFields: true
   versions:
   - name: v1beta1
     schema:
@@ -100,6 +100,10 @@ spec:
                 description: Proportional gain used by recommender. DC parameter
                 format: int32
                 type: integer
+              recommenderLogic:
+                default: fixed_gain_control
+                description: Specify the logic used during the recommendation phase
+                type: string
               service:
                 description: Identify the Service on which the agreement is defined
                 properties:

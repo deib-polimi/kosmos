@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: prime-numbers-1
+  labels:
+    app: prime-numbers-1
+spec:
+  ports:
+    - port: 8000
+  selector:
+    app: prime-numbers-1

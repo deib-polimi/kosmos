@@ -29,6 +29,14 @@ type ServiceLevelAgreement struct {
 	Spec ServiceLevelAgreementSpec `json:"spec"`
 }
 
+// RecommendLogic defines logic used during the recommendation phase
+type RecommendLogic string
+
+const (
+	FixedGainControl    RecommendLogic = "fixedGainControl"
+	AdaptiveGainControl RecommendLogic = "adaptiveGainControl"
+)
+
 // ServiceLevelAgreementSpec defines the agreement specifying the
 // metric requirement to honor by System Autoscaler, a Selector used
 // to match a service with the Service Level Agreement and the
@@ -38,6 +46,10 @@ type ServiceLevelAgreementSpec struct {
 	// Specify the metric on which the requirement is set.
 	// +kubebuilder:validation:Required
 	Metric MetricRequirement `json:"metric"`
+	// Specify the logic used during the recommendation phase
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:="fixed_gain_control"
+	RecommenderLogic RecommendLogic `json:"recommenderLogic"`
 	// Specify the default resources assigned to pods in case `requests` field is empty in `PodSpec`.
 	// +kubebuilder:validation:Required
 	DefaultResources v1.ResourceList `json:"defaultResources,omitempty" protobuf:"bytes,3,rep,name=defaultResources,casttype=ResourceList,castkey=ResourceName"`

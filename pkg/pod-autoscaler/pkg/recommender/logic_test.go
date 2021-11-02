@@ -108,13 +108,27 @@ func TestControlTheoryLogic(t *testing.T) {
 				Value: *resource.NewQuantity(int64(tt.currentResponseTime), resource.BinarySI),
 			}
 
-			logic := ControlTheoryLogic{
+			fixedGainControl := FixedGainControlLogic{
 				xcprec: float64(tt.lowerBound+tt.upperBound) / 2,
 				cores:  float64(tt.lowerBound+tt.upperBound) / 2,
 			}
 
 			for i := 0; i < 200; i++ {
-				podScale, err := logic.computePodScale(pod, podScale, sla, &metricsMap)
+				podScale, err := fixedGainControl.computePodScale(pod, podScale, sla, &metricsMap)
+				require.Nil(t, err)
+				require.GreaterOrEqual(t, podScale.Status.CappedResources.Cpu().MilliValue(), tt.lowerBound)
+				x, _ := json.Marshal(podScale)
+				klog.Info(string(x))
+				require.LessOrEqual(t, podScale.Status.CappedResources.Cpu().MilliValue(), tt.upperBound)
+			}
+
+			adaptiveGainControl := AdaptiveGainControlLogic{
+				xcprec: float64(tt.lowerBound+tt.upperBound) / 2,
+				cores:  float64(tt.lowerBound+tt.upperBound) / 2,
+			}
+
+			for i := 0; i < 200; i++ {
+				podScale, err := adaptiveGainControl.computePodScale(pod, podScale, sla, &metricsMap)
 				require.Nil(t, err)
 				require.GreaterOrEqual(t, podScale.Status.CappedResources.Cpu().MilliValue(), tt.lowerBound)
 				x, _ := json.Marshal(podScale)

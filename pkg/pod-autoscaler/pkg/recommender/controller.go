@@ -156,8 +156,8 @@ func (c *Controller) runRecommenderWorker() {
 	}
 }
 
-// TODO: make better comment. It is not very clear.
-// Handle all the nodes that needs a recommendation
+// runNodeRecommenderWorker is a worker that periodically inserts in a workqueue
+// the nodes that need recommendations
 func (c *Controller) runNodeRecommenderWorker() {
 	for c.recommendNodeQueue.ProcessNextItem(c.recommendNode) {
 	}
@@ -197,9 +197,8 @@ func (c *Controller) recommendNode(node string) error {
 		newPodScale, err := c.recommendContainer(podscale)
 		if err != nil {
 			//utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key))
-			// TODO: evaluate if we should use a 'continue'
 			klog.Info(err)
-			return err
+			continue
 		}
 		newPodScales = append(newPodScales, newPodScale)
 	}
@@ -231,7 +230,7 @@ func (c *Controller) isGPUPod(podscale *v1beta1.PodScale) (bool, error) {
 		}
 	}
 
-	if len(container.Resources.Limits) > 2 || len(container.Resources.Limits) > 2 {
+	if len(container.Resources.Limits) > 2 || len(container.Resources.Requests) > 2 {
 		return true, nil
 	}
 
@@ -257,9 +256,18 @@ func (c *Controller) recommendContainer(podScale *v1beta1.PodScale) (*v1beta1.Po
 	}
 
 	// Retrieve the logic
-	logicInterface, ok := c.status.logicMap.LoadOrStore(key, newControlTheoryLogic(podScale))
+	logicInterface, ok := c.status.logicMap.Load(key)
 	if !ok {
-		return nil, fmt.Errorf("the key %s has no logic associated with it", key)
+		switch sla.Spec.RecommenderLogic {
+		case v1beta1.FixedGainControl:
+			logicInterface = newFixedGainControlLogic(podScale)
+		case v1beta1.AdaptiveGainControl:
+			logicInterface = newAdaptiveGainControlLogic(podScale, sla)
+		default:
+			logicInterface = newFixedGainControlLogic(podScale)
+			//return nil, fmt.Errorf("illegal value %s as recommender logic", sla.Spec.RecommenderLogic)
+		}
+		c.status.logicMap.Store(key, logicInterface)
 	}
 	logic, ok := logicInterface.(Logic)
 	if !ok {
