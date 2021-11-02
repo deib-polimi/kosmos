@@ -134,18 +134,6 @@ func (c *Controller) runNodeScaleWorker() {
 				return
 			}
 
-			isReady := false
-			for _, c := range pod.Status.Conditions {
-				if c.Type == corev1.PodReady && c.Status == corev1.ConditionTrue {
-					isReady = true
-				}
-			}
-
-			if !isReady {
-				klog.Infof("Pod %s/%s not ready", pod.Namespace, pod.Name)
-				return
-			}
-
 			newPod, err := syncPod(pod, *podScale)
 			if err != nil {
 				klog.Error("Error syncing the pod: ", err)
@@ -161,7 +149,7 @@ func (c *Controller) runNodeScaleWorker() {
 			}
 
 			if !requireUpdate {
-				return
+				continue
 			}
 
 			// try both updates in dry-run first and then actuate them consistently
@@ -171,7 +159,8 @@ func (c *Controller) runNodeScaleWorker() {
 				klog.Error("Error while updating pod and podscale: ", err)
 				//TODO: We are using this channel as a workqueue. Why don't use one?
 				c.in <- nodeScale
-				return
+				// If the updates of one pod fails, keep on updating the others
+				continue
 			}
 
 			//TODO: handle error

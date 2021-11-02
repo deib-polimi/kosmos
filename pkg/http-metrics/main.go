@@ -113,23 +113,25 @@ func ForwardRequest(res http.ResponseWriter, req *http.Request) {
 
 	if proxy != nil {
 		proxy.ServeHTTP(res, req)
-	}
 
-	klog.Infof("Response forwarded back")
+		klog.Infof("Response forwarded back")
 
-	if req.URL.Path != "health" {
-		responseTime := time.Now()
-		delta := responseTime.Sub(requestTime)
-		metricChan <- db.RawResponseTime{
-			Timestamp: time.Now(),
-			Function:  function,
-			Node:      node,
-			Namespace: namespace,
-			Community: community,
-			Gpu:       gpu,
-			Latency:   int(delta.Milliseconds()),
+		if req.URL.Path != "health" {
+			responseTime := time.Now()
+			delta := responseTime.Sub(requestTime)
+			metricChan <- db.RawResponseTime{
+				Timestamp: time.Now(),
+				Function:  function,
+				Node:      node,
+				Namespace: namespace,
+				Community: community,
+				Gpu:       gpu,
+				Latency:   int(delta.Milliseconds()),
+			}
+			window.Append(float64(delta.Milliseconds()))
 		}
-		window.Append(float64(delta.Milliseconds()))
+	} else {
+		klog.Error("Proxy is nil")
 	}
 }
 

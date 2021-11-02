@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 	"fmt"
-
 	"github.com/lterrac/system-autoscaler/pkg/apis/systemautoscaler/v1beta1"
 	"github.com/lterrac/system-autoscaler/pkg/podscale-controller/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -133,7 +132,17 @@ func (c *Controller) handleServiceSelectorChange(actual []*corev1.Service, desir
 // a desired state so `PodScale` are changed accordingly.
 func (c *Controller) syncService(namespace string, service *corev1.Service, sla *v1beta1.ServiceLevelAgreement) error {
 	label := labels.Set(service.Spec.Selector)
-	pods, err := c.listers.PodLister.List(label.AsSelector())
+	allPods, err := c.listers.PodLister.List(label.AsSelector())
+
+	pods := make([]*corev1.Pod, 0)
+	// Remove pods which are not ready
+	for _, pod := range allPods {
+		for _, c := range pod.Status.Conditions {
+			if c.Type == corev1.PodReady && c.Status == corev1.ConditionTrue {
+				pods = append(pods, pod)
+			}
+		}
+	}
 
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("error while getting Pods for Service '%s'", service.GetName()))
