@@ -9,9 +9,11 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/asecurityteam/rolling"
+	"github.com/lterrac/system-autoscaler/pkg/http-metrics/pkg/db"
 	"github.com/lterrac/system-autoscaler/pkg/metrics-exposer/pkg/metrics"
 )
 
@@ -24,7 +26,22 @@ var port string
 var windowSize time.Duration
 var windowGranularity time.Duration
 
+// MetricsDB
+var database *db.MetricsPersistor
+var metricChan chan db.RawResponseTime
+var proxy *httputil.ReverseProxy
+
+// Useful information
+var node string
+var function string
+var community string
+var namespace string
+var gpu bool
+
 func main() {
+
+	var err error
+
 	mux := http.NewServeMux()
 
 	mux.Handle("/metric/response_time", http.HandlerFunc(ResponseTime))
@@ -33,13 +50,30 @@ func main() {
 	mux.Handle("/metrics/", http.HandlerFunc(AllMetrics))
 	mux.Handle("/", http.HandlerFunc(ForwardRequest))
 
-	address = os.Getenv("ADDRESS")
-	port = os.Getenv("PORT")
-	windowSizeString := os.Getenv("WINDOW_SIZE")
-	windowGranularityString := os.Getenv("WINDOW_GRANULARITY")
+	address = getenv("ADDRESS", "localhost")
+	port = getenv("APP_PORT", "8080")
+	windowSizeString := getenv("WINDOW_SIZE", "30s")
+	windowGranularityString := getenv("WINDOW_GRANULARITY", "1m")
 
-	var err error
-	log.Println("Reading environment variables")
+	node = getenv("NODE", "")
+	function = getenv("FUNCTION", "")
+	community = getenv("COMMUNITY", "")
+	namespace = getenv("NAMESPACE", "")
+	gpu, err = strconv.ParseBool(getenv("GPU", "false"))
+
+	if err != nil {
+		klog.Fatal("failed to parse GPU environment variable. It should be a boolean")
+	}
+
+	metricChan = make(chan db.RawResponseTime, 10000)
+
+	database = db.NewMetricsPersistor(db.NewDBOptions(), metricChan)
+	err = database.SetupDBConnection()
+	go database.PollMetrics()
+
+	if err != nil {
+		klog.Fatal(err)
+	}
 
 	srv := &http.Server{
 		Addr:    ":8000",
@@ -49,6 +83,8 @@ func main() {
 	log.Println("Forwarding all requests to:", target)
 
 	windowSize, err = time.ParseDuration(windowSizeString)
+
+	proxy = httputil.NewSingleHostReverseProxy(target)
 
 	if err != nil {
 		log.Fatalf("Failed to parse windows size. Error: %v", err)
@@ -70,11 +106,36 @@ func main() {
 
 // ForwardRequest send all the request the the pod except for the ones having metrics/ in the path
 func ForwardRequest(res http.ResponseWriter, req *http.Request) {
+
+	klog.Infof("Received request %v", req)
+
 	requestTime := time.Now()
-	httputil.NewSingleHostReverseProxy(target).ServeHTTP(res, req)
-	responseTime := time.Now()
-	delta := responseTime.Sub(requestTime)
-	window.Append(float64(delta.Milliseconds()))
+
+	if proxy == nil {
+		klog.Error("Proxy is nil")
+		res.WriteHeader(http.StatusBadGateway)
+		_, _ = fmt.Fprint(res, "Proxy is nil")
+		return
+	}else{
+		proxy.ServeHTTP(res, req)
+
+		klog.Infof("Response forwarded back")
+
+		if req.URL.Path != "health" {
+			responseTime := time.Now()
+			delta := responseTime.Sub(requestTime)
+			metricChan <- db.RawResponseTime{
+				Timestamp: time.Now(),
+				Function:  function,
+				Node:      node,
+				Namespace: namespace,
+				Community: community,
+				Gpu:       gpu,
+				Latency:   int(delta.Milliseconds()),
+			}
+			window.Append(float64(delta.Milliseconds()))
+		}
+	}
 }
 
 // ResponseTime return the pod average response time
@@ -116,7 +177,16 @@ func AllMetrics(res http.ResponseWriter, req *http.Request) {
 
 	throughput := window.Reduce(rolling.Count) / windowSize.Seconds()
 	// TODO: maybe we should wrap this into an helper function of metrics struct
-
-	klog.Infof(`{"%s": %f,"%s": %f,"%s": %f}`, metrics.ResponseTime.String(), responseTime, metrics.RequestCount.String(), requestCount, metrics.Throughput.String(), throughput)
+	klog.Info(fmt.Sprintf(`{"%s": %f,"%s": %f,"%s": %f}`, metrics.ResponseTime.String(), responseTime, metrics.RequestCount.String(), requestCount, metrics.Throughput.String(), throughput))
 	_, _ = fmt.Fprintf(res, `{"%s": %f,"%s": %f,"%s": %f}`, metrics.ResponseTime.String(), responseTime, metrics.RequestCount.String(), requestCount, metrics.Throughput.String(), throughput)
+}
+
+func getenv(key, fallback string) string {
+	value := os.Getenv(key)
+	if len(value) == 0 {
+		klog.Warningf("failed parsing environment variable %s, setting it to default value %s", key, fallback)
+		return fallback
+	}
+	klog.Infof("parsed environment variable %s with value %s", key, value)
+	return value
 }

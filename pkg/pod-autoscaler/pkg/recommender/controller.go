@@ -130,7 +130,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runNodeRecommenderWorker, time.Second, stopCh)
 	}
-	go wait.Until(c.runRecommenderWorker, 5*time.Second, stopCh)
+	go wait.Until(c.runRecommenderWorker, 6*time.Second, stopCh)
 	klog.Info("Started recommender workers")
 
 	return nil

@@ -131,13 +131,27 @@ func (c *Controller) runNodeScaleWorker() {
 			pod, err := c.listers.Pods(podScale.Spec.Namespace).Get(podScale.Spec.Pod)
 			if err != nil {
 				klog.Error("Error retrieving the pod: ", err)
-				return
+				c.in <- nodeScale
+				break
 			}
 
 			newPod, err := syncPod(pod, *podScale)
 			if err != nil {
 				klog.Error("Error syncing the pod: ", err)
-				return
+				c.in <- nodeScale
+				break
+			}
+
+			requireUpdate := false
+			for i := range pod.Spec.Containers {
+				if pod.Spec.Containers[i].Resources.Requests.Cpu().MilliValue() !=
+					newPod.Spec.Containers[i].Resources.Requests.Cpu().MilliValue() {
+					requireUpdate = true
+				}
+			}
+
+			if !requireUpdate {
+				continue
 			}
 
 			// try both updates in dry-run first and then actuate them consistently
@@ -147,7 +161,7 @@ func (c *Controller) runNodeScaleWorker() {
 				klog.Error("Error while updating pod and podscale: ", err)
 				//TODO: We are using this channel as a workqueue. Why don't use one?
 				c.in <- nodeScale
-				return
+				break
 			}
 
 			//TODO: handle error
@@ -157,6 +171,7 @@ func (c *Controller) runNodeScaleWorker() {
 			klog.Info("Capped resources:", updatedPodScale.Status.CappedResources)
 			klog.Info("Actual resources:", updatedPodScale.Status.ActualResources)
 			klog.Info("Pod resources:", updatedPod.Spec.Containers[0].Resources)
+
 		}
 	}
 }
@@ -164,13 +179,6 @@ func (c *Controller) runNodeScaleWorker() {
 // AtomicResourceUpdate updates a Pod and its PodScale consistently in order to keep synchronized the two resources. Before performing the real update
 // it runs a request in dry-run and it checks for any potential error
 func (c *Controller) AtomicResourceUpdate(pod *corev1.Pod, podScale *v1beta1.PodScale) (*corev1.Pod, *v1beta1.PodScale, error) {
-	var err error
-	_, _, err = c.updateResources(pod, podScale, true)
-
-	if err != nil {
-		klog.Error("Error while performing dry-run resource update: ", err)
-		return nil, nil, err
-	}
 
 	return c.updateResources(pod, podScale, false)
 }
