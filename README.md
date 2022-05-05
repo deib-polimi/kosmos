@@ -38,10 +38,10 @@ kubectl apply -f config/permissions
 ```
 
 ### Run Kosmos Controllers:
-By deploying `examples/benchmark/system-autoscaler`, 4 controllers will be run: `MetricsExposer`, `PodAutoscaler`, `PodReplicaUpdater`, and `PodScaleController`
 ```
 kubectl apply -f examples/benchmark/system-autoscaler
 ```
+By deploying `examples/benchmark/system-autoscaler`, 4 controllers will be run: `MetricsExposer`, `PodAutoscaler`, `PodReplicaUpdater`, and `PodScaleController`.
 
 ## CRDs code generation
 
