@@ -14,11 +14,9 @@ KOSMOS is an autoscaling solution, developed at the Politecnico di Milano, for K
 
 The controllers are freely inspired from [sample-controller](https://github.com/kubernetes/sample-controller)
 
-- [Contention Manager](pkg/contention-manager/README.md)
-- [Pod Replicas Updater](pkg/pod-replicas-updater/README.md)
+- [Pod Autoscaler](pkg/pod-autoscaler/README.md)
 - [Pod Resource Updater](pkg/pod-resource-updater/README.md)
 - [PodScale Controller](pkg/podscale-controller/README.md)
-- [Recommender](pkg/recommender/README.md)
 
 # CRDs code generation
 
