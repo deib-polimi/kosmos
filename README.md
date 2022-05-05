@@ -24,7 +24,7 @@ The controllers are freely inspired from [sample-controller](https://github.com/
 
 ### Requirements
 * **Kubernetes with KEP 1287**.
-* **Kubectl**
+* **Kubectl**.
 
 ### Platform setup
 Install Kosmos CRDs:
