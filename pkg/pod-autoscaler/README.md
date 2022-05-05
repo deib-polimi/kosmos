@@ -13,6 +13,6 @@ and it outputs:
 - `Pod Scale` to set the desired amount of resources (CPU and memory) assigned to a pod.
 
 The recommender supports multiple logics:
-- `Control Theory Logic`: ...
+- `Control Theory Logic`: it adopts a PI controller per pod. Resources recommendation are very fast.
 
 The Recommender is based on control theory, and it allows to rapidly change the amount of resources of a node in order to meet the service level agreement desired.
