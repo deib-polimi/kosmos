@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: prime-numbers
-          image: pentabanana/prime-numbers
+          image: systemautoscaler/prime-numbers:dev
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
