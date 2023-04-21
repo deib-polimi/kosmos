@@ -24,7 +24,7 @@ spec:
               topologyKey: "kubernetes.io/hostname"
       containers:
         - name: prime-numbers-1
-          image: systemautoscaler/prime-numbers-1:0.1.0
+          image: systemautoscaler/prime-numbers:0.1.0
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
